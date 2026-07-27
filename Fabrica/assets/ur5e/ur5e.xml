@@ -1,0 +1,46 @@
+<redmax model="ur5e">
+
+<option integrator="BDF1" timestep="1e-3" gravity="0. 0. 1e-12"/>
+
+<default>
+    <joint lim_stiffness="1e2" damping="1"/>
+    <ground_contact kn="1e6" kt="1e3" mu="0.8" damping="5e1"/>
+    <general_SDF_contact kn="1e5" kt="1e3" mu="0.1" damping="1"/>
+</default>
+
+<robot>
+    <link name="base_link">
+        <joint name="world_joint" type="fixed" pos="0 0 0" quat="1 0 0 0"/>
+        <body name="base_link" type="SDF" dx="1" scale="1 1 1" filename="visual/base.obj" pos="0 0 0" quat="1 0 0 0" transform_type="OBJ_TO_JOINT"/>
+        <link name="shoulder_link">
+            <joint name="shoulder_pan_joint" type="revolute" axis="0 0 1" pos="0 0 8.9159" quat="1 0 0 0" lim="-6.28318530718 6.28318530718"/>
+            <body name="shoulder_link" type="SDF" dx="1" scale="1 1 1" filename="visual/shoulder.obj" pos="0 0 0" quat="1 0 0 0" transform_type="OBJ_TO_JOINT"/>
+            <link name="upper_arm_link">
+                <joint name="shoulder_lift_joint" type="revolute" axis="0 1 0" pos="0 13.585 0" quat="0.7071068 0 0.7071068 0" lim="-6.28318530718 6.28318530718"/>
+                <body name="upper_arm_link" type="SDF" dx="1" scale="1 1 1" filename="visual/upperarm.obj" pos="0 0 0" quat="1 0 0 0" transform_type="OBJ_TO_JOINT"/>
+                <link name="forearm_link">
+                    <joint name="elbow_joint" type="revolute" axis="0 1 0" pos="0 -11.97 42.5" quat="1 0 0 0" lim="-3.14159265359 3.14159265359"/>
+                    <body name="forearm_link" type="SDF" dx="1" scale="1 1 1" filename="visual/forearm.obj" pos="0 0 0" quat="1 0 0 0" transform_type="OBJ_TO_JOINT"/>
+                    <link name="wrist_1_link">
+                        <joint name="wrist_1_joint" type="revolute" axis="0 1 0" pos="0 0 39.225" quat="0.7071068 0 0.7071068 0" lim="-6.28318530718 6.28318530718"/>
+                        <body name="wrist_1_link" type="SDF" dx="1" scale="1 1 1" filename="visual/wrist1.obj" pos="0 0 0" quat="1 0 0 0" transform_type="OBJ_TO_JOINT"/>
+                        <link name="wrist_2_link">
+                            <joint name="wrist_2_joint" type="revolute" axis="0 0 1" pos="0 12.7 0" quat="1 0 0 0" lim="-6.28318530718 6.28318530718"/>
+                            <body name="wrist_2_link" type="SDF" dx="1" scale="1 1 1" filename="visual/wrist2.obj" pos="0 0 0" quat="1 0 0 0" transform_type="OBJ_TO_JOINT"/>
+                            <link name="wrist_3_link">
+                                <joint name="wrist_3_joint" type="revolute" axis="0 1 0" pos="0 0 10" quat="1 0 0 0" lim="-6.28318530718 6.28318530718"/>
+                                <body name="wrist_3_link" type="SDF" dx="1" scale="1 1 1" filename="visual/wrist3.obj" pos="0 0 0" quat="1 0 0 0" transform_type="OBJ_TO_JOINT"/>
+                                <link name="ee_link">
+                                    <joint name="ee_fixed_joint" type="fixed" pos="0 8.23 0" quat="0.7071068 0 0 0.7071068"/>
+                                    <body name="ee_link" type="sphere" radius="0.01" pos="0 0 0" quat="1 0 0 0" rgba="0.9 0.9 0.9 1.0"/>
+                                </link>
+                            </link>
+                        </link>
+                    </link>
+                </link>
+            </link>
+        </link>
+    </link>
+</robot>
+
+</redmax>

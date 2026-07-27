@@ -1,0 +1,18 @@
+rl:
+  deterministic: False
+control:
+  freq: 30
+  duration: 10
+  prop_gains: [800, 800, 400, 50, 50, 50]
+  mode:
+    type: leaky_plai # options: nominal, plai, leaky_plai
+    nominal:
+      pos_action_scale: [0.005, 0.005, 0.005]
+    plai:
+      pos_action_scale: [0.0005, 0.0005, 0.0005]
+    leaky_plai:
+      pos_action_scale: [0.001, 0.001, 0.001]
+      pos_err_thresh: [0.01, 0.01, 0.02]
+task:
+  pos_err_thresh: 0.003
+  ori_err_rad_thresh: 0.0873

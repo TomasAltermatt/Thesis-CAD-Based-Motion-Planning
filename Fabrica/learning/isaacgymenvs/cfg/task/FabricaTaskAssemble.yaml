@@ -1,0 +1,103 @@
+# See schema in factory_schema_config_task.py for descriptions of common parameters.
+
+defaults:
+    - FabricaBase
+    - _self_
+    # - /factory_schema_config_task
+
+name: FabricaTaskAssemble
+physics_engine: ${..physics_engine}
+
+env:
+    numEnvs: ${resolve_default:256,${...num_envs}}
+    numObservations: 3
+    numStates: 6
+    numActions: 3
+
+    controlFrequencyInv: 1 # 60 Hz
+
+    assemblies: null
+    part_plug: null
+    part_socket: null
+
+    data_dir: tasks/fabrica/data/
+    palm_to_finger_dist: 0.1034 # distance from end-effector palm to midpoint between fingers
+
+    if_eval: False
+
+randomize:
+
+    fingertip_centered_pos_noise: [0.0, 0.0, 0.0]  # noise on fingertip pos
+    fingertip_centered_rot_noise: [0.0, 0.0, 0.0]  # noise on rotation
+
+    socket_pos_noise: [0.002, 0.002, 0.000] # pos noise of socket position
+    socket_rot_noise: [0.0, 0.0, 0.0] # noise on base orientation [rad] of socket orientation 
+
+rl:
+    clamp_rot: True
+    clamp_rot_thresh: 1.0e-6
+
+    pos_action_scale: [0.002, 0.002, 0.002]
+    force_action_scale: [1.0, 1.0, 1.0]
+    torque_action_scale: [1.0, 1.0, 1.0]
+
+    max_episode_length: 128
+
+    num_keypoints: 4
+    keypoint_scale: 0.05
+
+    keypoint_reward_scale: 0.0001
+    close_error_thresh: 0.005  # threshold below which plug is considered almost inserted into socket
+    deviation_thresh: 0.008 # threshold for deviation from desired trajectory
+
+ctrl:
+    ctrl_type: task_space_impedance # {gym_default,
+                               #  joint_space_ik, joint_space_id, 
+                               #  task_space_impedance, operational_space_motion, 
+                               #  open_loop_force, closed_loop_force,
+                               #  hybrid_force_motion}
+    all:
+        jacobian_type: geometric
+        gripper_prop_gains: [250, 250]
+        gripper_deriv_gains: [2, 2]
+    gym_default:
+        ik_method: dls
+        joint_prop_gains: [40, 40, 40, 40, 40, 40, 40]
+        joint_deriv_gains: [8, 8, 8, 8, 8, 8, 8]
+        gripper_prop_gains: [500, 500]
+        gripper_deriv_gains: [20, 20]
+    joint_space_ik:
+        ik_method: dls
+        joint_prop_gains: [1, 1, 1, 1, 1, 1, 1]
+        joint_deriv_gains: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+    joint_space_id:
+        ik_method: dls
+        joint_prop_gains: [40, 40, 40, 40, 40, 40, 40]
+        joint_deriv_gains: [8, 8, 8, 8, 8, 8, 8]
+    task_space_impedance:
+        motion_ctrl_axes: [1, 1, 1, 1, 1, 1]
+        task_prop_gains:  [1000, 1000, 1000, 50, 50, 50]
+        task_deriv_gains: [63.2, 63.2, 63.2, 1.41, 1.41, 1.41]
+    task_space_nullspace:
+        motion_ctrl_axes: [1, 1, 1, 1, 1, 1]
+        task_prop_gains: [1000, 1000, 1000, 50, 50, 50]
+        task_deriv_gains: [63.2, 63.2, 63.2, 1.41, 1.41, 1.41]  # computed as 2 * sqrt(k_p), but reduced by 10x for rotation
+        default_dof_pos_tensor: [0.0, 0.0, 0.0, -1.870, 0.0, 1.8675, 0.785398]
+        kp_null: 1.0
+        kd_null: 2.0     
+    operational_space_motion:
+        motion_ctrl_axes: [1, 1, 1, 1, 1, 1]
+        task_prop_gains: [60, 60, 60, 5, 5, 5]
+        task_deriv_gains: [15.5, 15.5, 15.5, 4.5, 4.5, 4.5]
+    open_loop_force:
+        force_ctrl_axes: [0, 0, 1, 0, 0, 0]
+    closed_loop_force:
+        force_ctrl_axes: [0, 0, 1, 0, 0, 0]
+        wrench_prop_gains: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+    hybrid_force_motion:
+        motion_ctrl_axes: [1, 1, 1, 1, 1, 1]
+        task_prop_gains: [40, 40, 40, 40, 40, 40]
+        task_deriv_gains: [8, 8, 8, 8, 8, 8]
+        force_ctrl_axes: [0, 0, 1, 0, 0, 0]
+        wrench_prop_gains: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+
