@@ -891,7 +891,7 @@ def load_assembly_from_folder(folder_path, bounding_box_type="OBB"):
 
         part_name = part_name.split("-")[0]
         
-        mesh_geom = trimesh.load(str(file_path))
+        mesh_geom = trimesh.load(str(file_path), force='mesh')
         mesh_geom.merge_vertices()
         
         if bounding_box_type == "OBB":
