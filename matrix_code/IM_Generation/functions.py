@@ -6,7 +6,7 @@ import os
 import pandas as pd
 import time
 from pathlib import Path
-from .classes import PseudoFace
+from IM_Generation.classes import PseudoFace
 from shapely.geometry import Polygon, MultiPolygon, GeometryCollection, LineString, Point
 from itertools import product, permutations
 
@@ -880,14 +880,16 @@ def load_assembly_from_folder(folder_path, bounding_box_type="OBB"):
     matrix_idx = 0
     
     folder = Path(folder_path)
-    stl_files = sorted(list(folder.glob("*.stl")))
-    
+    stl_files = sorted(list(folder.glob("*.stl")) + list(folder.glob("*.STL")))
+
     for file_path in stl_files:
         raw_name = file_path.stem 
         if " - " in raw_name:
             part_name = raw_name.split(" - ")[-1].strip() 
         else:
             part_name = raw_name
+
+        part_name = part_name.split("-")[0]
         
         mesh_geom = trimesh.load(str(file_path))
         mesh_geom.merge_vertices()
@@ -1129,15 +1131,22 @@ if __name__ == "__main__":
     print(f"\n[STARTING] AABB Pipeline for: {assembly_name}...")
     assembly_manifest_AABB = load_assembly_from_folder(input_folder, bounding_box_type="AABB")
     #visualize_part_axes('Hook_v2-2', assembly_manifest_AABB)
-    
-    start_time = time.time()
-    final_matrices_AABB = calculate_IM_matrices(assembly_manifest_AABB)
-    print(f"--- AABB Math Complete! Time Taken: {(time.time() - start_time):.2f} seconds ---")
-    
-    export_matrices_to_excel(final_matrices_AABB, assembly_manifest_AABB, output_folder=out_aabb)
-    export_directions_to_excel(assembly_manifest_AABB, output_folder=out_aabb)
+    print(assembly_manifest_AABB.keys())
 
-    print(f"\n>>> All pipelines finished! Check the '{out_obb}' and '{out_aabb}' folders.")
+    # Test the optimized action row generation for a specific part
+    optimized_vector = np.array([1.0, 0.0, 0.0])
+    test_part = 'Hook_v2-2'
+    test_row = get_optimized_action_row(test_part, assembly_manifest_AABB, optimized_vector)
+    print(f'Optimized action row for {test_part}: {test_row}')
+    
+    # start_time = time.time()
+    # final_matrices_AABB = calculate_IM_matrices(assembly_manifest_AABB)
+    # print(f"--- AABB Math Complete! Time Taken: {(time.time() - start_time):.2f} seconds ---")
+    
+    # export_matrices_to_excel(final_matrices_AABB, assembly_manifest_AABB, output_folder=out_aabb)
+    # export_directions_to_excel(assembly_manifest_AABB, output_folder=out_aabb)
+
+    # print(f"\n>>> All pipelines finished! Check the '{out_obb}' and '{out_aabb}' folders.")
 
 
 
