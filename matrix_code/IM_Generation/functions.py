@@ -764,6 +764,85 @@ def calculate_IM_matrices(assembly_manifest):
 
     return matrices
 
+## NEW: Optimized Action Row Generation
+def evaluate_optimized_action(part_a_mesh, part_b_mesh, raw_opt_action, tol=1e-5):
+    """
+    Evaluates interference along an arbitrary optimized vector by sanitizing the vector,
+    aligning it to the local +X axis, and calling the standard 2D check.
+    """
+    # 1. Sanitize the physics engine noise
+    opt_action = np.array(raw_opt_action, dtype=float)
+    opt_action[np.abs(opt_action) < tol] = 0.0
+    opt_action[np.abs(opt_action - 1.0) < tol] = 1.0
+    opt_action[np.abs(opt_action + 1.0) < tol] = -1.0
+    
+    # Failsafe: Ensure it didn't collapse to zero
+    if np.linalg.norm(opt_action) < 1e-6:
+        raise ValueError("opt_action collapsed to zero after snapping.")
+
+    # 2. Normalize strictly to 1.0 to become our new +X axis
+    v_x = opt_action / np.linalg.norm(opt_action)
+    
+    # 3. Build orthogonal Y and Z axes safely
+    ref_vec = np.array([0.0, 1.0, 0.0])
+    
+    # If the extraction is perfectly parallel to Y, switch the reference to Z
+    if np.abs(np.dot(v_x, ref_vec)) > 0.99:
+        ref_vec = np.array([0.0, 0.0, 1.0])
+        
+    v_z = np.cross(v_x, ref_vec)
+    v_z /= np.linalg.norm(v_z)
+    
+    v_y = np.cross(v_z, v_x)
+    # Note: v_y is naturally normalized because v_x and v_z are orthogonal unit vectors
+    
+    # 4. Create the 'to_origin' rotation matrix
+    to_origin = np.eye(4)
+    to_origin[0, :3] = v_x
+    to_origin[1, :3] = v_y
+    to_origin[2, :3] = v_z
+    
+    # 5. Add translation to center Part A at the origin
+    center = part_a_mesh.bounding_box.centroid
+    to_origin[:3, 3] = -np.dot(to_origin[:3, :3], center)
+    
+    # 6. Mock the data dictionaries exactly as your pipeline expects
+    temp_a_data = {
+        "part_mesh": part_a_mesh,
+        "to_origin": to_origin
+    }
+    
+    temp_b_data = {
+        "part_mesh": part_b_mesh
+    }
+    
+    # 7. Run the existing evaluation strictly along the localized "x" axis
+    return evaluate_pair_interference(temp_a_data, temp_b_data, "x")
+
+def get_optimized_action_row(part_name, assembly_manifest, optimized_vector):
+    part_keys = list(assembly_manifest.keys())
+
+    part_a_data = assembly_manifest[part_name]
+    part_a_idx = part_a_data["matrix_idx"]
+    part_a_mesh = part_a_data["part_mesh"]
+
+    matrix_row = np.zeros(len(part_keys))
+
+    for j, part_b_name in enumerate(part_keys):
+        if part_a_idx == j:
+            matrix_row[j] = 0
+            continue
+
+        part_b_data = assembly_manifest[part_b_name]
+        part_b_mesh = part_b_data["part_mesh"]
+        entry, _ = evaluate_optimized_action(part_a_mesh, part_b_mesh, optimized_vector)
+
+        matrix_row[j] = entry
+
+    return matrix_row
+
+
+
 ## Data Handling
 def clean_obb_matrix(to_origin, tolerance=0.05):
     """
