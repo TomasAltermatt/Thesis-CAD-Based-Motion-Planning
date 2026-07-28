@@ -6,7 +6,7 @@ import os
 import pandas as pd
 import time
 from pathlib import Path
-from IM_Generation.classes import PseudoFace
+from .classes import PseudoFace
 from shapely.geometry import Polygon, MultiPolygon, GeometryCollection, LineString, Point
 from itertools import product, permutations
 
@@ -841,7 +841,60 @@ def get_optimized_action_row(part_name, assembly_manifest, optimized_vector):
 
     return matrix_row
 
+## NEW: Check collision with the ground plane
+def identify_ground_parts(assembly_manifest, z_axis_index=2, tolerance=1e-3):
+    """
+    Instantly identifies which parts are touching the ground by finding 
+    the lowest Z-coordinate in the global bounding boxes.
+    """
+    # 1. Extract the minimum Z value for every part
+    # bounds[0] is the minimums [min_x, min_y, min_z]
+    part_z_mins = {}
+    for part_name, data in assembly_manifest.items():
+        z_min = data['part_mesh'].bounds[0][z_axis_index]
+        part_z_mins[part_name] = z_min
+        
+    # 2. Find the absolute lowest point in the entire assembly
+    global_ground_z = min(part_z_mins.values())
+    
+    # 3. Any part within the tolerance of the ground floor is a base part
+    parts_on_ground = [
+        name for name, z_min in part_z_mins.items() 
+        if abs(z_min - global_ground_z) <= tolerance
+    ]
+    
+    return parts_on_ground
 
+## NEW: Get freedom score from each part based on interference matrices
+def get_freedom_score(part_id, current_assembly_ids, part_ids_list, matrices_dict):
+    """
+    Calculates how many global axes a part can be extracted along without hitting
+    the remaining parts in the assembly.
+    """
+    # 1. Get the matrix index of the part we want to evaluate
+    part_idx = part_ids_list.index(part_id)
+    
+    # 2. Get the matrix indices of all OTHER parts still in the assembly
+    fixed_indices = [
+        part_ids_list.index(pid) for pid in current_assembly_ids if pid != part_id
+    ]
+    
+    # If it's the last part, it's completely free
+    if not fixed_indices:
+        return 6
+        
+    score = 0
+    # 3. Check all 6 directions using your dictionary keys
+    for direction in ["+x", "-x", "+y", "-y", "+z", "-z"]:
+        matrix = matrices_dict[direction]
+        
+        # matrix[part_idx, fixed_indices] slices the row for the moving part,
+        # looking ONLY at the columns for the parts that are still assembled.
+        # If the sum is 0, there are no collisions in that direction!
+        if np.sum(matrix[part_idx, fixed_indices]) == 0:
+            score += 1
+            
+    return score
 
 ## Data Handling
 def clean_obb_matrix(to_origin, tolerance=0.05):
@@ -871,8 +924,11 @@ def clean_obb_matrix(to_origin, tolerance=0.05):
     matrix[:3, :3] = perfect_rot
     return matrix
 
-def load_assembly_from_folder(folder_path, bounding_box_type="OBB"):
+
+def load_assembly_from_folder(folder_path, bounding_box_type="AABB"):
     """
+    Loads assembly meshes (.obj or .stl) and computes bounding box properties.
+    
     bounding_box_type: 'OBB' (Oriented, uses PCA to find axes) 
                     or 'AABB' (Axis-Aligned, uses global CAD axes)
     """
@@ -880,18 +936,27 @@ def load_assembly_from_folder(folder_path, bounding_box_type="OBB"):
     matrix_idx = 0
     
     folder = Path(folder_path)
-    stl_files = sorted(list(folder.glob("*.stl")) + list(folder.glob("*.STL")))
+    
+    # 1. Look for both .obj and .stl files (case-insensitive)
+    mesh_files = sorted(
+        list(folder.glob("*.obj")) + list(folder.glob("*.OBJ")) +
+        list(folder.glob("*.stl")) + list(folder.glob("*.STL"))
+    )
 
-    for file_path in stl_files:
-        raw_name = file_path.stem 
-        if " - " in raw_name:
-            part_name = raw_name.split(" - ")[-1].strip() 
-        else:
-            part_name = raw_name
+    if not mesh_files:
+        raise FileNotFoundError(f"No .obj or .stl files found in {folder_path}")
 
-        part_name = part_name.split("-")[0]
+    for file_path in mesh_files:
+        # Use the exact file stem as the primary key so it matches Fabrica's part identifiers
+        exact_stem = file_path.stem 
         
+        # Load mesh via trimesh (works natively for both .obj and .stl)
         mesh_geom = trimesh.load(str(file_path), force='mesh')
+        
+        # Ensure it's a valid Trimesh object
+        if isinstance(mesh_geom, trimesh.Scene):
+            mesh_geom = mesh_geom.dump(concatenate=True)
+            
         mesh_geom.merge_vertices()
         
         if bounding_box_type == "OBB":
@@ -914,7 +979,7 @@ def load_assembly_from_folder(folder_path, bounding_box_type="OBB"):
             to_origin[:3, 3] = -center
             from_origin = np.linalg.inv(to_origin)
             
-            # Because there is no rotation, extraction vectors are exactly global
+            # Global cardinal axes
             v_x = np.array([1.0, 0.0, 0.0])
             v_y = np.array([0.0, 1.0, 0.0])
             v_z = np.array([0.0, 0.0, 1.0])
@@ -928,15 +993,64 @@ def load_assembly_from_folder(folder_path, bounding_box_type="OBB"):
             "+z": v_z, "-z": -v_z
         }
 
-        assembly_manifest[part_name] = {
+        assembly_manifest[exact_stem] = {
             "matrix_idx": matrix_idx,
             "part_mesh": mesh_geom,
+            "file_path": str(file_path),
             "to_origin": to_origin,             
             "extraction_vectors": extraction_vectors,
             "center_point": from_origin[:3, 3]   
         }
         
         matrix_idx += 1
+        
+    return assembly_manifest
+
+def load_fabrica_assembly_from_folder(obj_dir, part_ids, bounding_box_type="AABB"):
+    """
+    Loads assembly meshes based EXACTLY on Fabrica's sorted part_ids.
+    """
+    assembly_manifest = {}
+    
+    # Iterate through Fabrica's list. enumerate() automatically assigns 
+    # the exact matrix_idx that corresponds to Fabrica's part order.
+    for matrix_idx, part_id in enumerate(part_ids):
+        
+        # Reconstruct the exact file path
+        file_path = os.path.join(obj_dir, part_id + '.obj')
+        
+        # Load mesh
+        mesh_geom = trimesh.load(file_path, force='mesh')
+        if isinstance(mesh_geom, trimesh.Scene):
+            mesh_geom = mesh_geom.dump(concatenate=True)
+        mesh_geom.merge_vertices()
+        
+        if bounding_box_type == "OBB":
+            to_origin, extents = trimesh.bounds.oriented_bounds(mesh_geom)
+            to_origin = clean_obb_matrix(to_origin)
+            from_origin = np.linalg.inv(to_origin)
+            v_x, v_y, v_z = from_origin[:3, 0], from_origin[:3, 1], from_origin[:3, 2]
+            
+        elif bounding_box_type == "AABB":
+            center = mesh_geom.bounding_box.centroid
+            to_origin = np.eye(4) 
+            to_origin[:3, 3] = -center
+            from_origin = np.linalg.inv(to_origin)
+            v_x = np.array([1.0, 0.0, 0.0])
+            v_y = np.array([0.0, 1.0, 0.0])
+            v_z = np.array([0.0, 0.0, 1.0])
+            
+        else:
+            raise ValueError("bounding_box_type must be either 'OBB' or 'AABB'")
+
+        assembly_manifest[part_id] = {
+            "matrix_idx": matrix_idx,
+            "part_mesh": mesh_geom,
+            "file_path": file_path,
+            "to_origin": to_origin,             
+            "extraction_vectors": {"+x": v_x, "-x": -v_x, "+y": v_y, "-y": -v_y, "+z": v_z, "-z": -v_z},
+            "center_point": from_origin[:3, 3]   
+        }
         
     return assembly_manifest
 

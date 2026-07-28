@@ -2,8 +2,16 @@ import os
 os.environ['OMP_NUM_THREADS'] = '1'
 import sys
 
+# project_base_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+# sys.path.append(project_base_dir)
+
+# This points to the 'Fabrica' folder
 project_base_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-sys.path.append(project_base_dir)
+sys.path.insert(0, project_base_dir)
+
+# ADD THIS: This points one level higher to 'THESIS-CAD-BASED...', where 'matrix_code' lives
+workspace_dir = os.path.abspath(os.path.join(project_base_dir, '..'))
+sys.path.insert(0, workspace_dir)
 
 import numpy as np
 import networkx as nx
@@ -17,6 +25,7 @@ from planning.robot.geometry import load_part_meshes
 from planning.sequence.feasibility_check import check_assemblable_parallel, check_path_collision, check_ground_collision, CONTACT_EPS
 from planning.robot.workcell import get_assembly_center
 from utils.parallel import parallel_execute
+from matrix_code.IM_Generation.functions import load_fabrica_assembly_from_folder, calculate_IM_matrices, get_freedom_score
 
 
 def remove_redundant_edges(G):
@@ -62,7 +71,7 @@ def compute_contact_points(G, assembly_dir, assembly_center, contact_eps=CONTACT
     return G
 
 
-def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=1, verbose=False):
+def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=1, verbose=False, use_heuristic=False):
     '''
     Plan precedence tiers for assembly sequence.
     [
@@ -81,28 +90,66 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
     '''
     asset_folder = os.path.join(project_base_dir, './assets')
     tiers = []
-    parts_assembled = sorted(load_part_ids(assembly_dir))
+    parts_assembled = sorted(load_part_ids(assembly_dir)) # this sorts the parts in name order (which is why we implement heuristic)
     assembly_center = get_assembly_center(arm_type)
-    config = load_config(assembly_dir)
+    config = load_config(assembly_dir) # load particular configuration for part assembly
+
+    # ADDED: Pre-sort parts assembled based on freedom score
+    master_part_ids = None
+    directional_matrices = None
+    if use_heuristic:
+        master_part_ids = parts_assembled.copy()
+        assembly_manifest = load_fabrica_assembly_from_folder(assembly_dir, master_part_ids)
+        directional_matrices = calculate_IM_matrices(assembly_manifest)
 
     t_start = time()
 
     while len(parts_assembled) > 1:
         tier = {}
 
-        args, kwargs = [], []
-        for part_move in parts_assembled:
-            parts_fix = parts_assembled.copy()
-            parts_fix.remove(part_move)
-            args.append((asset_folder, assembly_dir, parts_fix, part_move))
-            kwargs.append(dict(num_proc=inner_num_proc, pose=np.eye(4), save_sdf=True, return_path=True, optimize_path=True, debug=0, render=False))
+        # Helper function to execute a group of parts via Fabrica's parallel workers
+        def evaluate_group(group_to_test):
+            args, kwargs = [], []
+            for part_move in group_to_test:
+                parts_fix = parts_assembled.copy()
+                parts_fix.remove(part_move)
+                args.append((asset_folder, assembly_dir, parts_fix, part_move))
+                kwargs.append(dict(num_proc=inner_num_proc, pose=np.eye(4), save_sdf=True, return_path=True, optimize_path=True, debug=0, render=False))
+            
+            if not args:
+                return
+                
+            for (action, path), ret_arg, _ in parallel_execute(check_assemblable_parallel, args, kwargs, num_proc=num_proc, return_args=True, show_progress=verbose, desc='check_assemblable'):
+                if action is not None:
+                    part_move = ret_arg[-1]
+                    parts_assembled.remove(part_move)
+                    tier[part_move] = {'action': action, 'path': path}
 
-        # build the tier per part with action an path, executed in parallel
-        for (action, path), ret_arg, _ in parallel_execute(check_assemblable_parallel, args, kwargs, num_proc=num_proc, return_args=True, show_progress=verbose, desc='check_assemblable'):
-            if action is not None:
-                part_move = ret_arg[-1]
-                parts_assembled.remove(part_move)
-                tier[part_move] = {'action': action, 'path': path}
+        # BRANCH: Heuristic ON vs OFF
+        if use_heuristic:
+            free_parts = []
+            locked_parts = []
+            for part_move in parts_assembled:
+                score = get_freedom_score(
+                    part_id=part_move, 
+                    current_assembly_ids=parts_assembled, 
+                    part_ids_list=master_part_ids, 
+                    matrices_dict=directional_matrices
+                )
+                if score > 0:
+                    free_parts.append(part_move)
+                else:
+                    locked_parts.append(part_move)
+
+            # Stage 1: Try free parts
+            evaluate_group(free_parts)
+            
+            # Stage 2: Fallback to locked parts if needed
+            if len(tier) == 0:
+                evaluate_group(locked_parts)
+        else:
+            # Original Fabrica baseline behavior (tests everything)
+            evaluate_group(parts_assembled)
 
         if len(tier) == 0:
             raise ValueError(f'[run_preced_plan] No parts in {parts_assembled} can be disassembled ({assembly_dir})')
@@ -211,4 +258,5 @@ if __name__ == '__main__':
     parser.add_argument('--verbose', action='store_true', default=False, help='verbose')
     args = parser.parse_args()
 
-    run_preced_plan(args.assembly_dir, args.log_dir, args.arm, num_proc=args.num_proc, inner_num_proc=args.inner_num_proc, verbose=args.verbose)
+    run_preced_plan(args.assembly_dir, args.log_dir, args.arm, num_proc=args.num_proc, inner_num_proc=args.inner_num_proc, verbose=args.verbose, 
+                    use_heuristic=True)
