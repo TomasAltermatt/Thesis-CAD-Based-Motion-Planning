@@ -12,11 +12,14 @@ from itertools import product, permutations
 
 ANGLE_NORMAL_TOL = 0.2
 DISTANCE_TOL = 2e-4
+W_TOL = 2e-4
+FLUSH_TOL = 0.04
+# W_TOL = 0.04
 
 # ----------------------------------------------------- MAIN FUNCTIONS ----------------------------------------------
 ## AABB overlap test functions
 
-def check_2d_aabb_overlap(bounds_a, bounds_b, extraction_axis):
+def check_2d_aabb_overlap(bounds_a, bounds_b, extraction_axis, buffer=DISTANCE_TOL):
     overlap_region = {}
     # Note: This check considers the bounding boxes as inputted here, so the orientation depends
     # on how the bounds are defined before calling the function. 
@@ -56,7 +59,7 @@ def check_2d_aabb_overlap(bounds_a, bounds_b, extraction_axis):
     overlap_min_v = max(a_min_v, b_min_v)
     overlap_max_v = min(a_max_v, b_max_v)
 
-    buffer = DISTANCE_TOL
+    #buffer = DISTANCE_TOL
     overlap_region['overlap_u'] = (overlap_min_u - buffer, overlap_max_u + buffer)
     overlap_region['overlap_v'] = (overlap_min_v - buffer, overlap_max_v + buffer)
 
@@ -77,9 +80,9 @@ def check_2d_aabb_overlap(bounds_a, bounds_b, extraction_axis):
     b_min_w, b_max_w = bounds_b[0][w_axis], bounds_b[1][w_axis]
 
     overlap_result = None
-    if a_min_w > b_max_w + DISTANCE_TOL:
+    if a_min_w > b_max_w + buffer:
          overlap_result = -2 
-    elif b_min_w > a_max_w + DISTANCE_TOL:
+    elif b_min_w > a_max_w + buffer:
         overlap_result = -2   
     else:
         overlap_result = -2   
@@ -254,7 +257,7 @@ def create_PFs(part: trimesh.Trimesh, extraction_axis: str, tolerance = ANGLE_NO
 
 #     return result
 
-def check_PF_overlap(pf_a: PseudoFace, pf_b: PseudoFace):
+def check_PF_overlap(pf_a: PseudoFace, pf_b: PseudoFace, flush_tol = FLUSH_TOL, angle_tol = ANGLE_NORMAL_TOL):
     result = [0, 0] 
     w_idx = pf_a.extraction_axis
 
@@ -319,7 +322,7 @@ def check_PF_overlap(pf_a: PseudoFace, pf_b: PseudoFace):
     # FLUSH TOLERANCE: 
     # DISTANCE_TOL (0.0002) is too strict for tessellated CAD. 
     # We use 0.05mm to absorb the natural mesh "criss-crossing" of flush parts.
-    flush_tol = 0.04
+    #flush_tol = FLUSH_TOL
 
     # 1. Deep Volume Overlap 
     # If they overlap by MORE than the flush tolerance, they are truly embedded in each other.
@@ -549,7 +552,7 @@ def primitive_point_projection(pf, facet_idx, primitive_points):
 
     return projected_points_3d
 
-def IM_entry_calculation(pf_a, facet_idx_a, pf_b, facet_idx_b, primitive_points_a, primitive_points_b, interference_type):
+def IM_entry_calculation(pf_a, facet_idx_a, pf_b, facet_idx_b, primitive_points_a, primitive_points_b, interference_type, w_tol = W_TOL, n_tol = ANGLE_NORMAL_TOL):
     global_idx_a = pf_a.face_indices[facet_idx_a]
     global_idx_b = pf_b.face_indices[facet_idx_b]
 
@@ -561,8 +564,9 @@ def IM_entry_calculation(pf_a, facet_idx_a, pf_b, facet_idx_b, primitive_points_
     #print(f'Normal A: {normal_a}, Normal B: {normal_b}')
     a_ij, a_ji = 0, 0
     
-    w_tol = 0.0002 # 0.05mm depth tolerance prevents CAD micro-overlap errors
-    n_tol = ANGLE_NORMAL_TOL # 0.05 normal tolerance (~3 degrees) mathematically ignores mesh noise on sliding rails
+    #w_tol = 0.0002 # 0.05mm depth tolerance prevents CAD micro-overlap errors
+    # w_tol = W_TOL
+    # n_tol = ANGLE_NORMAL_TOL # 0.05 normal tolerance (~3 degrees) mathematically ignores mesh noise on sliding rails
 
     for i in range(primitive_points_a.shape[0]):
         w_prim_a = primitive_points_a[i][w_idx]
@@ -585,7 +589,7 @@ def IM_entry_calculation(pf_a, facet_idx_a, pf_b, facet_idx_b, primitive_points_
 
     return a_ij, a_ji
 
-def evaluate_narrow_phase(candidates_a, candidates_b, pf_a, pf_b, part_a_aux, part_b_aux, use_MRT):
+def evaluate_narrow_phase(candidates_a, candidates_b, pf_a, pf_b, part_a_aux, part_b_aux, use_MRT, w_tol = W_TOL, n_tol = ANGLE_NORMAL_TOL):
     max_pos, max_neg = 0, 0
     
     for idx_a, idx_b in product(candidates_a, candidates_b):
@@ -631,7 +635,7 @@ def evaluate_narrow_phase(candidates_a, candidates_b, pf_a, pf_b, part_a_aux, pa
         primitive_points_b = primitive_point_projection(pf_b, idx_b, primitive_all)
         
         positive_entry, negative_entry = IM_entry_calculation(
-            pf_a, idx_a, pf_b, idx_b, primitive_points_a, primitive_points_b, hybrid_result
+            pf_a, idx_a, pf_b, idx_b, primitive_points_a, primitive_points_b, hybrid_result, w_tol, n_tol
         )
 
         max_pos = max(max_pos, positive_entry)
@@ -644,8 +648,16 @@ def evaluate_narrow_phase(candidates_a, candidates_b, pf_a, pf_b, part_a_aux, pa
 
 
 ## Main Extraction functions
-def evaluate_pair_interference(part_a_data, part_b_data, extraction_axis):
+def evaluate_pair_interference(part_a_data, part_b_data, extraction_axis,
+                               override_dist_tol=None, override_w_tol=None, override_flush_tol=None, override_n_tol=None):
     """Evaluates the maximum interference between two parts along a specific axis."""
+
+    # Fallback to your strict defaults if no override is passed
+    dist_tol = override_dist_tol if override_dist_tol is not None else DISTANCE_TOL
+    w_tol = override_w_tol if override_w_tol is not None else W_TOL
+    flush_tol = override_flush_tol if override_flush_tol is not None else FLUSH_TOL
+    n_tol = override_n_tol if override_n_tol is not None else ANGLE_NORMAL_TOL
+
     # Unpack the pre-calculated data!
     part_a = part_a_data["part_mesh"]
     part_b = part_b_data["part_mesh"]
@@ -661,8 +673,7 @@ def evaluate_pair_interference(part_a_data, part_b_data, extraction_axis):
         use_MRT = True
 
     overlap_region, overlap_result = check_2d_aabb_overlap(
-        part_a_aux.bounding_box.bounds, part_b_aux.bounding_box.bounds, extraction_axis
-    )
+        part_a_aux.bounding_box.bounds, part_b_aux.bounding_box.bounds, extraction_axis, dist_tol)
     #print(f'\tAABB Overlap Result: {overlap_result}')
     
     # Return immediately if the broad phase gives a definitive answer
@@ -690,7 +701,7 @@ def evaluate_pair_interference(part_a_data, part_b_data, extraction_axis):
             #print(f'\tFull PF Interference Detected')
             break
             
-        pf_intersect = check_PF_overlap(pf_a, pf_b)
+        pf_intersect = check_PF_overlap(pf_a, pf_b, flush_tol)
         
         final_pos, final_neg = pf_intersect
         if final_pos == 2 and final_pos != current_pf_intersect[0] and -2 not in pf_intersect:
@@ -710,7 +721,7 @@ def evaluate_pair_interference(part_a_data, part_b_data, extraction_axis):
                 if not candidates_a or not candidates_b: continue 
 
                 c_pos, c_neg = evaluate_narrow_phase(
-                    candidates_a, candidates_b, pf_a, pf_b, part_a_aux, part_b_aux, use_MRT
+                    candidates_a, candidates_b, pf_a, pf_b, part_a_aux, part_b_aux, use_MRT, w_tol, n_tol
                 )
                 if final_pos > max_pos:
                     #print(f'\tNarrow Phase update: max_pos {final_pos}')
@@ -735,9 +746,9 @@ def calculate_IM_matrices(assembly_manifest):
     matrices = {d: np.zeros((N, N), dtype=int) for d in ["+x", "-x", "+y", "-y", "+z", "-z"]}
     axis_matrix_map = {"x": ["+x", "-x"], "y": ["+y", "-y"], "z": ["+z", "-z"]}
     part_keys = list(assembly_manifest.keys())
-
+    print(f'Calculating Interference Matrices...')
     for extraction_axis, (pos_key, neg_key) in axis_matrix_map.items():
-        print(f'\n----------------- Checking {extraction_axis} Direction -----------------')
+        #print(f'\n----------------- Checking {extraction_axis} Direction -----------------')
         
         for i, j in permutations(range(N), 2):
             part_a_name = part_keys[i]
@@ -761,7 +772,7 @@ def calculate_IM_matrices(assembly_manifest):
             
             matrices[pos_key][i, j] = pos_val
             matrices[neg_key][i, j] = neg_val
-
+    print(f'Done calculating Interference Matrices.')
     return matrices
 
 ## NEW: Optimized Action Row Generation
@@ -866,6 +877,34 @@ def identify_ground_parts(assembly_manifest, z_axis_index=2, tolerance=1e-3):
     return parts_on_ground
 
 ## NEW: Get freedom score from each part based on interference matrices
+def get_free_directions(part_id, current_assembly_ids, part_ids_list, matrices_dict):
+    part_idx = part_ids_list.index(part_id)
+    fixed_indices = [
+        part_ids_list.index(pid) for pid in current_assembly_ids if pid != part_id
+    ]
+    
+    free_dirs = []
+    if not fixed_indices:
+        return ["+z"] # Default to extracting upwards if it's the last part
+        
+    for direction in ["+x", "-x", "+y", "-y", "+z", "-z"]:
+        matrix = matrices_dict[direction]
+        if np.sum(matrix[part_idx, fixed_indices]) == 0:
+            free_dirs.append(direction)
+            
+    return free_dirs
+
+
+def get_direction_string(action_vec):
+    """Maps a 3D numpy vector to the string keys used in the interference matrices."""
+    if np.allclose(action_vec, [1, 0, 0]): return '+x'
+    if np.allclose(action_vec, [-1, 0, 0]): return '-x'
+    if np.allclose(action_vec, [0, 1, 0]): return '+y'
+    if np.allclose(action_vec, [0, -1, 0]): return '-y'
+    if np.allclose(action_vec, [0, 0, 1]): return '+z'
+    if np.allclose(action_vec, [0, 0, -1]): return '-z'
+    return None
+
 def get_freedom_score(part_id, current_assembly_ids, part_ids_list, matrices_dict):
     """
     Calculates how many global axes a part can be extracted along without hitting

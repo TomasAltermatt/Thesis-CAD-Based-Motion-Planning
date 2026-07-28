@@ -14,6 +14,112 @@ from assets.transform import get_transform_from_path
 from utils.renderer import SimRenderer
 from utils.parallel import parallel_execute
 from planning.sequence.physics_planner import MultiPartPathPlanner, MultiPartStabilityPlanner, MultiPartNoForceStabilityPlanner, get_contact_graph, CONTACT_EPS
+from matrix_code.IM_Generation.functions import evaluate_pair_interference, identify_ground_parts
+
+def generate_straight_path(assembly_dir, part_move_id, action_vec, parts_fix=None, min_sep=None, n_steps=100):
+    """
+    Generates a 3D relative displacement path starting from [0, 0, 0] of shape (N, 3),
+    matching Redmax's joint qm output format so assembly_center shifts it correctly.
+    """
+    assembly = load_assembly_all_transformed(assembly_dir)
+    mesh_a = assembly[part_move_id]['mesh_final']
+    
+    active_min_sep = min_sep if min_sep is not None else 0.5
+    
+    axis_idx = np.argmax(np.abs(action_vec))
+    sign = action_vec[axis_idx] # +1 or -1
+    my_bounds = mesh_a.bounds
+    
+    if not parts_fix:
+        part_span = my_bounds[1][axis_idx] - my_bounds[0][axis_idx]
+        total_distance = part_span + active_min_sep
+    else:
+        if sign > 0:
+            max_fix_upper = max(assembly[pf]['mesh_final'].bounds[1][axis_idx] for pf in parts_fix)
+            my_lower = my_bounds[0][axis_idx]
+            total_distance = max(max_fix_upper - my_lower, 0) + active_min_sep
+        else:
+            min_fix_lower = min(assembly[pf]['mesh_final'].bounds[0][axis_idx] for pf in parts_fix)
+            my_upper = my_bounds[1][axis_idx]
+            total_distance = max(my_upper - min_fix_lower, 0) + active_min_sep
+
+    # Redmax paths start at relative displacement [0, 0, 0]
+    path = []
+    for i in range(n_steps + 1):
+        displacement = action_vec * (total_distance * (i / n_steps))
+        path.append(displacement)
+        
+    return np.array(path)
+
+def jit_check_cardinal_extractions(assembly_dir, parts_fix, part_move, min_sep=None):
+    """
+    Tests cardinal directions analytically using 2.5D projection math 
+    with direct ground boundary checks tailored to load_assembly_all_transformed.
+    """
+    assembly = load_assembly_all_transformed(assembly_dir)
+    
+    # Ground plane awareness check
+    part_z_mins = {name: data['mesh_final'].bounds[0][2] for name, data in assembly.items()}
+    global_ground_z = min(part_z_mins.values())
+    ground_parts = [name for name, z_min in part_z_mins.items() if abs(z_min - global_ground_z) <= 1e-3]
+    is_on_ground = part_move in ground_parts
+
+    if not parts_fix:
+        action = np.array([0, 0, 1])
+        path = generate_straight_path(
+            assembly_dir=assembly_dir, 
+            part_move_id=part_move, 
+            action_vec=action, 
+            parts_fix=parts_fix, 
+            min_sep=min_sep
+        )
+        return action, path
+
+    mesh_a = assembly[part_move]['mesh']
+    center_a = mesh_a.bounding_box.centroid
+    to_origin_a = np.eye(4)
+    to_origin_a[:3, 3] = -center_a
+    part_a_data = {"part_mesh": mesh_a, "to_origin": to_origin_a}
+
+    cardinal_tests = [
+        (np.array([0, 0, 1]), 'z', 'pos'),   # +Z
+        (np.array([0, 0, -1]), 'z', 'neg'),  # -Z
+        (np.array([1, 0, 0]), 'x', 'pos'),   # +X
+        (np.array([-1, 0, 0]), 'x', 'neg'),  # -X
+        (np.array([0, 1, 0]), 'y', 'pos'),   # +Y
+        (np.array([0, -1, 0]), 'y', 'neg')   # -Y
+    ]
+
+    for action, axis, sign in cardinal_tests:
+        # Block downward motion (-z) if the part is resting on the ground floor
+        if is_on_ground and np.allclose(action, [0, 0, -1]):
+            continue
+
+        direction_clear = True
+        for p_fix in parts_fix:
+            mesh_b = assembly[p_fix]['mesh_final']
+            part_b_data = {"part_mesh": mesh_b}
+
+            pos_val, neg_val = evaluate_pair_interference(
+                part_a_data, part_b_data, axis, override_w_tol=0.01
+            )
+
+            blocked = (pos_val > 0 if sign == 'pos' else neg_val > 0)
+            if blocked:
+                direction_clear = False
+                break
+
+        if direction_clear:
+            path = generate_straight_path(
+                assembly_dir=assembly_dir, 
+                part_move_id=part_move, 
+                action_vec=action, 
+                parts_fix=parts_fix, 
+                min_sep=min_sep
+            )
+            return action, path
+
+    return None, None
 
 
 def get_R3_actions():
@@ -114,6 +220,18 @@ def check_assemblable_parallel(asset_folder, assembly_dir, parts_fix, part_move,
     '''
     Parallel version of check_assemblable
     '''
+
+    # --- JIT ANALYTICAL PRE-FILTER ---
+    action, path = jit_check_cardinal_extractions(assembly_dir, parts_fix, part_move, min_sep)
+    if action is not None:
+        if debug > 0:
+            print(f'[JIT Pre-Filter] Successfully bypassed Redmax simulation for {part_move} along {action}!')
+        if return_path:
+            return action, path
+        else:
+            return action
+    # ---------------------------------
+
     # HERE WE ARE TESTING ALL THE POSSIBLE ACTIONS IN R3 WHICH IS NOT EFFICIENT
     # HOWEVER WE CANT FILTER WITH MY CARDINAL 2D MATRICES SINCE AN ACTION MAY NOT BE ALIGNED WITH IT
     # AND PART MAY BE EXTRACTED ANYWAYS 

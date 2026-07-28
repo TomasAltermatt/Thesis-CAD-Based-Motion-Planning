@@ -25,7 +25,7 @@ from planning.robot.geometry import load_part_meshes
 from planning.sequence.feasibility_check import check_assemblable_parallel, check_path_collision, check_ground_collision, CONTACT_EPS
 from planning.robot.workcell import get_assembly_center
 from utils.parallel import parallel_execute
-from matrix_code.IM_Generation.functions import load_fabrica_assembly_from_folder, calculate_IM_matrices, get_freedom_score
+from matrix_code.IM_Generation.functions import load_fabrica_assembly_from_folder, calculate_IM_matrices, get_freedom_score, get_free_directions
 
 
 def remove_redundant_edges(G):
@@ -47,19 +47,17 @@ def assign_reachability_attributes(G):
     return G
 
 
-def compute_com(G, assembly_dir, assembly_center):
-    part_meshes_final = load_part_meshes(assembly_dir, transform='final', rename=False)
+def compute_com(G, part_meshes_final, assembly_center):
     for node in G.nodes():
         part_mesh = part_meshes_final[node]
         G.nodes[node]['com'] = part_mesh.centroid + assembly_center
     return G
 
 
-def compute_contact_points(G, assembly_dir, assembly_center, contact_eps=CONTACT_EPS):
-    part_meshes_final = load_part_meshes(assembly_dir, transform='final', rename=False)
-    config = load_config(assembly_dir)
+def compute_contact_points(G, part_meshes_final, config, assembly_center, contact_eps=CONTACT_EPS):
+    # No more load_part_meshes() or load_config() reading from the hard drive!
     if config is not None and 'contact_eps' in config:
-        contact_eps = config['contact_eps']
+        contact_eps = config['contact_eps']  
     for edge in G.edges():
         part1, part2 = edge
         mesh1, mesh2 = part_meshes_final[part1], part_meshes_final[part2]
@@ -100,9 +98,11 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
     if use_heuristic:
         master_part_ids = parts_assembled.copy()
         assembly_manifest = load_fabrica_assembly_from_folder(assembly_dir, master_part_ids)
-        directional_matrices = calculate_IM_matrices(assembly_manifest)
 
     t_start = time()
+    if use_heuristic:
+        directional_matrices = calculate_IM_matrices(assembly_manifest)
+
 
     while len(parts_assembled) > 1:
         tier = {}
@@ -129,6 +129,11 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
         if use_heuristic:
             free_parts = []
             locked_parts = []
+            
+            # Dictionaries to store sorting metrics
+            lock_severities = {}
+            volumes = {}
+
             for part_move in parts_assembled:
                 score = get_freedom_score(
                     part_id=part_move, 
@@ -140,11 +145,31 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
                     free_parts.append(part_move)
                 else:
                     locked_parts.append(part_move)
+            ##################################################################       
+            #         # --- METRIC 1: Matrix Lock Severity ---
+            #         # Count total collisions across all 6 directions against the remaining assembly
+            #         part_idx = master_part_ids.index(part_move)
+            #         fixed_indices = [master_part_ids.index(pid) for pid in parts_assembled if pid != part_move]
+                    
+            #         total_collisions = 0
+            #         for d in ["+x", "-x", "+y", "-y", "+z", "-z"]:
+            #             total_collisions += np.sum(directional_matrices[d][part_idx, fixed_indices])
+            #         lock_severities[part_move] = total_collisions
+                    
+            #         # --- METRIC 2: Bounding Box Volume ---
+            #         # Fetch the bounds directly from the already-loaded assembly manifest
+            #         bounds = assembly_manifest[part_move]['part_mesh'].bounds
+            #         volumes[part_move] = np.prod(bounds[1] - bounds[0])
+
+            # # SMART SORTING THE FALLBACK QUEUE
+            # # Sort primarily by least matrix collisions, secondarily by smallest volume
+            # locked_parts.sort(key=lambda p: (lock_severities[p], volumes[p]))
+            ##################################################################  
 
             # Stage 1: Try free parts
             evaluate_group(free_parts)
             
-            # Stage 2: Fallback to locked parts if needed
+            # Stage 2: Fallback to smart-sorted locked parts if needed
             if len(tier) == 0:
                 evaluate_group(locked_parts)
         else:
@@ -217,8 +242,9 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
 
     G = remove_redundant_edges(G)
     G = assign_reachability_attributes(G)
-    G = compute_com(G, assembly_dir, assembly_center)
-    G = compute_contact_points(G, assembly_dir, assembly_center)
+    loaded_meshes = load_part_meshes(assembly_dir, transform='final', rename=False)
+    G = compute_com(G, loaded_meshes, assembly_center)
+    G = compute_contact_points(G, loaded_meshes, config, assembly_center)
 
     save_graph(G, log_dir)
     stats_path = os.path.join(log_dir, 'stats.json')
@@ -259,4 +285,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     run_preced_plan(args.assembly_dir, args.log_dir, args.arm, num_proc=args.num_proc, inner_num_proc=args.inner_num_proc, verbose=args.verbose, 
-                    use_heuristic=True)
+                    use_heuristic=False)
