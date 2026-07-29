@@ -9,6 +9,7 @@ from pathlib import Path
 from .classes import PseudoFace
 from shapely.geometry import Polygon, MultiPolygon, GeometryCollection, LineString, Point
 from itertools import product, permutations
+import fast_simplification
 
 ANGLE_NORMAL_TOL = 0.2
 DISTANCE_TOL = 2e-4
@@ -589,9 +590,11 @@ def IM_entry_calculation(pf_a, facet_idx_a, pf_b, facet_idx_b, primitive_points_
 
     return a_ij, a_ji
 
-def evaluate_narrow_phase(candidates_a, candidates_b, pf_a, pf_b, part_a_aux, part_b_aux, use_MRT, w_tol = W_TOL, n_tol = ANGLE_NORMAL_TOL):
+def evaluate_narrow_phase(candidates_a, candidates_b, pf_a, pf_b, part_a_aux, part_b_aux, use_MRT, w_tol = W_TOL, n_tol = ANGLE_NORMAL_TOL,
+                          abort_threshold = None):
     max_pos, max_neg = 0, 0
-    
+    heavy_checks = 0 # <--- NEW COUNTER
+
     for idx_a, idx_b in product(candidates_a, candidates_b):
         min_a = pf_a.triangles_2d[idx_a].min(axis=0)
         max_a = pf_a.triangles_2d[idx_a].max(axis=0)
@@ -601,6 +604,13 @@ def evaluate_narrow_phase(candidates_a, candidates_b, pf_a, pf_b, part_a_aux, pa
         if (min_a[0] > max_b[0] + 1e-5 or max_a[0] < min_b[0] - 1e-5 or
             min_a[1] > max_b[1] + 1e-5 or max_a[1] < min_b[1] - 1e-5):
             continue
+
+        # ---> 2. THE DEEP ABORT TRIGGER <---
+        # Only counts pairs that actually force heavy Shapely operations
+        if abort_threshold is not None:
+            heavy_checks += 1
+            if heavy_checks > abort_threshold:
+                return -999, -999
 
         poly_a = Polygon(pf_a.triangles_2d[idx_a])
         poly_b = Polygon(pf_b.triangles_2d[idx_b])
@@ -649,7 +659,8 @@ def evaluate_narrow_phase(candidates_a, candidates_b, pf_a, pf_b, part_a_aux, pa
 
 ## Main Extraction functions
 def evaluate_pair_interference(part_a_data, part_b_data, extraction_axis,
-                               override_dist_tol=None, override_w_tol=None, override_flush_tol=None, override_n_tol=None):
+                               override_dist_tol=None, override_w_tol=None, override_flush_tol=None, override_n_tol=None,
+                               abort_threshold=None):
     """Evaluates the maximum interference between two parts along a specific axis."""
 
     # Fallback to your strict defaults if no override is passed
@@ -667,10 +678,6 @@ def evaluate_pair_interference(part_a_data, part_b_data, extraction_axis,
     part_a_aux.apply_transform(to_origin_A)
     part_b_aux.apply_transform(to_origin_A)
 
-    parts_AABB_interfere = check_3D_AABB_intersection(part_a_aux, part_b_aux)
-    use_MRT = check_static_interference(part_a_aux, part_b_aux)
-    if parts_AABB_interfere[2] == True:
-        use_MRT = True
 
     overlap_region, overlap_result = check_2d_aabb_overlap(
         part_a_aux.bounding_box.bounds, part_b_aux.bounding_box.bounds, extraction_axis, dist_tol)
@@ -681,6 +688,11 @@ def evaluate_pair_interference(part_a_data, part_b_data, extraction_axis,
     if overlap_result == -1: return 0, 2
     if overlap_result == 1: return 2, 0
     if overlap_result == 2: return 2, 2
+
+    parts_AABB_interfere = check_3D_AABB_intersection(part_a_aux, part_b_aux)
+    use_MRT = check_static_interference(part_a_aux, part_b_aux)
+    if parts_AABB_interfere[2] == True:
+        use_MRT = True
 
     # 2. PseudoFace Generation
     pseudo_faces_a = create_PFs(part_a_aux, extraction_axis)
@@ -718,11 +730,18 @@ def evaluate_pair_interference(part_a_data, part_b_data, extraction_axis,
                     pf_a, pf_b, parts_AABB_interfere, only_focus_facets=is_focus
                 )
                 
-                if not candidates_a or not candidates_b: continue 
+                if not candidates_a or not candidates_b: continue
+
+                # ---> THE INSTANT ABORT <---
+                # Costs 0 seconds. Saves 45 seconds on the Stool.
+                if attempt == "full_fallback" and abort_threshold is not None:
+                    if (len(candidates_a) * len(candidates_b)) > abort_threshold:
+                        return -999, -999
+                # ---------------------------
 
                 c_pos, c_neg = evaluate_narrow_phase(
-                    candidates_a, candidates_b, pf_a, pf_b, part_a_aux, part_b_aux, use_MRT, w_tol, n_tol
-                )
+                    candidates_a, candidates_b, pf_a, pf_b, part_a_aux, part_b_aux, use_MRT, w_tol, n_tol)
+                
                 if final_pos > max_pos:
                     #print(f'\tNarrow Phase update: max_pos {final_pos}')
                     pass
@@ -963,6 +982,21 @@ def clean_obb_matrix(to_origin, tolerance=0.05):
     matrix[:3, :3] = perfect_rot
     return matrix
 
+def get_low_poly_proxy(mesh, target_faces=1000):
+    """
+    Dynamically decimates mesh using a safe, dependency-free library.
+    """
+    if len(mesh.faces) <= target_faces:
+        return mesh
+        
+    try:
+        # Fast, safe decimation that won't break your numpy versions
+        vertices, faces = fast_simplification.simplify(
+            mesh.vertices, mesh.faces, target_count=target_faces
+        )
+        return trimesh.Trimesh(vertices=vertices, faces=faces)
+    except Exception as e:
+        return mesh
 
 def load_assembly_from_folder(folder_path, bounding_box_type="AABB"):
     """

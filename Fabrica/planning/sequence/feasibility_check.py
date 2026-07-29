@@ -8,20 +8,93 @@ import numpy as np
 from itertools import combinations
 from time import time
 import trimesh
+import concurrent.futures
 
 from assets.load import load_assembly_all_transformed
 from assets.transform import get_transform_from_path
 from utils.renderer import SimRenderer
 from utils.parallel import parallel_execute
 from planning.sequence.physics_planner import MultiPartPathPlanner, MultiPartStabilityPlanner, MultiPartNoForceStabilityPlanner, get_contact_graph, CONTACT_EPS
-from matrix_code.IM_Generation.functions import evaluate_pair_interference, identify_ground_parts
+from matrix_code.IM_Generation.functions import evaluate_pair_interference, identify_ground_parts, get_low_poly_proxy
 
-def generate_straight_path(assembly_dir, part_move_id, action_vec, parts_fix=None, min_sep=None, n_steps=100):
+def jit_check_single_direction(assembly_dir, parts_fix, part_move, action_vec, min_sep=None):
     """
-    Generates a 3D relative displacement path starting from [0, 0, 0] of shape (N, 3),
-    matching Redmax's joint qm output format so assembly_center shifts it correctly.
+    Evaluates a single direction using Hybrid AABB + Exact Math.
+    Designed to run concurrently inside Redmax parallel workers.
     """
+    # Only process pure cardinal directions
+    if np.sum(np.abs(action_vec)) != 1.0:
+        return False, None
+        
     assembly = load_assembly_all_transformed(assembly_dir)
+    
+    part_z_mins = {name: data['mesh_final'].bounds[0][2] for name, data in assembly.items()}
+    global_ground_z = min(part_z_mins.values())
+    ground_parts = [name for name, z_min in part_z_mins.items() if abs(z_min - global_ground_z) <= 1e-3]
+    if part_move in ground_parts and np.allclose(action_vec, [0, 0, -1]):
+        return False, None
+
+    if not parts_fix:
+        path = generate_straight_path(assembly_dir, part_move, action_vec, parts_fix, min_sep, assembly=assembly)
+        return True, path
+
+    axis_idx = np.argmax(np.abs(action_vec))
+    sign_val = action_vec[axis_idx]
+    sign_str = 'pos' if sign_val > 0 else 'neg'
+    axis_name = ['x', 'y', 'z'][axis_idx]
+
+    mesh_a = assembly[part_move]['mesh']
+    center_a = mesh_a.bounding_box.centroid
+    to_origin_a = np.eye(4)
+    to_origin_a[:3, 3] = -center_a
+    part_a_data = {"part_mesh": mesh_a, "to_origin": to_origin_a}
+    bounds_a = assembly[part_move]['mesh_final'].bounds
+
+    for p_fix in parts_fix:
+        bounds_b = assembly[p_fix]['mesh_final'].bounds
+        
+        # --- AABB GATE ---
+        tol = 1e-3
+        overlap_2d = True
+        for i in range(3):
+            if i == axis_idx: continue
+            if bounds_a[1][i] <= bounds_b[0][i] + tol or bounds_a[0][i] >= bounds_b[1][i] - tol:
+                overlap_2d = False
+                break
+                
+        blocked = False
+        if overlap_2d:
+            if sign_str == 'pos':
+                if bounds_b[1][axis_idx] > bounds_a[0][axis_idx] + tol:
+                    # EXACT FALLBACK
+                    mesh_b = assembly[p_fix]['mesh_final']
+                    pos_val, _ = evaluate_pair_interference(
+                        part_a_data, {"part_mesh": mesh_b}, axis_name, override_w_tol=0.01
+                    )
+                    if pos_val > 0: blocked = True
+            else:
+                if bounds_b[0][axis_idx] < bounds_a[1][axis_idx] - tol:
+                    # EXACT FALLBACK
+                    mesh_b = assembly[p_fix]['mesh_final']
+                    _, neg_val = evaluate_pair_interference(
+                        part_a_data, {"part_mesh": mesh_b}, axis_name, override_w_tol=0.01
+                    )
+                    if neg_val > 0: blocked = True
+
+        if blocked:
+            return False, None
+
+    path = generate_straight_path(assembly_dir, part_move, action_vec, parts_fix, min_sep, assembly=assembly)
+    return True, path
+
+def generate_straight_path(assembly_dir, part_move_id, action_vec, parts_fix=None, min_sep=None, n_steps=100, assembly=None):
+    """
+    Generates a 3D relative displacement path starting from [0, 0, 0].
+    Accepts pre-loaded assembly to prevent disk I/O bottlenecks.
+    """
+    if assembly is None:
+        assembly = load_assembly_all_transformed(assembly_dir)
+        
     mesh_a = assembly[part_move_id]['mesh_final']
     
     active_min_sep = min_sep if min_sep is not None else 0.5
@@ -53,12 +126,11 @@ def generate_straight_path(assembly_dir, part_move_id, action_vec, parts_fix=Non
 
 def jit_check_cardinal_extractions(assembly_dir, parts_fix, part_move, min_sep=None):
     """
-    Tests cardinal directions analytically using 2.5D projection math 
-    with direct ground boundary checks tailored to load_assembly_all_transformed.
+    Pure serial JIT. Relies on the outer multiprocessing pool from run_preced_plan.
+    Uses PseudoFace facet counting to safely abort on highly complex contact geometry.
     """
     assembly = load_assembly_all_transformed(assembly_dir)
     
-    # Ground plane awareness check
     part_z_mins = {name: data['mesh_final'].bounds[0][2] for name, data in assembly.items()}
     global_ground_z = min(part_z_mins.values())
     ground_parts = [name for name, z_min in part_z_mins.items() if abs(z_min - global_ground_z) <= 1e-3]
@@ -71,7 +143,8 @@ def jit_check_cardinal_extractions(assembly_dir, parts_fix, part_move, min_sep=N
             part_move_id=part_move, 
             action_vec=action, 
             parts_fix=parts_fix, 
-            min_sep=min_sep
+            min_sep=min_sep,
+            assembly=assembly
         )
         return action, path
 
@@ -80,31 +153,55 @@ def jit_check_cardinal_extractions(assembly_dir, parts_fix, part_move, min_sep=N
     to_origin_a = np.eye(4)
     to_origin_a[:3, 3] = -center_a
     part_a_data = {"part_mesh": mesh_a, "to_origin": to_origin_a}
+    
+    bounds_a = assembly[part_move]['mesh_final'].bounds
 
     cardinal_tests = [
-        (np.array([0, 0, 1]), 'z', 'pos'),   # +Z
-        (np.array([0, 0, -1]), 'z', 'neg'),  # -Z
-        (np.array([1, 0, 0]), 'x', 'pos'),   # +X
-        (np.array([-1, 0, 0]), 'x', 'neg'),  # -X
-        (np.array([0, 1, 0]), 'y', 'pos'),   # +Y
-        (np.array([0, -1, 0]), 'y', 'neg')   # -Y
+        (np.array([0, 0, 1]), 'z', 'pos', 2),   
+        (np.array([0, 0, -1]), 'z', 'neg', 2),  
+        (np.array([1, 0, 0]), 'x', 'pos', 0),   
+        (np.array([-1, 0, 0]), 'x', 'neg', 0),  
+        (np.array([0, 1, 0]), 'y', 'pos', 1),   
+        (np.array([0, -1, 0]), 'y', 'neg', 1)   
     ]
 
-    for action, axis, sign in cardinal_tests:
-        # Block downward motion (-z) if the part is resting on the ground floor
+    for action, axis_name, sign_str, axis_idx in cardinal_tests:
         if is_on_ground and np.allclose(action, [0, 0, -1]):
             continue
 
         direction_clear = True
         for p_fix in parts_fix:
-            mesh_b = assembly[p_fix]['mesh_final']
-            part_b_data = {"part_mesh": mesh_b}
+            bounds_b = assembly[p_fix]['mesh_final'].bounds
+            
+            tol = 1e-3
+            overlap_2d = True
+            for i in range(3):
+                if i == axis_idx: continue
+                if bounds_a[1][i] <= bounds_b[0][i] + tol or bounds_a[0][i] >= bounds_b[1][i] - tol:
+                    overlap_2d = False
+                    break
+                    
+            blocked = False
+            if overlap_2d:
+                mesh_b = assembly[p_fix]['mesh_final']
+                
+                # EXACT FALLBACK WITH ABORT THRESHOLD
+                pos_val, neg_val = evaluate_pair_interference(
+                    part_a_data, {"part_mesh": mesh_b}, axis_name, 
+                    override_w_tol=0.01, abort_threshold=75000
+                )
+                
+                # The PseudoFace was too complex, bail to Redmax!
+                if pos_val == -999:
+                    return None, None
 
-            pos_val, neg_val = evaluate_pair_interference(
-                part_a_data, part_b_data, axis, override_w_tol=0.01
-            )
+                if sign_str == 'pos':
+                    if bounds_b[1][axis_idx] > bounds_a[0][axis_idx] + tol:
+                        if pos_val > 0: blocked = True
+                else:
+                    if bounds_b[0][axis_idx] < bounds_a[1][axis_idx] - tol:
+                        if neg_val > 0: blocked = True
 
-            blocked = (pos_val > 0 if sign == 'pos' else neg_val > 0)
             if blocked:
                 direction_clear = False
                 break
@@ -115,7 +212,8 @@ def jit_check_cardinal_extractions(assembly_dir, parts_fix, part_move, min_sep=N
                 part_move_id=part_move, 
                 action_vec=action, 
                 parts_fix=parts_fix, 
-                min_sep=min_sep
+                min_sep=min_sep,
+                assembly=assembly
             )
             return action, path
 
@@ -224,7 +322,7 @@ def check_assemblable_parallel(asset_folder, assembly_dir, parts_fix, part_move,
     # --- JIT ANALYTICAL PRE-FILTER ---
     action, path = jit_check_cardinal_extractions(assembly_dir, parts_fix, part_move, min_sep)
     if action is not None:
-        if debug > 0:
+        if 1:
             print(f'[JIT Pre-Filter] Successfully bypassed Redmax simulation for {part_move} along {action}!')
         if return_path:
             return action, path
