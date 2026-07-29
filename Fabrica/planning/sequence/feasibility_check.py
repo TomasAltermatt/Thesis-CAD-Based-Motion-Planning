@@ -191,7 +191,7 @@ def jit_check_cardinal_extractions(assembly_dir, parts_fix, part_move, min_sep=N
                     override_w_tol=0.01, abort_threshold=75000
                 )
                 
-                # The PseudoFace was too complex, bail to Redmax!
+                # If we get too heavy a matrix check we simulate
                 if pos_val == -999:
                     return None, None
 
@@ -445,6 +445,28 @@ def check_ground_collision(assembly_dir, parts):
     col_manager_ground.add_object('ground', ground_mesh)
     in_collision, col_pairs = col_manager.in_collision_other(col_manager_ground, return_names=True)
     parts_in_collision = [col_pair[0] for col_pair in col_pairs]
+    return parts_in_collision
+
+def new_check_ground_collision(assembly_dir, parts):
+    '''
+    Check if parts collide with ground mathematically.
+    Bypasses the heavy CollisionManager entirely.
+    '''
+    assembly = load_assembly_all_transformed(assembly_dir)
+    
+    parts_in_collision = []
+    
+    # The original ground box was Z-thickness 0.2, centered at origin.
+    # Therefore, its top face is at Z = 0.1. 
+    # Any part crossing Z = 0.1 + microscopic noise is touching the ground.
+    ground_z_threshold = 0.1 + 1e-5 
+
+    for part_id in parts:
+        part_z_min = assembly[part_id]['mesh_final'].bounds[0][2]
+        
+        if part_z_min <= ground_z_threshold:
+            parts_in_collision.append(part_id)
+            
     return parts_in_collision
 
 

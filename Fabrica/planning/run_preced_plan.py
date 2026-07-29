@@ -22,7 +22,7 @@ import trimesh
 
 from assets.load import load_part_ids, load_config
 from planning.robot.geometry import load_part_meshes
-from planning.sequence.feasibility_check import check_assemblable_parallel, check_path_collision, check_ground_collision, CONTACT_EPS
+from planning.sequence.feasibility_check import check_assemblable_parallel, check_path_collision, check_ground_collision, new_check_ground_collision, CONTACT_EPS
 from planning.robot.workcell import get_assembly_center
 from utils.parallel import parallel_execute
 from matrix_code.IM_Generation.functions import load_fabrica_assembly_from_folder, calculate_IM_matrices, get_freedom_score, get_free_directions
@@ -181,7 +181,7 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
 
         # Check if any part is touching the ground
         if len(tier) > 1 and len(parts_assembled) == 0:
-            parts_on_ground = check_ground_collision(assembly_dir, list(tier.keys()))
+            parts_on_ground = new_check_ground_collision(assembly_dir, list(tier.keys()))
             assert len(parts_on_ground) > 0, f'No parts in {list(tier.keys())} touches the ground'
             parts_floating = list(set(tier.keys()) - set(parts_on_ground))
             tier_floating, tier_on_ground = {part: tier[part] for part in parts_floating}, {part: tier[part] for part in parts_on_ground}

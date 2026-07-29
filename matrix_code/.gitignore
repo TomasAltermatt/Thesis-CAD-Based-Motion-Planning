@@ -2,6 +2,7 @@
 STLs/
 Parts and Assemblies/
 output_matrices/
+*.sdf
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
