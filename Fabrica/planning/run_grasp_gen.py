@@ -58,10 +58,10 @@ class GraspGenerator:
         
         # ground and fixture
         self.ground_col_manager = trimesh.collision.CollisionManager()
-        ground_mesh = trimesh.creation.box((1000, 1000, 0.4)) # NOTE: 0.2cm safety
-        self.ground_col_manager.add_object('ground', ground_mesh)
-        fixture_box = trimesh.creation.box((MAX_BIN_SIZE_BLOCKING[0], MAX_BIN_SIZE_BLOCKING[1], 100.0), transform=trimesh.transformations.translation_matrix([0, MAX_BIN_SIZE_BLOCKING[1] / 2 + get_fixture_min_y(arm_type), 50.0]))
-        self.ground_col_manager.add_object('fixture', fixture_box)
+        self.ground_mesh = trimesh.creation.box((1000, 1000, 0.4)) # NOTE: 0.2cm safety
+        self.ground_col_manager.add_object('ground', self.ground_mesh)
+        self.fixture_box = trimesh.creation.box((MAX_BIN_SIZE_BLOCKING[0], MAX_BIN_SIZE_BLOCKING[1], 100.0), transform=trimesh.transformations.translation_matrix([0, MAX_BIN_SIZE_BLOCKING[1] / 2 + get_fixture_min_y(arm_type), 50.0]))
+        self.ground_col_manager.add_object('fixture', self.fixture_box)
 
         # sampling budget
         self.n_surface_pt = n_surface_pt

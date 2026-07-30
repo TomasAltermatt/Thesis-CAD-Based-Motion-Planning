@@ -31,6 +31,37 @@ class GraspArmGenerator(GraspGenerator):
     def __init__(self, asset_folder, assembly_dir, preced_graph, gripper_type=None, arm_type=None, has_ft_sensor=None, seed=0, n_surface_pt=100, n_angle=10, antipodal_thres=0.95, ik_optimizer=None, ik_regularization=None, offset_delta=0.0, reduced_limit=0.0):
         GraspGenerator.__init__(self, asset_folder, assembly_dir, preced_graph, gripper_type=gripper_type, arm_type=arm_type, has_ft_sensor=has_ft_sensor['move'] or has_ft_sensor['hold'], seed=seed, n_surface_pt=n_surface_pt, n_angle=n_angle, antipodal_thres=antipodal_thres, offset_delta=offset_delta)
 
+        # New attribute to save part things
+        self.part_extraction_tunnels = {}
+        for part_id in self.part_ids:
+            path = self.G_preced.nodes[part_id]['path']
+            if path is not None:
+                # --- 1. CHECK THE ENTIRE PATH ---
+                # Densely sample the path (e.g., 50 points) to capture its true continuous geometry
+                full_path_transforms = get_transform_from_path(path, n_sample=50)
+                
+                positions = [t[:3, 3] for t in full_path_transforms]
+                total_dist = sum(np.linalg.norm(positions[i+1] - positions[i]) for i in range(len(positions)-1))
+                direct_dist = np.linalg.norm(positions[-1] - positions[0])
+                
+                # --- 2. THE STRICT GATE ---
+                # If the FULL continuous path length matches the direct distance, it's truly straight
+                if abs(total_dist - direct_dist) < 1e-3:
+                    
+                    # 3. ONLY THEN do we build the 3-timestep tunnel for the FCL loop bypass
+                    part_transforms = get_transform_from_path(path, n_sample=3)
+                    raw_bounds = self.part_meshes[part_id].bounds
+                    bounds_hom = np.hstack((raw_bounds, np.ones((2, 1))))
+
+                    start_bounds = (part_transforms[1] @ bounds_hom.T).T[:, :3]
+                    end_bounds = (part_transforms[-1] @ bounds_hom.T).T[:, :3]
+                    
+                    # Cache the master tunnel boundaries ONCE
+                    self.part_extraction_tunnels[part_id] = {
+                        'min': np.minimum(np.min(start_bounds, axis=0), np.min(end_bounds, axis=0)),
+                        'max': np.maximum(np.max(start_bounds, axis=0), np.max(end_bounds, axis=0))
+                    }
+        
         # arm
         self.arm_type = arm_type
         self.arm_meshes = load_arm_meshes(arm_type, asset_folder)
@@ -152,6 +183,32 @@ class GraspArmGenerator(GraspGenerator):
                     else: # move grasp infeasible
                         grasps['move'] = None
                         break
+
+                #----------------------- NEW gripper-ground collision (DIDNT WORK, SLOWER)------------------------------------------------------
+                # ground_inters_tol = 1e-4
+                # gripper_collides_ground = False
+                # ground_limit = self.ground_mesh.bounds[0][0] + ground_inters_tol # use bounds since its a parallelepiped
+
+                # for name, transform in gripper_transforms.items():
+                #     mesh_vertices = self.gripper_meshes_buffered[name].vertices
+
+                #     mesh_vertices_extended = np.hstack((mesh_vertices, np.ones((len(mesh_vertices), 1))))
+                #     mesh_vertices_transformed = (transform @ mesh_vertices_extended.T).T # we transpose since it's hstack
+                #     lowest_z_coord = np.min(mesh_vertices_transformed[:,2]) # out of all coordinates i get the one with lowest z value
+
+                #     if lowest_z_coord <= ground_limit:
+                #         gripper_collides_ground = True
+
+                #     if gripper_collides_ground:
+                #         if verbose: print('[check_grasp_feasible] gripper-ground collision')
+                #         if timestep == 0: # move and hold grasp both infeasible
+                #             return None
+                #         else: # move grasp infeasible
+                #             grasps['move'] = None
+                #             break
+                
+                # -------------------------------------------------------------------------------------------------------
+
                 
                 # check gripper-part collision
                 _, contact_data = self.gripper_col_manager.in_collision_other(self.part_col_manager, return_data=True)
@@ -296,6 +353,7 @@ class GraspArmGenerator(GraspGenerator):
         '''
         Check retract grasp reachability
         '''
+        # This one is difficult to change, this computes the approach before getting to the part (not the same as the path)
         if grasps['move'] is not None:
             grasps['move'][0] = self.compute_retract_grasp(grasps['move'][0], 'move')
             if grasps['move'][0].arm_q_retract is None:
@@ -328,12 +386,37 @@ class GraspArmGenerator(GraspGenerator):
             arm_transforms = get_arm_meshes_transforms(self.arm_meshes_buffered, arm_chain, arm_q)
             self.apply_transforms_to_col_manager(self.arm_col_manager_buffered, arm_transforms)
 
+            # --- ADDED: FAST GRIPPER BOUNDS CALCULATION ---
+            # Calculate the static bounding box of the hold gripper ONCE per grasp
+            gripper_bounds_list = []
+            for name, transform in gripper_transforms.items():
+                bounds_hom = np.hstack((self.gripper_meshes_buffered[name].bounds, np.ones((2, 1))))
+                transformed_bounds = (transform @ bounds_hom.T).T[:, :3]
+                gripper_bounds_list.append(transformed_bounds)
+            gripper_bounds_arr = np.vstack(gripper_bounds_list)
+            gripper_min = np.min(gripper_bounds_arr, axis=0)
+            gripper_max = np.max(gripper_bounds_arr, axis=0)
+            # ----------------------------------------------
+
             for part_id_i in self.part_ids:
                 path = self.G_preced.nodes[part_id_i]['path']
-                if path is not None:
-                    part_transforms = get_transform_from_path(path, n_sample=n_timestep)
-                else:
+                if path is None:
                     continue
+
+                # --- NEW: PULL FROM CACHE & FAST GATE ---
+                # Only straight paths made it into the dictionary during __init__
+                if part_id_i in self.part_extraction_tunnels:
+                    tunnel = self.part_extraction_tunnels[part_id_i]
+                    # If they don't overlap, set flag to skip FCL for the gripper!
+                    skip_gripper_fcl = np.any(tunnel['max'] < gripper_min) or np.any(tunnel['min'] > gripper_max)
+                    
+                else:
+                    # It was a curved path, so we force standard FCL checks
+                    skip_gripper_fcl = False
+                # ----------------------------------------
+                skip_gripper_fcl = False
+                # We still need the transforms here for the arm check and standard FCL fallback
+                part_transforms = get_transform_from_path(path, n_sample=n_timestep)
 
                 for part_transform in part_transforms[1:]:
 
@@ -341,12 +424,14 @@ class GraspArmGenerator(GraspGenerator):
                     part_final_transforms[part_id_i] = part_transform
                     self.apply_transforms_to_col_manager(self.part_col_manager, part_final_transforms)
 
-                    # check gripper-part collision
-                    _, objs_in_collision = self.gripper_col_manager_buffered.in_collision_other(self.part_col_manager, return_names=True)
-                    for obj_pair in objs_in_collision:
-                        if part_id_i in obj_pair:
-                            parts_in_collision_hold['move'].add(part_id_i)
-                            break
+
+                    # check gripper-part collision (Bypassed if our math gate is True!)
+                    if not skip_gripper_fcl:
+                        _, objs_in_collision = self.gripper_col_manager_buffered.in_collision_other(self.part_col_manager, return_names=True)
+                        for obj_pair in objs_in_collision:
+                            if part_id_i in obj_pair:
+                                parts_in_collision_hold['move'].add(part_id_i)
+                                break
                     if part_id_i in parts_in_collision_hold['move']:
                         break
                     
@@ -465,11 +550,96 @@ class GraspArmGenerator(GraspGenerator):
             print(f'[generate_grasps] {len(grasps["move"])} move grasps and {len(grasps["hold"])} hold grasps generated for part {part_id}')
         
         return grasps
+
+    def new_generate_grasps(self, part_id, max_n_grasp=None, n_proc=1, verbose=False):
+        grasps_cand = []
+        grasp_id = 0
+
+        part_mesh = self.part_meshes[part_id].copy()
+        part_mesh.apply_transform(self.part_final_transforms[part_id])
+
+        collision_meshes = []
+        # for part_after in self.G_preced.nodes[part_id]['parts_after']: # NOTE: disabled due to slowing down
+        #     collision_meshes.append(self.part_meshes[part_after].copy().apply_transform(self.part_final_transforms[part_after]))
+
+        # compute antipodal points
+        antipodal_pairs = compute_antipodal_pairs(part_mesh, sample_budget=self.n_surface_pt, antipodal_thres=self.antipodal_thres, collision_meshes=collision_meshes)
+        for antipodal_points in antipodal_pairs:
+            open_ratio = get_gripper_open_ratio(self.gripper_type, antipodal_points)
+            if open_ratio is None or open_ratio > 0.95: continue
+
+            # compute grasps
+            for antipodal_points_i in [antipodal_points]:
+            # for antipodal_points_i in [antipodal_points, antipodal_points[::-1]]: # NOTE: more grasps but slower
+                gripper_pos_list, gripper_quat_list = generate_gripper_states(self.gripper_type, antipodal_points_i, open_ratio, self.n_angle, offset_delta=self.offset_delta)
+                for gripper_pos, gripper_quat in zip(gripper_pos_list, gripper_quat_list):
+                    grasp = Grasp(part_id, grasp_id, gripper_pos, gripper_quat, open_ratio)
+                    grasp_id += 1
+                    grasps_cand.append(grasp)
+
+        # calculate gripper-part contact area
+        grasps_cand_new = []
+        args = [(grasp, part_id, self.n_surface_pt) for grasp in grasps_cand]
+        for grasp in parallel_execute(self.compute_contact_points, args, num_proc=n_proc, show_progress=verbose, desc='contact area computation'):
+            if len(grasp.contact_points) == 0:
+                continue
+            grasps_cand_new.append(grasp)
+        grasps_cand = grasps_cand_new
+
+        # check grasp feasibility
+        grasps_new = {'move': [], 'hold': []}
+        
+        if max_n_grasp is not None:
+            # 1. Shuffle candidates so we get a diverse spread of angles
+            np.random.shuffle(grasps_cand)
+            
+            # 2. Evaluate in small batches (3x the limit is a safe heuristic for passing yield)
+            chunk_size = max_n_grasp * 3 
+            
+            for i in range(0, len(grasps_cand), chunk_size):
+                chunk = grasps_cand[i : i + chunk_size]
+                args = [(grasp, part_id, False if n_proc > 1 else verbose) for grasp in chunk]
+                
+                # Run the heavy feasibility check on just this small chunk
+                for grasp in parallel_execute(self.check_grasp_feasible, args, num_proc=n_proc, show_progress=verbose, desc=f'grasp generation (batch {i//chunk_size + 1})'):
+                    if grasp is not None:
+                        if grasp['move'] is not None:
+                            grasps_new['move'].append(grasp['move'])
+                        if grasp['hold'] is not None:
+                            grasps_new['hold'].append(grasp['hold'])
+                
+                # 3. EARLY EXIT: If we hit our quota for BOTH, stop processing!
+                if len(grasps_new['move']) >= max_n_grasp and len(grasps_new['hold']) >= max_n_grasp:
+                    break
+        else:
+            # Standard execution if no limit is provided
+            args = [(grasp, part_id, False if n_proc > 1 else verbose) for grasp in grasps_cand]
+            for grasp in parallel_execute(self.check_grasp_feasible, args, num_proc=n_proc, show_progress=verbose, desc='grasp generation'):
+                if grasp is not None:
+                    if grasp['move'] is not None:
+                        grasps_new['move'].append(grasp['move'])
+                    if grasp['hold'] is not None:
+                        grasps_new['hold'].append(grasp['hold'])
+
+        grasps = grasps_new
+
+        # limit number of grasps (Exact cutoff, as our final batch might have slightly overshot)
+        if max_n_grasp is not None:
+            random_move_indices = np.random.choice(len(grasps['move']), min(max_n_grasp, len(grasps['move'])), replace=False)
+            grasps['move'] = [grasps['move'][i] for i in random_move_indices]
+            grasps['hold'] = np.random.choice(grasps['hold'], min(max_n_grasp, len(grasps['hold'])), replace=False).tolist()
+
+        if verbose:
+            print(f'[generate_grasps] {len(grasps["move"])} move grasps and {len(grasps["hold"])} hold grasps generated for part {part_id}')
+        
+        return grasps
+    
+
     
     def generate_grasps_all(self, max_n_grasp=None, n_proc=1, verbose=False):
         grasps = {part_id: [] for part_id in self.part_ids}
         args = [(part_id, max_n_grasp, max(n_proc // len(self.part_ids), 1), False) for part_id in self.part_ids]
-        for grasps_i, ret_arg in parallel_execute(self.generate_grasps, args, num_proc=min(n_proc, len(self.part_ids)), return_args=True, show_progress=verbose, desc='grasp generation'):
+        for grasps_i, ret_arg in parallel_execute(self.new_generate_grasps, args, num_proc=min(n_proc, len(self.part_ids)), return_args=True, show_progress=verbose, desc='grasp generation'):
             part_id = ret_arg[0]
             grasps[part_id] = grasps_i
             # self.visualize_grasps([g[0] for g in grasps_i['move']] + grasps_i['hold'])
