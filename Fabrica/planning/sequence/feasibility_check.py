@@ -431,6 +431,100 @@ def check_path_collision(assembly_dir, part_move, parts_other, path, n_sample=No
                     parts_in_collision.append(col_pair[0])
     return parts_in_collision
 
+def new_check_path_collision(assembly_dir, part_move, parts_other, path, n_sample=None):
+    '''
+    Check if path of part_move collides with parts_other.
+    Identifies straight cardinal paths and routes them through the analytical interference matrix math.
+    Falls back to FCL CollisionManager ONLY if the path is complex or the abort threshold is hit.
+    '''
+    if len(parts_other) == 0: return []
+    
+    assembly = load_assembly_all_transformed(assembly_dir)
+    
+    path_arr = np.array(path)
+    pts = path_arr[:, :3]
+    
+    # 1. Determine if the path is a straight line
+    direction = pts[-1] - pts[0]
+    dir_norm = np.linalg.norm(direction)
+    
+    is_cardinal_straight = False
+    axis_name = None
+    sign_str = None
+    
+    if dir_norm > 1e-6:
+        action_vec = direction / dir_norm
+        segments = pts[1:] - pts[:-1]
+        seg_norms = np.linalg.norm(segments, axis=1, keepdims=True)
+        valid_mask = (seg_norms > 1e-6).flatten()
+        
+        if np.any(valid_mask):
+            seg_dirs = segments[valid_mask] / seg_norms[valid_mask]
+            dots = np.dot(seg_dirs, action_vec)
+            is_straight = np.allclose(dots, 1.0, atol=1e-3)
+            
+            # 2. If straight, check if it corresponds to a cardinal vector
+            if is_straight:
+                abs_vec = np.abs(action_vec)
+                if np.max(abs_vec) > 0.999: # Basically perfectly aligned with X, Y, or Z
+                    axis_idx = np.argmax(abs_vec)
+                    axis_name = ['x', 'y', 'z'][axis_idx]
+                    sign_str = 'pos' if action_vec[axis_idx] > 0 else 'neg'
+                    is_cardinal_straight = True
+
+    suspects_for_fcl = []
+    parts_in_collision = []
+    
+    # Pre-calculate the moving part transformation once if we are running cardinal math
+    if is_cardinal_straight:
+        mesh_a = assembly[part_move]['mesh']
+        center_a = mesh_a.bounding_box.centroid
+        to_origin_a = np.eye(4)
+        to_origin_a[:3, 3] = -center_a
+        part_a_data = {"part_mesh": mesh_a, "to_origin": to_origin_a}
+    
+    for part_other in parts_other:
+        if is_cardinal_straight:
+            # 3. Run complete interference check with the threshold
+            mesh_b = assembly[part_other]['mesh_final']
+            
+            # evaluate_pair_interference natively handles the AABB filtering internally
+            pos_val, neg_val = evaluate_pair_interference(
+                part_a_data, {"part_mesh": mesh_b}, axis_name, 
+                override_w_tol=0.01, abort_threshold=50000
+            )
+            
+            if pos_val == -999:
+                # Threshold surpassed, must run CollisionManager
+                suspects_for_fcl.append(part_other)
+            else:
+                # We got a definitive mathematical answer!
+                val = pos_val if sign_str == 'pos' else neg_val
+                if val > 0:
+                    parts_in_collision.append(part_other)
+        else:
+            # Path is chamfered or non-cardinal, send directly to FCL
+            suspects_for_fcl.append(part_other)
+
+    # 4. FCL Collision Manager fallback ONLY for threshold breaches or complex paths
+    if suspects_for_fcl:
+        col_manager_move = trimesh.collision.CollisionManager()
+        col_manager_move.add_object(part_move, assembly[part_move]['mesh'])
+        
+        col_manager_other = trimesh.collision.CollisionManager()
+        for part_id in suspects_for_fcl:
+            col_manager_other.add_object(part_id, assembly[part_id]['mesh_final'])
+            
+        transforms = get_transform_from_path(path, n_sample=n_sample)
+        for transform in transforms:
+            col_manager_move.set_transform(part_move, transform)
+            in_collision, col_pairs = col_manager_other.in_collision_other(col_manager_move, return_names=True)
+            if in_collision:
+                for col_pair in col_pairs:
+                    if col_pair[0] not in parts_in_collision:
+                        parts_in_collision.append(col_pair[0])
+                        
+    return parts_in_collision
 
 def check_ground_collision(assembly_dir, parts):
     '''

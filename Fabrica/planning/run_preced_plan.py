@@ -22,7 +22,7 @@ import trimesh
 
 from assets.load import load_part_ids, load_config
 from planning.robot.geometry import load_part_meshes
-from planning.sequence.feasibility_check import check_assemblable_parallel, check_path_collision, check_ground_collision, new_check_ground_collision, CONTACT_EPS
+from planning.sequence.feasibility_check import check_assemblable_parallel, check_path_collision, new_check_path_collision, check_ground_collision, new_check_ground_collision, CONTACT_EPS
 from planning.robot.workcell import get_assembly_center
 from utils.parallel import parallel_execute
 from matrix_code.IM_Generation.functions import load_fabrica_assembly_from_folder, calculate_IM_matrices, get_freedom_score, get_free_directions
