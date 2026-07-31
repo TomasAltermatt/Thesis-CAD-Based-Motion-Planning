@@ -586,21 +586,21 @@ class GraspArmGenerator(GraspGenerator):
             grasps_cand_new.append(grasp)
         grasps_cand = grasps_cand_new
 
-        # check grasp feasibility
+        # check grasp feasibility (NEW)
         grasps_new = {'move': [], 'hold': []}
         
         if max_n_grasp is not None:
-            # 1. Shuffle candidates so we get a diverse spread of angles
+            # we shuffle before evaluating feasibility to preserve equivalnece
             np.random.shuffle(grasps_cand)
             
-            # 2. Evaluate in small batches (3x the limit is a safe heuristic for passing yield)
+            # separate to chunks (?)
             chunk_size = max_n_grasp * 3 
             
             for i in range(0, len(grasps_cand), chunk_size):
                 chunk = grasps_cand[i : i + chunk_size]
                 args = [(grasp, part_id, False if n_proc > 1 else verbose) for grasp in chunk]
                 
-                # Run the heavy feasibility check on just this small chunk
+                # run same parallel execution 
                 for grasp in parallel_execute(self.check_grasp_feasible, args, num_proc=n_proc, show_progress=verbose, desc=f'grasp generation (batch {i//chunk_size + 1})'):
                     if grasp is not None:
                         if grasp['move'] is not None:
@@ -608,7 +608,7 @@ class GraspArmGenerator(GraspGenerator):
                         if grasp['hold'] is not None:
                             grasps_new['hold'].append(grasp['hold'])
                 
-                # 3. EARLY EXIT: If we hit our quota for BOTH, stop processing!
+                # early exit (we only register feasible grasps until we get maximum permissible number)
                 if len(grasps_new['move']) >= max_n_grasp and len(grasps_new['hold']) >= max_n_grasp:
                     break
         else:
