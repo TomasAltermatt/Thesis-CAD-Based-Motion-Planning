@@ -152,7 +152,7 @@ def jit_check_cardinal_extractions(assembly_dir, parts_fix, part_move, min_sep=N
     center_a = mesh_a.bounding_box.centroid
     to_origin_a = np.eye(4)
     to_origin_a[:3, 3] = -center_a
-    part_a_data = {"part_mesh": mesh_a, "to_origin": to_origin_a}
+    part_a_data = {"part_mesh": mesh_a, "to_origin": to_origin_a, 'part_id': part_move}
     
     bounds_a = assembly[part_move]['mesh_final'].bounds
 
@@ -175,11 +175,12 @@ def jit_check_cardinal_extractions(assembly_dir, parts_fix, part_move, min_sep=N
             
             tol = 1e-3
             overlap_2d = True
-            for i in range(3):
-                if i == axis_idx: continue
-                if bounds_a[1][i] <= bounds_b[0][i] + tol or bounds_a[0][i] >= bounds_b[1][i] - tol:
-                    overlap_2d = False
-                    break
+            # for i in range(3):
+            #     if i == axis_idx: continue
+            #     if bounds_a[1][i] <= bounds_b[0][i] + tol or bounds_a[0][i] >= bounds_b[1][i] - tol:
+            #         print(f'2D overlap check clear for part {part_move}, fixed: {p_fix}, Action{action}')
+            #         overlap_2d = False
+            #         break
                     
             blocked = False
             if overlap_2d:
@@ -187,20 +188,24 @@ def jit_check_cardinal_extractions(assembly_dir, parts_fix, part_move, min_sep=N
                 
                 # EXACT FALLBACK WITH ABORT THRESHOLD
                 pos_val, neg_val = evaluate_pair_interference(
-                    part_a_data, {"part_mesh": mesh_b}, axis_name, 
+                    part_a_data, {"part_mesh": mesh_b, 'part_id': p_fix}, axis_name, 
                     override_w_tol=0.01, abort_threshold=75000
                 )
                 
-                # If we get too heavy a matrix check we simulate
+                # ---> FIX: FLAG THE DIRECTION AS FALSE BEFORE BREAKING <---
                 if pos_val == -999:
-                    return None, None
+                    blocked = True
+                    direction_clear = False 
+                    break # try next cardinal direction if too heavy
 
+                # ---> FIX: TRUST THE NARROW PHASE DIRECTIONALITY <---
                 if sign_str == 'pos':
-                    if bounds_b[1][axis_idx] > bounds_a[0][axis_idx] + tol:
-                        if pos_val > 0: blocked = True
+                    if pos_val > 0:
+                        #print(f'\tblocking {sign_str} {axis_name}: parts {part_move} and {p_fix}')
+                        blocked = True
                 else:
-                    if bounds_b[0][axis_idx] < bounds_a[1][axis_idx] - tol:
-                        if neg_val > 0: blocked = True
+                    if neg_val > 0: 
+                        blocked = True
 
             if blocked:
                 direction_clear = False
@@ -322,7 +327,7 @@ def check_assemblable_parallel(asset_folder, assembly_dir, parts_fix, part_move,
     # --- JIT ANALYTICAL PRE-FILTER ---
     action, path = jit_check_cardinal_extractions(assembly_dir, parts_fix, part_move, min_sep)
     if action is not None:
-        if 1:
+        if 0:
             print(f'[JIT Pre-Filter] Successfully bypassed Redmax simulation for {part_move} along {action}!')
         if return_path:
             return action, path
