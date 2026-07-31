@@ -302,8 +302,11 @@ def check_PF_overlap(pf_a: PseudoFace, pf_b: PseudoFace, flush_tol = FLUSH_TOL, 
         candidate_b_indices = np.where(overlap_u & overlap_v)[0]
         
         if len(candidate_b_indices) > 0:
+            # ---> FIX: ADD 1e-4 BUFFER TO PREVENT MESH MISALIGNMENT SKIPS <---
+            # poly_a = Polygon(tri_a).buffer(1e-4)
             poly_a = Polygon(tri_a)
             for idx_b in candidate_b_indices:
+                # poly_b = Polygon(pf_b.triangles_2d[idx_b]).buffer(1e-4)
                 poly_b = Polygon(pf_b.triangles_2d[idx_b])
                 if poly_a.intersects(poly_b):
                     actual_overlap = True
@@ -553,7 +556,7 @@ def primitive_point_projection(pf, facet_idx, primitive_points):
 
     return projected_points_3d
 
-def IM_entry_calculation(pf_a, facet_idx_a, pf_b, facet_idx_b, primitive_points_a, primitive_points_b, interference_type, w_tol = W_TOL, n_tol = ANGLE_NORMAL_TOL):
+def IM_entry_calculation(pf_a, facet_idx_a, pf_b, facet_idx_b, primitive_points_a, primitive_points_b, interference_type, w_tol = W_TOL, n_tol = ANGLE_NORMAL_TOL, use_MRT = False):
     global_idx_a = pf_a.face_indices[facet_idx_a]
     global_idx_b = pf_b.face_indices[facet_idx_b]
 
@@ -631,13 +634,14 @@ def evaluate_narrow_phase(candidates_a, candidates_b, pf_a, pf_b, part_a_aux, pa
             continue
 
         # ---> THE CONSISTENCY FIX <---
-        # Passing the correct 3 arguments exactly as your function requires!
-        hybrid_result = hybrid_facet_intersection_test(poly_a, poly_b, use_MRT)
+        # ---> FIX: MUST USE THE BUFFERED POLYGONS SO THEY ACTUALLY TOUCH! <---
+        hybrid_result = hybrid_facet_intersection_test(poly_a_buf, poly_b_buf, use_MRT)
         
         if hybrid_result not in [1, 2]:
             continue
 
-        primitive_all = get_primitive_points(poly_a, poly_b)
+        # ---> FIX: GET POINTS FROM THE BUFFERED OVERLAP <---
+        primitive_all = get_primitive_points(poly_a_buf, poly_b_buf)
         if len(primitive_all) == 0:
             continue
 
@@ -645,7 +649,7 @@ def evaluate_narrow_phase(candidates_a, candidates_b, pf_a, pf_b, part_a_aux, pa
         primitive_points_b = primitive_point_projection(pf_b, idx_b, primitive_all)
         
         positive_entry, negative_entry = IM_entry_calculation(
-            pf_a, idx_a, pf_b, idx_b, primitive_points_a, primitive_points_b, hybrid_result, w_tol, n_tol
+            pf_a, idx_a, pf_b, idx_b, primitive_points_a, primitive_points_b, hybrid_result, w_tol, n_tol, use_MRT
         )
 
         max_pos = max(max_pos, positive_entry)
@@ -671,7 +675,9 @@ def evaluate_pair_interference(part_a_data, part_b_data, extraction_axis,
 
     # Unpack the pre-calculated data!
     part_a = part_a_data["part_mesh"]
+    part_a_id = part_a_data["part_id"]
     part_b = part_b_data["part_mesh"]
+    part_b_id = part_b_data["part_id"]
     to_origin_A = part_a_data["to_origin"]
     
     part_a_aux, part_b_aux = part_a.copy(), part_b.copy()
@@ -684,6 +690,7 @@ def evaluate_pair_interference(part_a_data, part_b_data, extraction_axis,
     #print(f'\tAABB Overlap Result: {overlap_result}')
     
     # Return immediately if the broad phase gives a definitive answer
+    #if overlap_result != -2: print(f'Broad Phase pass for {part_a_id}, {part_b_id}. Result: {overlap_result} along axis {extraction_axis}')
     if overlap_result == 0: return 0, 0
     if overlap_result == -1: return 0, 2
     if overlap_result == 1: return 2, 0
@@ -740,13 +747,17 @@ def evaluate_pair_interference(part_a_data, part_b_data, extraction_axis,
                 # ---------------------------
 
                 c_pos, c_neg = evaluate_narrow_phase(
-                    candidates_a, candidates_b, pf_a, pf_b, part_a_aux, part_b_aux, use_MRT, w_tol, n_tol)
+                    candidates_a, candidates_b, pf_a, pf_b, part_a_aux, part_b_aux, use_MRT, w_tol, n_tol,
+                    abort_threshold = abort_threshold)
+
+                if c_pos == -999 or c_neg == -999:
+                    return -999, -999
                 
                 if final_pos > max_pos:
-                    #print(f'\tNarrow Phase update: max_pos {final_pos}')
+                    #print(f'\tNarrow Phase update: max_pos {final_pos}, parts {part_a_id}, {part_b_id}, {extraction_axis}')
                     pass
                 if final_neg > max_neg:
-                    #print(f'\tNarrow Phase update: max_neg {final_neg}')
+                    #print(f'\tNarrow Phase update: max_neg {final_neg}, parts {part_a_id}, {part_b_id}, {extraction_axis}')
                     pass
 
                 final_pos, final_neg = max(final_pos, c_pos), max(final_neg, c_neg)
