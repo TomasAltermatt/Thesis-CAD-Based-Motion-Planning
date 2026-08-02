@@ -115,27 +115,40 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
         tier = {}
 
         # Helper function to execute a group of parts via Fabrica's parallel workers
-        def evaluate_group(group_to_test):
-            args, kwargs = [], []
-            for part_move in group_to_test:
-                parts_fix = parts_assembled.copy()
-                parts_fix.remove(part_move)
-                args.append((asset_folder, assembly_dir, parts_fix, part_move))
-                kwargs.append(dict(
-                    num_proc=inner_num_proc, pose=np.eye(4), save_sdf=True, 
-                    return_path=True, optimize_path=True, debug=0, render=False,
-                    directional_matrices=directional_matrices_AABB,  # <--- Pass AABB
-                    master_part_ids=master_part_ids
-                ))
+        # Upgraded helper function to execute a group of parts in chunks
+        def evaluate_group(group_to_test, break_on_success=False):
+            # If breaking early, test in chunks matching available CPU cores
+            chunk_size = num_proc if break_on_success else len(group_to_test)
             
-            if not args:
-                return
+            for i in range(0, len(group_to_test), chunk_size):
+                chunk = group_to_test[i:i+chunk_size]
+                args, kwargs = [], []
                 
-            for (action, path), ret_arg, _ in parallel_execute(check_assemblable_parallel, args, kwargs, num_proc=num_proc, return_args=True, show_progress=verbose, desc='check_assemblable'):
-                if action is not None:
-                    part_move = ret_arg[-1]
-                    parts_assembled.remove(part_move)
-                    tier[part_move] = {'action': action, 'path': path}
+                for part_move in chunk:
+                    parts_fix = parts_assembled.copy()
+                    parts_fix.remove(part_move)
+                    args.append((asset_folder, assembly_dir, parts_fix, part_move))
+                    kwargs.append(dict(
+                        num_proc=inner_num_proc, pose=np.eye(4), save_sdf=True, 
+                        return_path=True, optimize_path=True, debug=0, render=False,
+                        directional_matrices=directional_matrices_AABB,  
+                        master_part_ids=master_part_ids
+                    ))
+                
+                if not args:
+                    continue
+                    
+                found_success = False
+                for (action, path), ret_arg, _ in parallel_execute(check_assemblable_parallel, args, kwargs, num_proc=num_proc, return_args=True, show_progress=verbose, desc='check_assemblable'):
+                    if action is not None:
+                        part_move = ret_arg[-1]
+                        parts_assembled.remove(part_move)
+                        tier[part_move] = {'action': action, 'path': path}
+                        found_success = True
+                
+                # If we found at least one free part in this chunk, stop simulating the deeper parts!
+                if break_on_success and found_success:
+                    break
 
         # BRANCH: Heuristic ON vs OFF
         if use_heuristic:
@@ -219,8 +232,28 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
             
             # --- STAGE 3: PARALLEL WORKER FALLBACK ---
             if len(tier) == 0:
-                print(f'[run_preced_plan] Absolute lock. Evaluating in parallel: {still_locked_parts}')
-                evaluate_group(still_locked_parts)
+                print(f'[run_preced_plan] Absolute lock. Sorting and evaluating in parallel: {still_locked_parts}')
+                
+                # 1. Calculate Lock Severity (total AABB matrix collisions) and Volume
+                lock_severities = {}
+                volumes = {}
+                for p in still_locked_parts:
+                    part_idx = master_part_ids.index(p)
+                    fixed_indices = [master_part_ids.index(pid) for pid in parts_assembled if pid != p]
+                    
+                    # Sum collisions across all 6 global directions
+                    total_cols = sum(np.sum(directional_matrices_AABB[d][part_idx, fixed_indices]) for d in ["+x", "-x", "+y", "-y", "+z", "-z"])
+                    lock_severities[p] = total_cols
+                    
+                    # Fetch volume directly from the fast AABB manifest
+                    bounds = assembly_manifest_AABB[p]['part_mesh'].bounds
+                    volumes[p] = np.prod(bounds[1] - bounds[0])
+                    
+                # 2. Sort primarily by least collisions (outer shell), secondarily by smallest volume
+                still_locked_parts.sort(key=lambda p: (lock_severities[p], volumes[p]))
+                
+                # 3. Evaluate in chunks and BREAK EARLY to save time
+                evaluate_group(still_locked_parts, break_on_success=True)
         else:
             # Original Fabrica baseline behavior
             print(f'[run_preced_plan] Evaluating all parts in parallel: {parts_assembled}')
