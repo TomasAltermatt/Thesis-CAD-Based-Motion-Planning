@@ -3,6 +3,12 @@ import pyvista as pv
 import numpy as np
 import networkx as nx
 import os
+import sys
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+workspace_dir = os.path.abspath(os.path.join(current_dir, '..', '..'))
+sys.path.insert(0, workspace_dir)
+
 import pandas as pd
 import time
 from pathlib import Path
@@ -10,6 +16,32 @@ from .classes import PseudoFace
 from shapely.geometry import Polygon, MultiPolygon, GeometryCollection, LineString, Point
 from itertools import product, permutations
 import fast_simplification
+from Fabrica.utils.parallel import fast_parallel_execute
+from .narrow_phase_c import get_intersecting_pairs_c, fast_any_intersection_c, evaluate_deep_narrow_phase_c
+import multiprocessing
+
+class FastPart:
+    """A lightweight proxy class to replace heavy Trimesh objects in the inner loop."""
+    def __init__(self, triangles, face_normals):
+        self.triangles = triangles
+        self.face_normals = face_normals
+        # Calculate 3D bounding box identically to Trimesh bounds[0], bounds[1]
+        self.bounds = np.array([triangles.min(axis=(0, 1)), triangles.max(axis=(0, 1))])
+
+def transform_mesh_data(triangles, normals, matrix):
+    """Pure NumPy vectorization to apply a 4x4 transform instantly."""
+    # Transform Triangles
+    shape = triangles.shape
+    reshaped = triangles.reshape(-1, 3)
+    ones = np.ones((reshaped.shape[0], 1))
+    homogenous = np.hstack([reshaped, ones])
+    transformed_tris = (homogenous @ matrix.T)[:, :3].reshape(shape)
+    
+    # Transform Normals (Rotation Only)
+    rot_matrix = matrix[:3, :3]
+    transformed_normals = normals @ rot_matrix.T
+    
+    return transformed_tris, transformed_normals
 
 ANGLE_NORMAL_TOL = 0.2
 DISTANCE_TOL = 2e-4
@@ -135,7 +167,7 @@ def check_COAABB_overlap(a_lims, b_lims, epsilon=0.05):
 
 
 ## Pseudo Face overlap test functions 
-def create_PFs(part: trimesh.Trimesh, extraction_axis: str, tolerance = ANGLE_NORMAL_TOL):
+def create_PFs(part: trimesh.Trimesh, extraction_axis: str, adj, tolerance = ANGLE_NORMAL_TOL):
     axis_idx = {"x": 0, "y": 1, "z": 2}
     w_idx = axis_idx[extraction_axis]
 
@@ -149,21 +181,18 @@ def create_PFs(part: trimesh.Trimesh, extraction_axis: str, tolerance = ANGLE_NO
     pos_indices = np.where(pos_mask)[0]
     neg_indices = np.where(neg_mask)[0]
 
-    # Get the raw adjacency list
-    adj = part.face_adjacency
-
-    # ---> FIX 2: Only connect triangles that point the SAME way <---
+    # ---> NOW USING THE INSTANT CACHED ADJACENCY <---
     pos_pairs = adj[np.isin(adj[:, 0], pos_indices) & np.isin(adj[:, 1], pos_indices)]
     neg_pairs = adj[np.isin(adj[:, 0], neg_indices) & np.isin(adj[:, 1], neg_indices)]
 
     # Build the Positive Graph
     G_pos = nx.Graph()
-    G_pos.add_nodes_from(pos_indices) # ---> FIX 3: Saves isolated triangles!
+    G_pos.add_nodes_from(pos_indices)
     G_pos.add_edges_from(pos_pairs)
 
     # Build the Negative Graph
     G_neg = nx.Graph()
-    G_neg.add_nodes_from(neg_indices) # ---> FIX 3: Saves isolated triangles!
+    G_neg.add_nodes_from(neg_indices)
     G_neg.add_edges_from(neg_pairs)
 
     # Combine the isolated components from both graphs
@@ -172,93 +201,8 @@ def create_PFs(part: trimesh.Trimesh, extraction_axis: str, tolerance = ANGLE_NO
     # Convert to a list to ensure compatibility with your PseudoFace class
     return [PseudoFace(part, list(c), extraction_axis) for c in components if len(c) > 0]
 
-# def check_PF_overlap(pf_a: PseudoFace, pf_b: PseudoFace):
-#     result = [0, 0] 
-#     w_idx = pf_a.extraction_axis
 
-#     a_min_u, a_min_v = pf_a.triangles_2d.min(axis=(0,1))
-#     a_max_u, a_max_v = pf_a.triangles_2d.max(axis=(0,1))
-#     a_min_w = pf_a.triangles_3d[:, :, w_idx].min()
-#     a_max_w = pf_a.triangles_3d[:, :, w_idx].max()
-
-#     b_min_u, b_min_v = pf_b.triangles_2d.min(axis=(0,1))
-#     b_max_u, b_max_v = pf_b.triangles_2d.max(axis=(0,1))
-#     b_min_w = pf_b.triangles_3d[:, :, w_idx].min()
-#     b_max_w = pf_b.triangles_3d[:, :, w_idx].max()
-
-#     overlap_min_u = max(a_min_u, b_min_u)
-#     overlap_max_u = min(a_max_u, b_max_u)
-#     overlap_min_v = max(a_min_v, b_min_v)
-#     overlap_max_v = min(a_max_v, b_max_v)
-
-#     # ---> X-AXIS FIX: REVERTED TO <= <---
-#     if not ((overlap_min_u <= overlap_max_u) and (overlap_min_v <= overlap_max_v)):
-#         return [0, 0] 
-    
-#     a_lims = [(a_min_u, a_max_u), (a_min_v, a_max_v)]
-#     b_lims = [(b_min_u, b_max_u), (b_min_v, b_max_v)]
-#     coaabb_overlap = check_COAABB_overlap(a_lims, b_lims)
-
-#     if not coaabb_overlap:
-#         return [0, 0] 
-
-#     # ---> EXACT SHAPELY OVERLAP FILTER <---
-#     # Destroys the "CameraBase Hole" paradox by checking exact polygons, not AABBs!
-#     min_b_all = pf_b.triangles_2d.min(axis=1)
-#     max_b_all = pf_b.triangles_2d.max(axis=1)
-
-#     actual_overlap = False
-#     for tri_a in pf_a.triangles_2d:
-#         min_a = tri_a.min(axis=0)
-#         max_a = tri_a.max(axis=0)
-        
-#         # Fast Array AABB pre-check to save time
-#         overlap_u = (min_a[0] <= max_b_all[:, 0]) & (max_a[0] >= min_b_all[:, 0])
-#         overlap_v = (min_a[1] <= max_b_all[:, 1]) & (max_a[1] >= min_b_all[:, 1])
-
-#         candidate_b_indices = np.where(overlap_u & overlap_v)[0]
-        
-#         # Only build Shapely Polygons for the bounding boxes that actually touch
-#         if len(candidate_b_indices) > 0:
-#             poly_a = Polygon(tri_a)
-#             for idx_b in candidate_b_indices:
-#                 poly_b = Polygon(pf_b.triangles_2d[idx_b])
-#                 if poly_a.intersects(poly_b):
-#                     actual_overlap = True
-#                     break
-#         if actual_overlap:
-#             break
-
-#     if not actual_overlap:
-#         return [0, 0] 
-
-#     # -------------------------------------------------------------
-#     # YOUR 2s ARE EXACTLY AS YOU WROTE THEM. NO -2s.
-#     # -------------------------------------------------------------
-#     if a_max_w >= b_min_w and a_min_w <= b_max_w:
-#         return [-2, -2]  
-
-#     # ---> THE NORMAL CHECK FIX <---
-#     # Solves the ZED trailing edge paradox in Y and Z without breaking X!
-#     # Forces the engine to verify the faces are pointing at each other before declaring a crash.
-#     normal_a = pf_a.part.face_normals[pf_a.face_indices[0]][w_idx]
-#     normal_b = pf_b.part.face_normals[pf_b.face_indices[0]][w_idx]
-
-#     if a_min_w > b_max_w + DISTANCE_TOL:
-#         # A is physically "behind" B. 
-#         # A moving forward ONLY crashes if A faces forward and B faces backward.
-#         if normal_a < -0.1 and normal_b > 0.1:
-#             result[1] = 2 
-            
-#     if b_min_w > a_max_w + DISTANCE_TOL:
-#         # B is physically "behind" A.
-#         # A moving backward ONLY crashes if A faces backward and B faces forward.
-#         if normal_a > 0.1 and normal_b < -0.1:
-#             result[0] = 2  
-
-#     return result
-
-def check_PF_overlap(pf_a: PseudoFace, pf_b: PseudoFace, flush_tol = FLUSH_TOL, angle_tol = ANGLE_NORMAL_TOL):
+def check_PF_overlap_original(pf_a: PseudoFace, pf_b: PseudoFace, flush_tol = FLUSH_TOL, angle_tol = ANGLE_NORMAL_TOL):
     result = [0, 0] 
     w_idx = pf_a.extraction_axis
 
@@ -316,6 +260,90 @@ def check_PF_overlap(pf_a: PseudoFace, pf_b: PseudoFace, flush_tol = FLUSH_TOL, 
 
     if not actual_overlap:
         return [0, 0] 
+
+    # -------------------------------------------------------------
+    # THE KINEMATIC DIRECTIONAL CHECK
+    # -------------------------------------------------------------
+    normal_a_w = pf_a.part.face_normals[pf_a.face_indices[0]][w_idx]
+    normal_b_w = pf_b.part.face_normals[pf_b.face_indices[0]][w_idx]
+
+    # FLUSH TOLERANCE: 
+    # DISTANCE_TOL (0.0002) is too strict for tessellated CAD. 
+    # We use 0.05mm to absorb the natural mesh "criss-crossing" of flush parts.
+    #flush_tol = FLUSH_TOL
+
+    # 1. Deep Volume Overlap 
+    # If they overlap by MORE than the flush tolerance, they are truly embedded in each other.
+    if a_max_w > b_min_w + flush_tol and a_min_w < b_max_w - flush_tol:
+        #print('Deep Volume')
+        return [-2, -2]
+
+    # 2. Flush Contact: A is physically "behind" B (within mesh noise)
+    if abs(a_max_w - b_min_w) <= flush_tol:
+        # A pushing forward (+W) hits B ONLY if A faces +W and B faces -W
+        if normal_a_w > ANGLE_NORMAL_TOL and normal_b_w < -ANGLE_NORMAL_TOL:
+            #print('Flush and crash (+)')
+            result[0] = 2
+
+    # 3. Flush Contact: A is physically "ahead" of B (within mesh noise)
+    if abs(a_min_w - b_max_w) <= flush_tol:
+        # A pushing backward (-W) hits B ONLY if A faces -W and B faces +W
+        if normal_a_w < -ANGLE_NORMAL_TOL and normal_b_w > ANGLE_NORMAL_TOL:
+            #print('Flush and crash (-)')
+            result[1] = 2
+
+    # 4. Trailing Edge Checks (A is entirely behind/ahead with a clear gap > 0.05)
+    if b_min_w > a_max_w + flush_tol:
+        # A is behind B. A moves +W to cross the gap and hit B.
+        if normal_a_w > ANGLE_NORMAL_TOL and normal_b_w < -ANGLE_NORMAL_TOL:
+            #print('Crash (+)')
+            result[0] = 2 
+            
+    if a_min_w > b_max_w + flush_tol:
+        # A is ahead of B. A moves -W to cross the gap and hit B.
+        if normal_a_w < -ANGLE_NORMAL_TOL and normal_b_w > ANGLE_NORMAL_TOL:
+            #print('Crash (-)')
+            result[1] = 2  
+
+    return result
+    
+def check_PF_overlap_cython(pf_a: PseudoFace, pf_b: PseudoFace, flush_tol = FLUSH_TOL, angle_tol = ANGLE_NORMAL_TOL):
+    result = [0, 0] 
+    w_idx = pf_a.extraction_axis
+
+    a_min_u, a_min_v = pf_a.triangles_2d.min(axis=(0,1))
+    a_max_u, a_max_v = pf_a.triangles_2d.max(axis=(0,1))
+    a_min_w = pf_a.triangles_3d[:, :, w_idx].min()
+    a_max_w = pf_a.triangles_3d[:, :, w_idx].max()
+
+    b_min_u, b_min_v = pf_b.triangles_2d.min(axis=(0,1))
+    b_max_u, b_max_v = pf_b.triangles_2d.max(axis=(0,1))
+    b_min_w = pf_b.triangles_3d[:, :, w_idx].min()
+    b_max_w = pf_b.triangles_3d[:, :, w_idx].max()
+
+    overlap_min_u = max(a_min_u, b_min_u)
+    overlap_max_u = min(a_max_u, b_max_u)
+    overlap_min_v = max(a_min_v, b_min_v)
+    overlap_max_v = min(a_max_v, b_max_v)
+
+    if not ((overlap_min_u <= overlap_max_u) and (overlap_min_v <= overlap_max_v)):
+        return [0, 0] 
+    
+    a_lims = [(a_min_u, a_max_u), (a_min_v, a_max_v)]
+    b_lims = [(b_min_u, b_max_u), (b_min_v, b_max_v)]
+    coaabb_overlap = check_COAABB_overlap(a_lims, b_lims)
+
+    if not coaabb_overlap:
+        return [0, 0] 
+
+    # ---> EXACT CYTHON OVERLAP FILTER (EARLY EXIT) <---
+    # We cast to float64 contiguous arrays only when absolutely necessary
+    tris_a = np.ascontiguousarray(pf_a.triangles_2d, dtype=np.float64)
+    tris_b = np.ascontiguousarray(pf_b.triangles_2d, dtype=np.float64)
+    
+    # Let C instantly mathematically prove if ANY triangles touch
+    if not fast_any_intersection_c(tris_a, tris_b):
+        return [0, 0]
 
     # -------------------------------------------------------------
     # THE KINEMATIC DIRECTIONAL CHECK
@@ -593,6 +621,109 @@ def IM_entry_calculation(pf_a, facet_idx_a, pf_b, facet_idx_b, primitive_points_
 
     return a_ij, a_ji
 
+def narrow_phase_chunk_worker(chunk, pf_a, pf_b, use_MRT, w_tol, n_tol):
+    max_pos, max_neg = 0, 0
+    
+    for idx_a, idx_b in chunk:
+        min_a = pf_a.triangles_2d[idx_a].min(axis=0)
+        max_a = pf_a.triangles_2d[idx_a].max(axis=0)
+        min_b = pf_b.triangles_2d[idx_b].min(axis=0)
+        max_b = pf_b.triangles_2d[idx_b].max(axis=0)
+
+        if (min_a[0] > max_b[0] + 1e-5 or max_a[0] < min_b[0] - 1e-5 or
+            min_a[1] > max_b[1] + 1e-5 or max_a[1] < min_b[1] - 1e-5):
+            continue
+
+        poly_a = Polygon(pf_a.triangles_2d[idx_a])
+        poly_b = Polygon(pf_b.triangles_2d[idx_b])
+        
+        buf_tol = 1e-4
+        poly_a_buf = poly_a.buffer(buf_tol)
+        poly_b_buf = poly_b.buffer(buf_tol)
+
+        if not poly_a_buf.intersects(poly_b_buf):
+            continue
+            
+        hybrid_result = hybrid_facet_intersection_test(poly_a_buf, poly_b_buf, use_MRT)
+        
+        if hybrid_result not in [1, 2]:
+            continue
+
+        primitive_all = get_primitive_points(poly_a_buf, poly_b_buf)
+        if len(primitive_all) == 0:
+            continue
+
+        primitive_points_a = primitive_point_projection(pf_a, idx_a, primitive_all)
+        primitive_points_b = primitive_point_projection(pf_b, idx_b, primitive_all)
+        
+        positive_entry, negative_entry = IM_entry_calculation(
+            pf_a, idx_a, pf_b, idx_b, primitive_points_a, primitive_points_b, hybrid_result, w_tol, n_tol, use_MRT
+        )
+
+        max_pos = max(max_pos, positive_entry)
+        max_neg = max(max_neg, negative_entry)
+
+        if max_pos == 2 and max_neg == 2:
+            break 
+
+    return max_pos, max_neg
+
+def evaluate_narrow_phase_parallel(candidates_a, candidates_b, pf_a, pf_b, part_a_aux, part_b_aux, use_MRT, w_tol = W_TOL, n_tol = ANGLE_NORMAL_TOL):
+    
+    all_pairs = list(product(candidates_a, candidates_b))
+    total_pairs = len(all_pairs)
+    
+    if total_pairs == 0:
+        return 0, 0
+    
+    # Gatekeeper: Serial for small workloads
+    if total_pairs < 2000:
+        return narrow_phase_chunk_worker(all_pairs, pf_a, pf_b, use_MRT, w_tol, n_tol)
+        
+    # Chunking Logic for massive workloads
+    num_cores = multiprocessing.cpu_count()
+    chunk_size = max(1, total_pairs // num_cores)
+    chunks = [all_pairs[i:i + chunk_size] for i in range(0, total_pairs, chunk_size)]
+    
+    worker_args = [[chunk, pf_a, pf_b, use_MRT, w_tol, n_tol] for chunk in chunks]
+    global_max_pos, global_max_neg = 0, 0
+    
+    for res_pos, res_neg in fast_parallel_execute(narrow_phase_chunk_worker, worker_args, num_proc=num_cores):
+        global_max_pos = max(global_max_pos, res_pos)
+        global_max_neg = max(global_max_neg, res_neg)
+        if global_max_pos == 2 and global_max_neg == 2:
+            break
+                
+    return global_max_pos, global_max_neg
+
+def evaluate_narrow_phase_parallel(candidates_a, candidates_b, pf_a, pf_b, part_a_aux, part_b_aux, use_MRT, w_tol = W_TOL, n_tol = ANGLE_NORMAL_TOL):
+    
+    all_pairs = list(product(candidates_a, candidates_b))
+    total_pairs = len(all_pairs)
+    
+    if total_pairs == 0:
+        return 0, 0
+    
+    # Gatekeeper: Serial for small workloads
+    if total_pairs < 2000:
+        return narrow_phase_chunk_worker(all_pairs, pf_a, pf_b, use_MRT, w_tol, n_tol)
+        
+    # Chunking Logic for massive workloads
+    num_cores = multiprocessing.cpu_count()
+    chunk_size = max(1, total_pairs // num_cores)
+    chunks = [all_pairs[i:i + chunk_size] for i in range(0, total_pairs, chunk_size)]
+    
+    worker_args = [[chunk, pf_a, pf_b, use_MRT, w_tol, n_tol] for chunk in chunks]
+    global_max_pos, global_max_neg = 0, 0
+    
+    for res_pos, res_neg in fast_parallel_execute(narrow_phase_chunk_worker, worker_args, num_proc=num_cores):
+        global_max_pos = max(global_max_pos, res_pos)
+        global_max_neg = max(global_max_neg, res_neg)
+        if global_max_pos == 2 and global_max_neg == 2:
+            break
+                
+    return global_max_pos, global_max_neg
+
 def evaluate_narrow_phase(candidates_a, candidates_b, pf_a, pf_b, part_a_aux, part_b_aux, use_MRT, w_tol = W_TOL, n_tol = ANGLE_NORMAL_TOL,
                           abort_threshold = None):
     max_pos, max_neg = 0, 0
@@ -660,11 +791,49 @@ def evaluate_narrow_phase(candidates_a, candidates_b, pf_a, pf_b, part_a_aux, pa
 
     return max_pos, max_neg
 
+def evaluate_narrow_phase_cython(candidates_a, candidates_b, pf_a, pf_b, part_a_aux, part_b_aux, use_MRT, w_tol=W_TOL, n_tol=ANGLE_NORMAL_TOL, abort_threshold=None, mrt_tol=1e-4):
+    
+    tris_a_2d = np.ascontiguousarray(pf_a.triangles_2d[candidates_a], dtype=np.float64)
+    tris_b_2d = np.ascontiguousarray(pf_b.triangles_2d[candidates_b], dtype=np.float64)
+    
+    intersecting_pairs = get_intersecting_pairs_c(tris_a_2d, tris_b_2d)
+    
+    if not intersecting_pairs:
+        return 0, 0
+        
+    if abort_threshold is not None and len(intersecting_pairs) > abort_threshold:
+        return -999, -999
+        
+    tris_a_3d = np.ascontiguousarray(pf_a.triangles_3d[candidates_a], dtype=np.float64)
+    tris_b_3d = np.ascontiguousarray(pf_b.triangles_3d[candidates_b], dtype=np.float64)
+    
+    global_indices_a = pf_a.face_indices[candidates_a]
+    global_indices_b = pf_b.face_indices[candidates_b]
+    
+    normals_a = np.ascontiguousarray(pf_a.part.face_normals[global_indices_a], dtype=np.float64)
+    normals_b = np.ascontiguousarray(pf_b.part.face_normals[global_indices_b], dtype=np.float64)
+    
+    w_idx = pf_a.extraction_axis
+    axes = [0, 1, 2]
+    axes.remove(w_idx)
+    u_idx, v_idx = axes[0], axes[1]
+    
+    max_pos, max_neg = evaluate_deep_narrow_phase_c(
+        tris_a_2d, tris_b_2d,
+        tris_a_3d, tris_b_3d,
+        normals_a, normals_b,
+        intersecting_pairs,
+        w_idx, u_idx, v_idx,
+        w_tol, n_tol,
+        use_MRT, mrt_tol       # <--- Pass the new variables to C!
+    )
+    
+    return max_pos, max_neg
 
 ## Main Extraction functions
 def evaluate_pair_interference(part_a_data, part_b_data, extraction_axis,
                                override_dist_tol=None, override_w_tol=None, override_flush_tol=None, override_n_tol=None,
-                               abort_threshold=None):
+                               abort_threshold=None, use_parallel_narrow=False, use_cython=True):
     """Evaluates the maximum interference between two parts along a specific axis."""
 
     # Fallback to your strict defaults if no override is passed
@@ -673,54 +842,62 @@ def evaluate_pair_interference(part_a_data, part_b_data, extraction_axis,
     flush_tol = override_flush_tol if override_flush_tol is not None else FLUSH_TOL
     n_tol = override_n_tol if override_n_tol is not None else ANGLE_NORMAL_TOL
 
-    # Unpack the pre-calculated data!
-    part_a = part_a_data["part_mesh"]
-    part_a_id = part_a_data["part_id"]
-    part_b = part_b_data["part_mesh"]
-    part_b_id = part_b_data["part_id"]
     to_origin_A = part_a_data["to_origin"]
     
-    part_a_aux, part_b_aux = part_a.copy(), part_b.copy()
-    part_a_aux.apply_transform(to_origin_A)
-    part_b_aux.apply_transform(to_origin_A)
-
+    # ---> 1. FAST NATIVE NUMPY TRANSFORMATIONS (NO TRIMESH OVERHEAD) <---
+    tris_a, norms_a = transform_mesh_data(part_a_data["triangles"], part_a_data["face_normals"], to_origin_A)
+    part_a_fast = FastPart(tris_a, norms_a)
+    
+    tris_b, norms_b = transform_mesh_data(part_b_data["triangles"], part_b_data["face_normals"], to_origin_A)
+    part_b_fast = FastPart(tris_b, norms_b)
 
     overlap_region, overlap_result = check_2d_aabb_overlap(
-        part_a_aux.bounding_box.bounds, part_b_aux.bounding_box.bounds, extraction_axis, dist_tol)
-    #print(f'\tAABB Overlap Result: {overlap_result}')
+        part_a_fast.bounds, part_b_fast.bounds, extraction_axis, dist_tol)
     
-    # Return immediately if the broad phase gives a definitive answer
-    #if overlap_result != -2: print(f'Broad Phase pass for {part_a_id}, {part_b_id}. Result: {overlap_result} along axis {extraction_axis}')
     if overlap_result == 0: return 0, 0
     if overlap_result == -1: return 0, 2
     if overlap_result == 1: return 2, 0
     if overlap_result == 2: return 2, 2
 
-    parts_AABB_interfere = check_3D_AABB_intersection(part_a_aux, part_b_aux)
-    use_MRT = check_static_interference(part_a_aux, part_b_aux)
-    if parts_AABB_interfere[2] == True:
-        use_MRT = True
+    parts_AABB_interfere = check_3D_AABB_intersection(part_a_fast, part_b_fast)
+    
+    part_a_aux, part_b_aux = None, None  # <--- INITIALIZE THEM HERE
+    
+    if use_cython:
+        use_MRT = parts_AABB_interfere[2] 
+    else:
+        # ---> ONLY COPY TRIMESH IF THE SLOW PYTHON FALLBACK IS NEEDED <---
+        part_a_aux = part_a_data["part_mesh"].copy()
+        part_b_aux = part_b_data["part_mesh"].copy()
+        part_a_aux.apply_transform(to_origin_A)
+        part_b_aux.apply_transform(to_origin_A)
+        use_MRT = check_static_interference(part_a_aux, part_b_aux)
+        if parts_AABB_interfere[2] == True:
+            use_MRT = True
 
-    # 2. PseudoFace Generation
-    pseudo_faces_a = create_PFs(part_a_aux, extraction_axis)
-    pseudo_faces_b = create_PFs(part_b_aux, extraction_axis)
+    # 2. PseudoFace Generation (Now passing our FastPart!)
+    pseudo_faces_a = create_PFs(part_a_fast, extraction_axis, part_a_data["face_adjacency"])
+    pseudo_faces_b = create_PFs(part_b_fast, extraction_axis, part_b_data["face_adjacency"])
+    
     for pf_a in pseudo_faces_a: pf_a.get_focus_facets(overlap_region)
     for pf_b in pseudo_faces_b: pf_b.get_focus_facets(overlap_region)
 
     max_pos, max_neg = 0, 0
     full_interference = False
     
-    # if extraction_axis == 'y':
-    #     plotter = pv.Plotter()
-    #     visualize_pseudofaces(part_a_aux, pseudo_faces_a, plotter, 1)
-    #     visualize_pseudofaces(part_b_aux, pseudo_faces_b, plotter, 2, show = True)
+
     current_pf_intersect = [0, 0]
+    
     for pf_a, pf_b in product(pseudo_faces_a, pseudo_faces_b):
         if full_interference:
             #print(f'\tFull PF Interference Detected')
             break
             
-        pf_intersect = check_PF_overlap(pf_a, pf_b, flush_tol)
+        # ---> MASTER SWITCH 1: THE GATEKEEPER <---
+        if use_cython:
+            pf_intersect = check_PF_overlap_cython(pf_a, pf_b, flush_tol)
+        else:
+            pf_intersect = check_PF_overlap_original(pf_a, pf_b, flush_tol)
         
         final_pos, final_neg = pf_intersect
         if final_pos == 2 and final_pos != current_pf_intersect[0] and -2 not in pf_intersect:
@@ -744,22 +921,26 @@ def evaluate_pair_interference(part_a_data, part_b_data, extraction_axis,
                 if attempt == "full_fallback" and abort_threshold is not None:
                     if (len(candidates_a) * len(candidates_b)) > abort_threshold:
                         return -999, -999
-                # ---------------------------
 
-                c_pos, c_neg = evaluate_narrow_phase(
-                    candidates_a, candidates_b, pf_a, pf_b, part_a_aux, part_b_aux, use_MRT, w_tol, n_tol,
-                    abort_threshold = abort_threshold)
+                # ---> MASTER SWITCH 2: THE DEEP NARROW PHASE <---
+                if use_cython:
+                    c_pos, c_neg = evaluate_narrow_phase_cython(
+                        candidates_a, candidates_b, pf_a, pf_b, part_a_aux, part_b_aux, use_MRT, w_tol, n_tol,
+                        abort_threshold = abort_threshold
+                    )
+                elif use_parallel_narrow:
+                    c_pos, c_neg = evaluate_narrow_phase_parallel(
+                        candidates_a, candidates_b, pf_a, pf_b, part_a_aux, part_b_aux, use_MRT, w_tol, n_tol
+                    )
+                else:
+                    c_pos, c_neg = evaluate_narrow_phase(
+                        candidates_a, candidates_b, pf_a, pf_b, part_a_aux, part_b_aux, use_MRT, w_tol, n_tol,
+                        abort_threshold = abort_threshold
+                    )
 
                 if c_pos == -999 or c_neg == -999:
                     return -999, -999
                 
-                if final_pos > max_pos:
-                    #print(f'\tNarrow Phase update: max_pos {final_pos}, parts {part_a_id}, {part_b_id}, {extraction_axis}')
-                    pass
-                if final_neg > max_neg:
-                    #print(f'\tNarrow Phase update: max_neg {final_neg}, parts {part_a_id}, {part_b_id}, {extraction_axis}')
-                    pass
-
                 final_pos, final_neg = max(final_pos, c_pos), max(final_neg, c_neg)
                 if final_pos == 2 and final_neg == 2: 
                     break 
@@ -771,7 +952,7 @@ def evaluate_pair_interference(part_a_data, part_b_data, extraction_axis,
     
     return max_pos, max_neg
 
-def calculate_IM_matrices(assembly_manifest):
+def calculate_IM_matrices(assembly_manifest, use_parallel_narrow=False, use_cython=True):
     N = len(assembly_manifest)
     matrices = {d: np.zeros((N, N), dtype=int) for d in ["+x", "-x", "+y", "-y", "+z", "-z"]}
     axis_matrix_map = {"x": ["+x", "-x"], "y": ["+y", "-y"], "z": ["+z", "-z"]}
@@ -795,10 +976,10 @@ def calculate_IM_matrices(assembly_manifest):
 
             # Names perfectly synced with the updated helper function
             pos_val, neg_val = evaluate_pair_interference(
-                part_a_data, part_b_data, extraction_axis)
-            # pos_val, neg_val = evaluate_pair_interference(
-            #     part_a_data, part_b_data, extraction_axis, part_a_name, part_b_name
-            # )
+                part_a_data, part_b_data, extraction_axis, 
+                use_parallel_narrow=use_parallel_narrow, 
+                use_cython=use_cython
+            )
             
             matrices[pos_key][i, j] = pos_val
             matrices[neg_key][i, j] = neg_val
@@ -850,11 +1031,18 @@ def evaluate_optimized_action(part_a_mesh, part_b_mesh, raw_opt_action, tol=1e-5
     # 6. Mock the data dictionaries exactly as your pipeline expects
     temp_a_data = {
         "part_mesh": part_a_mesh,
-        "to_origin": to_origin
+        "to_origin": to_origin,
+        "face_adjacency": part_a_mesh.face_adjacency,
+        "triangles": part_a_mesh.triangles.copy(),      # <--- ADD THIS
+        "face_normals": part_a_mesh.face_normals.copy() # <--- ADD THIS
     }
     
     temp_b_data = {
-        "part_mesh": part_b_mesh
+        "part_mesh": part_b_mesh,
+        "to_origin": np.eye(4),
+        "face_adjacency": part_b_mesh.face_adjacency,
+        "triangles": part_b_mesh.triangles.copy(),      # <--- ADD THIS
+        "face_normals": part_b_mesh.face_normals.copy() # <--- ADD THIS
     }
     
     # 7. Run the existing evaluation strictly along the localized "x" axis
@@ -1043,6 +1231,9 @@ def load_assembly_from_folder(folder_path, bounding_box_type="AABB"):
             
         mesh_geom.merge_vertices()
         
+        # ---> FORCE TRIMESH TO BUILD THE CACHE ONCE <---
+        _ = mesh_geom.face_adjacency
+        
         if bounding_box_type == "OBB":
             # Get the Oriented Bounding Box transformation matrix
             to_origin, extents = trimesh.bounds.oriented_bounds(mesh_geom)
@@ -1083,7 +1274,10 @@ def load_assembly_from_folder(folder_path, bounding_box_type="AABB"):
             "file_path": str(file_path),
             "to_origin": to_origin,             
             "extraction_vectors": extraction_vectors,
-            "center_point": from_origin[:3, 3]   
+            "center_point": from_origin[:3, 3],
+            "face_adjacency": mesh_geom.face_adjacency.copy(),
+            "triangles": mesh_geom.triangles.copy(),       # <--- CACHE RAW ARRAYS
+            "face_normals": mesh_geom.face_normals.copy()  # <--- CACHE RAW ARRAYS
         }
         
         matrix_idx += 1

@@ -114,3 +114,42 @@ def parallel_execute(worker, args, kwargs=None, num_proc=1, show_progress=True, 
 
     if show_progress:
         pbar.close()
+
+def fast_parallel_worker(worker, args, queue, proc_idx):
+    """Bare-metal worker with zero overhead."""
+    result = worker(*args)
+    queue.put([result, proc_idx])
+
+def fast_parallel_execute(worker, args, num_proc=1):
+    """Stripped-down executor for micro-tasks (no UI, no timeouts)."""
+    import multiprocessing as mp
+    
+    queue = mp.Queue()
+    procs = {}
+    n_active_proc = 0
+
+    try:
+        for proc_idx, arg in enumerate(args):
+            if num_proc > 1:
+                proc = mp.Process(target=fast_parallel_worker, args=(worker, arg, queue, proc_idx))
+                proc.start()
+                procs[proc_idx] = proc
+                n_active_proc += 1
+
+                if n_active_proc >= num_proc: 
+                    result, returned_proc_idx = queue.get()
+                    procs.pop(returned_proc_idx)
+                    yield result
+                    n_active_proc -= 1
+            else:
+                yield worker(*arg)
+
+        for _ in range(n_active_proc): 
+            result, returned_proc_idx = queue.get()
+            procs.pop(returned_proc_idx)
+            yield result
+
+    except (Exception, KeyboardInterrupt) as e:
+        for proc in procs.values():
+            proc.terminate()
+        raise e
