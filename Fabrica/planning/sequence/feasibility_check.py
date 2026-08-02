@@ -15,7 +15,7 @@ from assets.transform import get_transform_from_path
 from utils.renderer import SimRenderer
 from utils.parallel import parallel_execute
 from planning.sequence.physics_planner import MultiPartPathPlanner, MultiPartStabilityPlanner, MultiPartNoForceStabilityPlanner, get_contact_graph, CONTACT_EPS
-from matrix_code.IM_Generation.functions import evaluate_pair_interference, identify_ground_parts, get_low_poly_proxy
+from matrix_code.IM_Generation.functions import evaluate_pair_interference, load_fabrica_assembly_from_folder
 
 def jit_check_single_direction(assembly_dir, parts_fix, part_move, action_vec, min_sep=None):
     """
@@ -87,15 +87,13 @@ def jit_check_single_direction(assembly_dir, parts_fix, part_move, action_vec, m
     path = generate_straight_path(assembly_dir, part_move, action_vec, parts_fix, min_sep, assembly=assembly)
     return True, path
 
-def generate_straight_path(assembly_dir, part_move_id, action_vec, parts_fix=None, min_sep=None, n_steps=100, assembly=None):
+def generate_straight_path(assembly_manifest, part_move_id, action_vec, parts_fix=None, min_sep=None, n_steps=100):
     """
     Generates a 3D relative displacement path starting from [0, 0, 0].
-    Accepts pre-loaded assembly to prevent disk I/O bottlenecks.
+    Now uses the blazing fast assembly_manifest.
     """
-    if assembly is None:
-        assembly = load_assembly_all_transformed(assembly_dir)
-        
-    mesh_a = assembly[part_move_id]['mesh_final']
+    # Safely pull the mesh regardless of which loader generated the dictionary
+    mesh_a = assembly_manifest[part_move_id].get('part_mesh', assembly_manifest[part_move_id].get('mesh_final'))
     
     active_min_sep = min_sep if min_sep is not None else 0.5
     
@@ -108,11 +106,11 @@ def generate_straight_path(assembly_dir, part_move_id, action_vec, parts_fix=Non
         total_distance = part_span + active_min_sep
     else:
         if sign > 0:
-            max_fix_upper = max(assembly[pf]['mesh_final'].bounds[1][axis_idx] for pf in parts_fix)
+            max_fix_upper = max(assembly_manifest[pf].get('part_mesh', assembly_manifest[pf].get('mesh_final')).bounds[1][axis_idx] for pf in parts_fix)
             my_lower = my_bounds[0][axis_idx]
             total_distance = max(max_fix_upper - my_lower, 0) + active_min_sep
         else:
-            min_fix_lower = min(assembly[pf]['mesh_final'].bounds[0][axis_idx] for pf in parts_fix)
+            min_fix_lower = min(assembly_manifest[pf].get('part_mesh', assembly_manifest[pf].get('mesh_final')).bounds[0][axis_idx] for pf in parts_fix)
             my_upper = my_bounds[1][axis_idx]
             total_distance = max(my_upper - min_fix_lower, 0) + active_min_sep
 
@@ -124,14 +122,15 @@ def generate_straight_path(assembly_dir, part_move_id, action_vec, parts_fix=Non
         
     return np.array(path)
 
-def jit_check_cardinal_extractions(assembly_dir, parts_fix, part_move, min_sep=None):
+def jit_check_cardinal_extractions(assembly_dir, parts_fix, part_move, min_sep=None, directional_matrices=None, master_part_ids=None):
     """
     Pure serial JIT. Relies on the outer multiprocessing pool from run_preced_plan.
-    Uses PseudoFace facet counting to safely abort on highly complex contact geometry.
+    Uses O(1) matrix lookups if available, or falls back to fast Cython overlap logic.
     """
-    assembly = load_assembly_all_transformed(assembly_dir)
+    part_ids = parts_fix + [part_move]
+    assembly = load_fabrica_assembly_from_folder(assembly_dir, part_ids)
     
-    part_z_mins = {name: data['mesh_final'].bounds[0][2] for name, data in assembly.items()}
+    part_z_mins = {name: data['part_mesh'].bounds[0][2] for name, data in assembly.items()}
     global_ground_z = min(part_z_mins.values())
     ground_parts = [name for name, z_min in part_z_mins.items() if abs(z_min - global_ground_z) <= 1e-3]
     is_on_ground = part_move in ground_parts
@@ -139,73 +138,75 @@ def jit_check_cardinal_extractions(assembly_dir, parts_fix, part_move, min_sep=N
     if not parts_fix:
         action = np.array([0, 0, 1])
         path = generate_straight_path(
-            assembly_dir=assembly_dir, 
+            assembly_manifest=assembly, 
             part_move_id=part_move, 
             action_vec=action, 
             parts_fix=parts_fix, 
-            min_sep=min_sep,
-            assembly=assembly
+            min_sep=min_sep
         )
         return action, path
 
-    mesh_a = assembly[part_move]['mesh']
-    center_a = mesh_a.bounding_box.centroid
-    to_origin_a = np.eye(4)
-    to_origin_a[:3, 3] = -center_a
-    part_a_data = {"part_mesh": mesh_a, "to_origin": to_origin_a, 'part_id': part_move}
-    
-    bounds_a = assembly[part_move]['mesh_final'].bounds
-
+    # Include the matrix string key for easy lookups
     cardinal_tests = [
-        (np.array([0, 0, 1]), 'z', 'pos', 2),   
-        (np.array([0, 0, -1]), 'z', 'neg', 2),  
-        (np.array([1, 0, 0]), 'x', 'pos', 0),   
-        (np.array([-1, 0, 0]), 'x', 'neg', 0),  
-        (np.array([0, 1, 0]), 'y', 'pos', 1),   
-        (np.array([0, -1, 0]), 'y', 'neg', 1)   
+        (np.array([0, 0, 1]), 'z', 'pos', 2, '+z'),   
+        (np.array([0, 0, -1]), 'z', 'neg', 2, '-z'),  
+        (np.array([1, 0, 0]), 'x', 'pos', 0, '+x'),   
+        (np.array([-1, 0, 0]), 'x', 'neg', 0, '-x'),  
+        (np.array([0, 1, 0]), 'y', 'pos', 1, '+y'),   
+        (np.array([0, -1, 0]), 'y', 'neg', 1, '-y')   
     ]
 
-    for action, axis_name, sign_str, axis_idx in cardinal_tests:
+    use_matrices = directional_matrices is not None and master_part_ids is not None
+    
+    if use_matrices:
+        move_idx = master_part_ids.index(part_move)
+    else:
+        part_a_data = assembly[part_move]
+        bounds_a = part_a_data['part_mesh'].bounds
+
+    for action, axis_name, sign_str, axis_idx, dir_key in cardinal_tests:
         if is_on_ground and np.allclose(action, [0, 0, -1]):
             continue
 
         direction_clear = True
         for p_fix in parts_fix:
-            bounds_b = assembly[p_fix]['mesh_final'].bounds
-            
-            tol = 1e-3
-            overlap_2d = True
-            # for i in range(3):
-            #     if i == axis_idx: continue
-            #     if bounds_a[1][i] <= bounds_b[0][i] + tol or bounds_a[0][i] >= bounds_b[1][i] - tol:
-            #         print(f'2D overlap check clear for part {part_move}, fixed: {p_fix}, Action{action}')
-            #         overlap_2d = False
-            #         break
-                    
             blocked = False
-            if overlap_2d:
-                mesh_b = assembly[p_fix]['mesh_final']
-                
-                # EXACT FALLBACK WITH ABORT THRESHOLD
-                pos_val, neg_val = evaluate_pair_interference(
-                    part_a_data, {"part_mesh": mesh_b, 'part_id': p_fix}, axis_name, 
-                    override_w_tol=0.01, abort_threshold=75000
-                )
-                
-                # ---> FIX: FLAG THE DIRECTION AS FALSE BEFORE BREAKING <---
-                if pos_val == -999:
+            
+            # ---> O(1) MATRIX LOOKUP ROUTE <---
+            if use_matrices:
+                fix_idx = master_part_ids.index(p_fix)
+                if directional_matrices[dir_key][move_idx, fix_idx] > 0:
                     blocked = True
-                    direction_clear = False 
-                    break # try next cardinal direction if too heavy
+                    
+            # ---> DYNAMIC CYTHON FALLBACK ROUTE <---
+            else:
+                part_b_data = assembly[p_fix]
+                bounds_b = part_b_data['part_mesh'].bounds
+                
+                tol = 1e-3
+                overlap_2d = True
+                for i in range(3):
+                    if i == axis_idx: continue
+                    if bounds_a[1][i] <= bounds_b[0][i] + tol or bounds_a[0][i] >= bounds_b[1][i] - tol:
+                        overlap_2d = False
+                        break
+                        
+                if overlap_2d:
+                    pos_val, neg_val = evaluate_pair_interference(
+                        part_a_data, part_b_data, axis_name, 
+                        override_w_tol=0.01, abort_threshold=75000,
+                        use_cython=True, use_parallel_narrow=False
+                    )
+                    
+                    if pos_val == -999:
+                        blocked = True
+                        direction_clear = False 
+                        break
 
-                # ---> FIX: TRUST THE NARROW PHASE DIRECTIONALITY <---
-                if sign_str == 'pos':
-                    if pos_val > 0:
-                        #print(f'\tblocking {sign_str} {axis_name}: parts {part_move} and {p_fix}')
-                        blocked = True
-                else:
-                    if neg_val > 0: 
-                        blocked = True
+                    if sign_str == 'pos':
+                        if pos_val > 0: blocked = True
+                    else:
+                        if neg_val > 0: blocked = True
 
             if blocked:
                 direction_clear = False
@@ -213,12 +214,11 @@ def jit_check_cardinal_extractions(assembly_dir, parts_fix, part_move, min_sep=N
 
         if direction_clear:
             path = generate_straight_path(
-                assembly_dir=assembly_dir, 
+                assembly_manifest=assembly, 
                 part_move_id=part_move, 
                 action_vec=action, 
                 parts_fix=parts_fix, 
-                min_sep=min_sep,
-                assembly=assembly
+                min_sep=min_sep
             )
             return action, path
 
@@ -319,15 +319,15 @@ def _check_assemblable_worker(asset_folder, assembly_dir, parts_fix, part_move, 
     return success, path, action
 
 
-def check_assemblable_parallel(asset_folder, assembly_dir, parts_fix, part_move, num_proc, pose=None, save_sdf=False, debug=0, render=False, return_path=False, optimize_path=False, min_sep=None, adaptive_sample=False):
+def check_assemblable_parallel(asset_folder, assembly_dir, parts_fix, part_move, num_proc, pose=None, save_sdf=False, debug=0, render=False, return_path=False, optimize_path=False, min_sep=None, adaptive_sample=False, directional_matrices=None, master_part_ids=None):
     '''
     Parallel version of check_assemblable
     '''
 
     # --- JIT ANALYTICAL PRE-FILTER ---
-    action, path = jit_check_cardinal_extractions(assembly_dir, parts_fix, part_move, min_sep)
+    action, path = jit_check_cardinal_extractions(assembly_dir, parts_fix, part_move, min_sep, directional_matrices, master_part_ids)
     if action is not None:
-        if 0:
+        if 1:
             print(f'[JIT Pre-Filter] Successfully bypassed Redmax simulation for {part_move} along {action}!')
         if return_path:
             return action, path
@@ -437,19 +437,15 @@ def check_path_collision(assembly_dir, part_move, parts_other, path, n_sample=No
     return parts_in_collision
 
 def new_check_path_collision(assembly_dir, part_move, parts_other, path, n_sample=None):
-    '''
-    Check if path of part_move collides with parts_other.
-    Identifies straight cardinal paths and routes them through the analytical interference matrix math.
-    Falls back to FCL CollisionManager ONLY if the path is complex or the abort threshold is hit.
-    '''
     if len(parts_other) == 0: return []
     
-    assembly = load_assembly_all_transformed(assembly_dir)
+    # ---> USE THE FAST CACHE LOADER <---
+    part_ids = parts_other + [part_move]
+    assembly = load_fabrica_assembly_from_folder(assembly_dir, part_ids)
     
     path_arr = np.array(path)
     pts = path_arr[:, :3]
     
-    # 1. Determine if the path is a straight line
     direction = pts[-1] - pts[0]
     dir_norm = np.linalg.norm(direction)
     
@@ -468,10 +464,9 @@ def new_check_path_collision(assembly_dir, part_move, parts_other, path, n_sampl
             dots = np.dot(seg_dirs, action_vec)
             is_straight = np.allclose(dots, 1.0, atol=1e-3)
             
-            # 2. If straight, check if it corresponds to a cardinal vector
             if is_straight:
                 abs_vec = np.abs(action_vec)
-                if np.max(abs_vec) > 0.999: # Basically perfectly aligned with X, Y, or Z
+                if np.max(abs_vec) > 0.999: 
                     axis_idx = np.argmax(abs_vec)
                     axis_name = ['x', 'y', 'z'][axis_idx]
                     sign_str = 'pos' if action_vec[axis_idx] > 0 else 'neg'
@@ -480,45 +475,36 @@ def new_check_path_collision(assembly_dir, part_move, parts_other, path, n_sampl
     suspects_for_fcl = []
     parts_in_collision = []
     
-    # Pre-calculate the moving part transformation once if we are running cardinal math
     if is_cardinal_straight:
-        mesh_a = assembly[part_move]['mesh']
-        center_a = mesh_a.bounding_box.centroid
-        to_origin_a = np.eye(4)
-        to_origin_a[:3, 3] = -center_a
-        part_a_data = {"part_mesh": mesh_a, "to_origin": to_origin_a}
+        part_a_data = assembly[part_move]
     
     for part_other in parts_other:
         if is_cardinal_straight:
-            # 3. Run complete interference check with the threshold
-            mesh_b = assembly[part_other]['mesh_final']
+            part_b_data = assembly[part_other]
             
-            # evaluate_pair_interference natively handles the AABB filtering internally
+            # ---> NATIVE CYTHON JIT EXECUTION <---
             pos_val, neg_val = evaluate_pair_interference(
-                part_a_data, {"part_mesh": mesh_b}, axis_name, 
-                override_w_tol=0.01, abort_threshold=50000
+                part_a_data, part_b_data, axis_name, 
+                override_w_tol=0.01, abort_threshold=None,
+                use_cython=True, use_parallel_narrow=False
             )
             
             if pos_val == -999:
-                # Threshold surpassed, must run CollisionManager
                 suspects_for_fcl.append(part_other)
             else:
-                # We got a definitive mathematical answer!
                 val = pos_val if sign_str == 'pos' else neg_val
                 if val > 0:
                     parts_in_collision.append(part_other)
         else:
-            # Path is chamfered or non-cardinal, send directly to FCL
             suspects_for_fcl.append(part_other)
 
-    # 4. FCL Collision Manager fallback ONLY for threshold breaches or complex paths
     if suspects_for_fcl:
         col_manager_move = trimesh.collision.CollisionManager()
-        col_manager_move.add_object(part_move, assembly[part_move]['mesh'])
+        col_manager_move.add_object(part_move, assembly[part_move]['part_mesh']) 
         
         col_manager_other = trimesh.collision.CollisionManager()
         for part_id in suspects_for_fcl:
-            col_manager_other.add_object(part_id, assembly[part_id]['mesh_final'])
+            col_manager_other.add_object(part_id, assembly[part_id]['part_mesh'])
             
         transforms = get_transform_from_path(path, n_sample=n_sample)
         for transform in transforms:

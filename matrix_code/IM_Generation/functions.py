@@ -1327,7 +1327,10 @@ def load_fabrica_assembly_from_folder(obj_dir, part_ids, bounding_box_type="AABB
             "file_path": file_path,
             "to_origin": to_origin,             
             "extraction_vectors": {"+x": v_x, "-x": -v_x, "+y": v_y, "-y": -v_y, "+z": v_z, "-z": -v_z},
-            "center_point": from_origin[:3, 3]   
+            "center_point": from_origin[:3, 3],
+            "face_adjacency": mesh_geom.face_adjacency.copy(), # <--- ADD THIS
+            "triangles": mesh_geom.triangles.copy(),           # <--- ADD THIS
+            "face_normals": mesh_geom.face_normals.copy()      # <--- ADD THIS
         }
         
     return assembly_manifest

@@ -114,7 +114,12 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
                 parts_fix = parts_assembled.copy()
                 parts_fix.remove(part_move)
                 args.append((asset_folder, assembly_dir, parts_fix, part_move))
-                kwargs.append(dict(num_proc=inner_num_proc, pose=np.eye(4), save_sdf=True, return_path=True, optimize_path=True, debug=0, render=False))
+                kwargs.append(dict(
+                    num_proc=inner_num_proc, pose=np.eye(4), save_sdf=True, 
+                    return_path=True, optimize_path=True, debug=0, render=False,
+                    directional_matrices=directional_matrices,  # <--- Pass matrices to JIT
+                    master_part_ids=master_part_ids             # <--- Pass index map to JIT
+                ))
             
             if not args:
                 return
@@ -169,7 +174,7 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
             # Stage 1: Try free parts
             evaluate_group(free_parts)
             
-            # Stage 2: Fallback to smart-sorted locked parts if needed
+            # Stage 2: Fallback to locked parts if needed
             if len(tier) == 0:
                 evaluate_group(locked_parts)
         else:
@@ -222,7 +227,7 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
             kwargs.append(dict(n_sample=5)) # check 5 samples for each path
         parts_removed.extend(list(tier.keys()))
     
-    for parts_in_collision, ret_arg, _ in parallel_execute(check_path_collision, args, kwargs, num_proc=num_proc, return_args=True, show_progress=verbose, desc='check_path_collision'):
+    for parts_in_collision, ret_arg, _ in parallel_execute(new_check_path_collision, args, kwargs, num_proc=num_proc, return_args=True, show_progress=verbose, desc='check_path_collision'):
         part = ret_arg[1]
         if verbose and len(parts_in_collision) > 0:
             print(f'[run_preced_plan] {part} in collision with {parts_in_collision}')
@@ -285,4 +290,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     run_preced_plan(args.assembly_dir, args.log_dir, args.arm, num_proc=args.num_proc, inner_num_proc=args.inner_num_proc, verbose=args.verbose, 
-                    use_heuristic=False)
+                    use_heuristic=True)
