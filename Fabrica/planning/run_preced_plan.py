@@ -93,15 +93,22 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
 
     # ADDED: Pre-sort parts assembled based on freedom score
     master_part_ids = None
-    directional_matrices = None
+    directional_matrices_AABB = None
+    directional_matrices_OBB = None
+    assembly_manifest_AABB = None
+    assembly_manifest_OBB = None
+    
     t_start = time()
     if use_heuristic:
         master_part_ids = parts_assembled.copy()
-        assembly_manifest = load_fabrica_assembly_from_folder(assembly_dir, master_part_ids)
+        
+        # Load ONLY the Global (AABB) manifest
+        assembly_manifest_AABB = load_fabrica_assembly_from_folder(assembly_dir, master_part_ids, bounding_box_type="AABB")
 
-    if use_heuristic:
-        directional_matrices = calculate_IM_matrices(assembly_manifest)
-        print(f'[run_preced_plan] IM matrices calculated in {round(time() - t_start, 2)} seconds')
+        # Pre-calculate ONLY AABB interference matrices
+        directional_matrices_AABB = calculate_IM_matrices(assembly_manifest_AABB)
+        
+        print(f'[run_preced_plan] AABB IM matrices calculated in {round(time() - t_start, 2)} seconds')
 
     
     while len(parts_assembled) > 1:
@@ -117,8 +124,8 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
                 kwargs.append(dict(
                     num_proc=inner_num_proc, pose=np.eye(4), save_sdf=True, 
                     return_path=True, optimize_path=True, debug=0, render=False,
-                    directional_matrices=directional_matrices,  # <--- Pass matrices to JIT
-                    master_part_ids=master_part_ids             # <--- Pass index map to JIT
+                    directional_matrices=directional_matrices_AABB,  # <--- Pass AABB
+                    master_part_ids=master_part_ids
                 ))
             
             if not args:
@@ -135,61 +142,87 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
             free_parts = []
             locked_parts = []
             
-            # Map string directions from the matrices to physical 3D vectors
-            dir_to_vec = {
-                "+x": np.array([1.0, 0.0, 0.0]),
-                "-x": np.array([-1.0, 0.0, 0.0]),
-                "+y": np.array([0.0, 1.0, 0.0]),
-                "-y": np.array([0.0, -1.0, 0.0]),
-                "+z": np.array([0.0, 0.0, 1.0]),
-                "-z": np.array([0.0, 0.0, -1.0])
-            }
-            
-            # Identify parts resting on the floor to prevent crashing into the table
-            ground_parts = identify_ground_parts(assembly_manifest)
+            ground_parts = identify_ground_parts(assembly_manifest_AABB)
 
+            # --- STAGE 1: GLOBAL AABB LOOKUP ---
             for part_move in parts_assembled:
                 free_dirs = get_free_directions(
                     part_id=part_move, 
                     current_assembly_ids=parts_assembled, 
                     part_ids_list=master_part_ids, 
-                    matrices_dict=directional_matrices
+                    matrices_dict=directional_matrices_AABB
                 )
                 
-                # Prevent extracting downwards into the table
                 if part_move in ground_parts and "-z" in free_dirs:
                     free_dirs.remove("-z")
                 
                 if len(free_dirs) > 0:
-                    free_parts.append((part_move, free_dirs[0])) # Take the first safe direction
+                    # Pull the exact physical vector from your manifest dictionary
+                    action_vec = assembly_manifest_AABB[part_move]["extraction_vectors"][free_dirs[0]]
+                    free_parts.append((part_move, action_vec))
                 else:
                     locked_parts.append(part_move)
 
-            # ---> MAIN THREAD OVERRIDE: Zero Parallel Overhead <---
+            # --- STAGE 2: LOCAL OBB LOOKUP ---
+            still_locked_parts = []
+            if len(free_parts) == 0:
+                print(f'[run_preced_plan] No global free parts, checking local OBB directions for: {locked_parts}')
+                
+                # ---> LAZY COMPUTATION TRIGGER <---
+                if directional_matrices_OBB is None:
+                    print('[run_preced_plan] Cardinal lock detected! Lazy-loading OBB matrices...')
+                    t_obb_start = time()
+                    assembly_manifest_OBB = load_fabrica_assembly_from_folder(assembly_dir, master_part_ids, bounding_box_type="OBB")
+                    directional_matrices_OBB = calculate_IM_matrices(assembly_manifest_OBB)
+                    print(f'[run_preced_plan] OBB matrices lazily calculated in {round(time() - t_obb_start, 2)} seconds')
+                
+                for part_move in locked_parts:
+                    free_dirs_obb = get_free_directions(
+                        part_id=part_move, 
+                        current_assembly_ids=parts_assembled, 
+                        part_ids_list=master_part_ids, 
+                        matrices_dict=directional_matrices_OBB
+                    )
+                    
+                    safe_dir = None
+                    for d in free_dirs_obb:
+                        # Pull the EXACT diagonal OBB vector you already computed
+                        action_vec = assembly_manifest_OBB[part_move]["extraction_vectors"][d]
+                        
+                        # Prevent downward extraction into the floor
+                        if part_move in ground_parts and action_vec[2] < -0.1:
+                            continue
+                            
+                        safe_dir = action_vec
+                        break
+                        
+                    if safe_dir is not None:
+                        free_parts.append((part_move, safe_dir))
+                    else:
+                        still_locked_parts.append(part_move)
+
+            # ---> MAIN THREAD OVERRIDE: Instant Assignment <---
             if len(free_parts) > 0:
-                for part_move, free_dir in free_parts:
-                    action_vec = dir_to_vec[free_dir]
+                for part_move, action_vec in free_parts:
                     parts_fix = parts_assembled.copy()
                     parts_fix.remove(part_move)
                     
-                    # Generate the path instantly using the loaded manifest
                     path = generate_straight_path(
-                        assembly_manifest=assembly_manifest, 
+                        assembly_manifest=assembly_manifest_AABB, 
                         part_move_id=part_move, 
                         action_vec=action_vec, 
                         parts_fix=parts_fix
                     )
                     
-                    # Log the tier addition directly!
                     parts_assembled.remove(part_move)
                     tier[part_move] = {'action': action_vec, 'path': path}
             
-            # Stage 2: Fallback to the heavy parallel workers ONLY for locked parts
+            # --- STAGE 3: PARALLEL WORKER FALLBACK ---
             if len(tier) == 0:
-                print(f'[run_preced_plan] No free parts found, evaluating locked parts: {locked_parts}')
-                evaluate_group(locked_parts)
+                print(f'[run_preced_plan] Absolute lock. Evaluating in parallel: {still_locked_parts}')
+                evaluate_group(still_locked_parts)
         else:
-            # Original Fabrica baseline behavior (tests everything via parallel workers)
+            # Original Fabrica baseline behavior
             print(f'[run_preced_plan] Evaluating all parts in parallel: {parts_assembled}')
             evaluate_group(parts_assembled)
 
