@@ -325,14 +325,15 @@ def check_assemblable_parallel(asset_folder, assembly_dir, parts_fix, part_move,
     '''
 
     # --- JIT ANALYTICAL PRE-FILTER ---
-    action, path = jit_check_cardinal_extractions(assembly_dir, parts_fix, part_move, min_sep, directional_matrices, master_part_ids)
-    if action is not None:
-        if 1:
-            print(f'[JIT Pre-Filter] Successfully bypassed Redmax simulation for {part_move} along {action}!')
-        if return_path:
-            return action, path
-        else:
-            return action
+    if directional_matrices is None:
+        action, path = jit_check_cardinal_extractions(assembly_dir, parts_fix, part_move, min_sep, directional_matrices, master_part_ids)
+        if action is not None:
+            if 1:
+                print(f'[JIT Pre-Filter] Successfully bypassed Redmax simulation for {part_move} along {action}!')
+            if return_path:
+                return action, path
+            else:
+                return action
     # ---------------------------------
 
     # HERE WE ARE TESTING ALL THE POSSIBLE ACTIONS IN R3 WHICH IS NOT EFFICIENT

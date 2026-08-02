@@ -22,11 +22,10 @@ import trimesh
 
 from assets.load import load_part_ids, load_config
 from planning.robot.geometry import load_part_meshes
-from planning.sequence.feasibility_check import check_assemblable_parallel, check_path_collision, new_check_path_collision, check_ground_collision, new_check_ground_collision, CONTACT_EPS
+from planning.sequence.feasibility_check import check_assemblable_parallel, check_path_collision, new_check_path_collision, check_ground_collision, new_check_ground_collision, CONTACT_EPS, generate_straight_path
 from planning.robot.workcell import get_assembly_center
 from utils.parallel import parallel_execute
-from matrix_code.IM_Generation.functions import load_fabrica_assembly_from_folder, calculate_IM_matrices, get_freedom_score, get_free_directions
-
+from matrix_code.IM_Generation.functions import load_fabrica_assembly_from_folder, calculate_IM_matrices, get_freedom_score, get_free_directions, identify_ground_parts
 
 def remove_redundant_edges(G):
     # Iterate over all pairs of nodes (u, v) in the graph
@@ -95,15 +94,16 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
     # ADDED: Pre-sort parts assembled based on freedom score
     master_part_ids = None
     directional_matrices = None
+    t_start = time()
     if use_heuristic:
         master_part_ids = parts_assembled.copy()
         assembly_manifest = load_fabrica_assembly_from_folder(assembly_dir, master_part_ids)
 
-    t_start = time()
     if use_heuristic:
         directional_matrices = calculate_IM_matrices(assembly_manifest)
+        print(f'[run_preced_plan] IM matrices calculated in {round(time() - t_start, 2)} seconds')
 
-
+    
     while len(parts_assembled) > 1:
         tier = {}
 
@@ -135,50 +135,62 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
             free_parts = []
             locked_parts = []
             
-            # Dictionaries to store sorting metrics
-            lock_severities = {}
-            volumes = {}
+            # Map string directions from the matrices to physical 3D vectors
+            dir_to_vec = {
+                "+x": np.array([1.0, 0.0, 0.0]),
+                "-x": np.array([-1.0, 0.0, 0.0]),
+                "+y": np.array([0.0, 1.0, 0.0]),
+                "-y": np.array([0.0, -1.0, 0.0]),
+                "+z": np.array([0.0, 0.0, 1.0]),
+                "-z": np.array([0.0, 0.0, -1.0])
+            }
+            
+            # Identify parts resting on the floor to prevent crashing into the table
+            ground_parts = identify_ground_parts(assembly_manifest)
 
             for part_move in parts_assembled:
-                score = get_freedom_score(
+                free_dirs = get_free_directions(
                     part_id=part_move, 
                     current_assembly_ids=parts_assembled, 
                     part_ids_list=master_part_ids, 
                     matrices_dict=directional_matrices
                 )
-                if score > 0:
-                    free_parts.append(part_move)
+                
+                # Prevent extracting downwards into the table
+                if part_move in ground_parts and "-z" in free_dirs:
+                    free_dirs.remove("-z")
+                
+                if len(free_dirs) > 0:
+                    free_parts.append((part_move, free_dirs[0])) # Take the first safe direction
                 else:
                     locked_parts.append(part_move)
-            ##################################################################       
-            #         # --- METRIC 1: Matrix Lock Severity ---
-            #         # Count total collisions across all 6 directions against the remaining assembly
-            #         part_idx = master_part_ids.index(part_move)
-            #         fixed_indices = [master_part_ids.index(pid) for pid in parts_assembled if pid != part_move]
-                    
-            #         total_collisions = 0
-            #         for d in ["+x", "-x", "+y", "-y", "+z", "-z"]:
-            #             total_collisions += np.sum(directional_matrices[d][part_idx, fixed_indices])
-            #         lock_severities[part_move] = total_collisions
-                    
-            #         # --- METRIC 2: Bounding Box Volume ---
-            #         # Fetch the bounds directly from the already-loaded assembly manifest
-            #         bounds = assembly_manifest[part_move]['part_mesh'].bounds
-            #         volumes[part_move] = np.prod(bounds[1] - bounds[0])
 
-            # # SMART SORTING THE FALLBACK QUEUE
-            # # Sort primarily by least matrix collisions, secondarily by smallest volume
-            # locked_parts.sort(key=lambda p: (lock_severities[p], volumes[p]))
-            ##################################################################  
-
-            # Stage 1: Try free parts
-            evaluate_group(free_parts)
+            # ---> MAIN THREAD OVERRIDE: Zero Parallel Overhead <---
+            if len(free_parts) > 0:
+                for part_move, free_dir in free_parts:
+                    action_vec = dir_to_vec[free_dir]
+                    parts_fix = parts_assembled.copy()
+                    parts_fix.remove(part_move)
+                    
+                    # Generate the path instantly using the loaded manifest
+                    path = generate_straight_path(
+                        assembly_manifest=assembly_manifest, 
+                        part_move_id=part_move, 
+                        action_vec=action_vec, 
+                        parts_fix=parts_fix
+                    )
+                    
+                    # Log the tier addition directly!
+                    parts_assembled.remove(part_move)
+                    tier[part_move] = {'action': action_vec, 'path': path}
             
-            # Stage 2: Fallback to locked parts if needed
+            # Stage 2: Fallback to the heavy parallel workers ONLY for locked parts
             if len(tier) == 0:
+                print(f'[run_preced_plan] No free parts found, evaluating locked parts: {locked_parts}')
                 evaluate_group(locked_parts)
         else:
-            # Original Fabrica baseline behavior (tests everything)
+            # Original Fabrica baseline behavior (tests everything via parallel workers)
+            print(f'[run_preced_plan] Evaluating all parts in parallel: {parts_assembled}')
             evaluate_group(parts_assembled)
 
         if len(tier) == 0:
