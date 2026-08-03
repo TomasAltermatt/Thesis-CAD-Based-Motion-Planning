@@ -71,7 +71,7 @@ def filter_sparse_pairs(pairs, min_distance):
     # Return filtered pairs
     return pairs[keep_mask]
 
-
+# Original
 def compute_antipodal_pairs(mesh, sample_budget=200, antipodal_thres=0.95, clearance=1.0, sparsity=0.05, collision_meshes=[], ground_z=0.0, visualize=False, verbose=False):
     '''
     Compute pairs of antipodal points for a given mesh through ray casting and surface sampling
@@ -133,6 +133,80 @@ def compute_antipodal_pairs(mesh, sample_budget=200, antipodal_thres=0.95, clear
 
     return antipodal_pairs
 
+# Uses caches (faster but idk why for beam i get 0 grasp pairs on 1-1)
+# def compute_antipodal_pairs(mesh, sample_budget=200, antipodal_thres=0.95, clearance=1.0, sparsity=0.05, collision_meshes=[], ground_z=0.0, visualize=False, verbose=False):
+#     '''
+#     Compute pairs of antipodal points for a given mesh through ray casting and surface sampling
+#     '''
+#     mesh_col_manager = trimesh.collision.CollisionManager()
+#     mesh_col_manager.add_object('mesh', mesh)
+#     for i, collision_mesh in enumerate(collision_meshes):
+#         mesh_col_manager.add_object(f'collision_mesh_{i}', collision_mesh)
+
+#     antipodal_pairs_all = []
+
+#     while len(antipodal_pairs_all) < sample_budget:
+
+#         # randomly sample surface points
+#         sample_points, sample_face_idx = mesh.sample(sample_budget, return_index=True)
+#         sample_normals = mesh.face_normals[sample_face_idx]
+
+#         # ray casting for computing antipodal points
+#         init_offset = 0.05 # move ray origins slightly inside the surface
+#         ray_caster = trimesh.ray.ray_triangle.RayMeshIntersector(mesh)
+#         intersect_points, ray_idx, intersect_face_idx = ray_caster.intersects_location(sample_points - init_offset * sample_normals, -sample_normals)
+#         intersect_normals = mesh.face_normals[intersect_face_idx]
+#         antipodal_idx = np.einsum('ij,ij->i', intersect_normals, -sample_normals[ray_idx]) > antipodal_thres
+#         antipodal_pairs = np.stack([sample_points[ray_idx][antipodal_idx], intersect_points[antipodal_idx]], axis=1)
+#         # TODO: what if cannot find antipodal pairs?
+
+#         # check ground clearance
+#         feasible_idx = np.all(antipodal_pairs[:, :, 2] > ground_z + clearance, axis=1)
+#         antipodal_pairs = antipodal_pairs[feasible_idx]
+#         if len(antipodal_pairs) == 0: continue
+
+#         # --- NEW: CACHED CLEARANCE SPHERE ---
+#         # Build one static, low-poly sphere outside the loop
+#         cached_sphere = trimesh.creation.icosphere(subdivisions=2, radius=clearance)
+        
+#         # check reachability clearance
+#         feasible_idx = []
+#         for idx, antipodal_pair in enumerate(antipodal_pairs):
+#             ray_direction = antipodal_pair[1] - antipodal_pair[0]
+#             ray_direction /= np.linalg.norm(ray_direction)
+            
+#             # Snap the cached sphere using pure NumPy 4x4 matrix translations
+#             t0 = np.eye(4)
+#             t0[:3, 3] = antipodal_pair[0] - (clearance + 0.01) * ray_direction
+            
+#             t1 = np.eye(4)
+#             t1[:3, 3] = antipodal_pair[1] + (clearance + 0.01) * ray_direction
+            
+#             # Use the 'transform' argument so FCL skips building new BVH trees!
+#             if mesh_col_manager.in_collision_single(cached_sphere, transform=t0) or \
+#                mesh_col_manager.in_collision_single(cached_sphere, transform=t1):
+#                 continue
+                
+#             feasible_idx.append(idx)
+#         antipodal_pairs = antipodal_pairs[feasible_idx]
+
+#         if len(antipodal_pairs_all) == 0:
+#             antipodal_pairs_all = antipodal_pairs
+#         else:
+#             antipodal_pairs_all = np.concatenate([antipodal_pairs_all, antipodal_pairs], axis=0)
+
+#     antipodal_pairs = filter_sparse_pairs(antipodal_pairs_all, min_distance=sparsity)
+#     antipodal_pairs = sort_antipodal_pairs(antipodal_pairs, mesh)
+
+#     if visualize:
+#         pts = [antipodal_pairs[i][0] for i in range(len(antipodal_pairs))]
+#         pc = trimesh.PointCloud(pts, colors=[255, 0, 0, 255])
+#         trimesh.Scene([mesh, pc]).show()
+
+#     if verbose:
+#         print(f'Found {len(antipodal_pairs)} pairs of antipodal points')
+
+#     return antipodal_pairs
 
 def sort_antipodal_pairs(antipodal_pairs, mesh):
     '''

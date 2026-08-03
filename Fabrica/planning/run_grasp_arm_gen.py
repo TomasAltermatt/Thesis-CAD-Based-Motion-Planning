@@ -2,8 +2,13 @@ import os
 os.environ['OMP_NUM_THREADS'] = '1'
 import sys
 
+
 project_base_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-sys.path.append(project_base_dir)
+sys.path.insert(0, project_base_dir)
+
+# ADD THIS: This points one level higher to 'THESIS-CAD-BASED...', where 'matrix_code' lives
+workspace_dir = os.path.abspath(os.path.join(project_base_dir, '..'))
+sys.path.insert(0, workspace_dir)
 
 import numpy as np
 import os
@@ -148,208 +153,190 @@ class GraspArmGenerator(GraspGenerator):
         '''
         Check move grasps - fix parts and hold grasp - fix parts collision
         '''
-        for timestep, part_transform in enumerate(part_transforms):
-            # gives the delta position of the part relative to the first position so we transform the grasp accordingly
-            part_rel_transform = part_transform @ np.linalg.inv(part_transforms[0])
-            grasp_t = self.transform_grasp(grasp, part_rel_transform) # Transform the grasp
-            if grasps['move'] is not None:
-                grasps['move'][timestep] = grasp_t
-            gripper_pos, gripper_quat, grasp_open_ratio = grasp_t.pos, grasp_t.quat, grasp_t.open_ratio
-            ft_pos = get_ft_pos_from_gripper_pos_quat(self.gripper_type, gripper_pos, gripper_quat)
+        try:
+            for timestep, part_transform in enumerate(part_transforms):
+                part_rel_transform = part_transform @ np.linalg.inv(part_transforms[0])
+                grasp_t = self.transform_grasp(grasp, part_rel_transform) 
+                if grasps['move'] is not None:
+                    grasps['move'][timestep] = grasp_t
+                gripper_pos, gripper_quat, grasp_open_ratio = grasp_t.pos, grasp_t.quat, grasp_t.open_ratio
+                ft_pos = get_ft_pos_from_gripper_pos_quat(self.gripper_type, gripper_pos, gripper_quat)
 
-            if timestep == 0: # check collision for retract state
-                retract_open_ratio = min(grasp_open_ratio + RETRACT_OPEN_RATIO, 1.0)
-                open_ratios = [grasp_open_ratio, retract_open_ratio]
-            else:
-                open_ratios = [grasp_open_ratio]
+                if timestep == 0: 
+                    retract_open_ratio = min(grasp_open_ratio + RETRACT_OPEN_RATIO, 1.0)
+                    open_ratios = [grasp_open_ratio, retract_open_ratio]
+                else:
+                    open_ratios = [grasp_open_ratio]
 
-            part_final_transforms = self.part_final_transforms.copy()
-            part_final_transforms[part_id] = part_transform
-            self.apply_transforms_to_col_manager(self.part_col_manager, part_final_transforms) # synchronizes the part collision manager with the part transforms
+                # --- FIX 1: THE BROADPHASE OPTIMIZATION ---
+                # Only update the exact part that is moving!
+                self.part_col_manager.set_transform(part_id, part_transform)
+                # ------------------------------------------
 
-            # THIS CHECK IS FOR ONLY THE FLOATING GRIPPER NOT CONSIDERING THE ARM YET
-            for open_ratio in open_ratios:
+                # THIS CHECK IS FOR ONLY THE FLOATING GRIPPER NOT CONSIDERING THE ARM YET
+                for open_ratio in open_ratios:
 
-                # gripper collision manager
-                gripper_transforms = get_gripper_meshes_transforms(self.gripper_type, self.gripper_meshes, gripper_pos, gripper_quat, np.eye(4), min(open_ratio + 0.05, 1.0)) # NOTE: 0.05 for numerical stability in collision check
-                self.apply_transforms_to_col_manager(self.gripper_col_manager, gripper_transforms)
-                self.apply_transforms_to_col_manager(self.gripper_col_manager_buffered, gripper_transforms)
+                    # gripper collision manager
+                    gripper_transforms = get_gripper_meshes_transforms(self.gripper_type, self.gripper_meshes, gripper_pos, gripper_quat, np.eye(4), min(open_ratio + 0.05, 1.0)) 
+                    self.apply_transforms_to_col_manager(self.gripper_col_manager, gripper_transforms)
+                    self.apply_transforms_to_col_manager(self.gripper_col_manager_buffered, gripper_transforms)
 
-                # check gripper-ground collision
-                if self.gripper_col_manager_buffered.in_collision_other(self.ground_col_manager):
-                    if verbose: print('[check_grasp_feasible] gripper-ground collision')
-                    if timestep == 0: # move and hold grasp both infeasible
-                        return None
-                    else: # move grasp infeasible
-                        grasps['move'] = None
-                        break
-
-                #----------------------- NEW gripper-ground collision (DIDNT WORK, SLOWER)------------------------------------------------------
-                # ground_inters_tol = 1e-4
-                # gripper_collides_ground = False
-                # ground_limit = self.ground_mesh.bounds[0][0] + ground_inters_tol # use bounds since its a parallelepiped
-
-                # for name, transform in gripper_transforms.items():
-                #     mesh_vertices = self.gripper_meshes_buffered[name].vertices
-
-                #     mesh_vertices_extended = np.hstack((mesh_vertices, np.ones((len(mesh_vertices), 1))))
-                #     mesh_vertices_transformed = (transform @ mesh_vertices_extended.T).T # we transpose since it's hstack
-                #     lowest_z_coord = np.min(mesh_vertices_transformed[:,2]) # out of all coordinates i get the one with lowest z value
-
-                #     if lowest_z_coord <= ground_limit:
-                #         gripper_collides_ground = True
-
-                #     if gripper_collides_ground:
-                #         if verbose: print('[check_grasp_feasible] gripper-ground collision')
-                #         if timestep == 0: # move and hold grasp both infeasible
-                #             return None
-                #         else: # move grasp infeasible
-                #             grasps['move'] = None
-                #             break
-                
-                # -------------------------------------------------------------------------------------------------------
-
-                
-                # check gripper-part collision
-                _, contact_data = self.gripper_col_manager.in_collision_other(self.part_col_manager, return_data=True)
-                for cdata in contact_data:
-                    if part_id in cdata.names:
-                        if timestep == 0: # move and hold grasp both infeasible
-                            return None
-                        else: # move grasp infeasible
-                            grasps['move'] = None
-                            break
-                if grasps['move'] is None: break
-                _, contact_data = self.gripper_col_manager_buffered.in_collision_other(self.part_col_manager, return_data=True)
-                for cdata in contact_data:
-                    for part_id_i in self.part_ids:
-                        if part_id_i == part_id: continue # we dont care for the part we're grasping, of course theres a collision
-                        if part_id_i in cdata.names:
-                            if part_id_i in parts_after: # we reject the grasp if it collides with a part that needs to be removed before part_id
-                                if verbose: print('[check_grasp_feasible] gripper-after parts collision')
-                                if timestep == 0:
-                                    return None
-                                else:
-                                    grasps['move'] = None
-                                    break
-                            parts_in_collision_move.add(part_id_i) # else we add the part to list of parts that collide, so essentially i can use this grasp
-                                                                   # but only AFTER i remove part_id_i 
-                            if timestep == 0:
-                                parts_in_collision_hold['fix'].add(part_id_i)
-                                parts_in_collision_hold['move'].add(part_id_i)
+                    # check gripper-ground collision
+                    if self.gripper_col_manager_buffered.in_collision_other(self.ground_col_manager):
+                        if verbose: print('[check_grasp_feasible] gripper-ground collision')
+                        if timestep == 0: return None
+                        else: grasps['move'] = None; break
+                    
+                    # check gripper-part collision
+                    _, contact_data = self.gripper_col_manager.in_collision_other(self.part_col_manager, return_data=True)
+                    for cdata in contact_data:
+                        if part_id in cdata.names:
+                            if timestep == 0: return None
+                            else: grasps['move'] = None; break
                     if grasps['move'] is None: break
-                if grasps['move'] is None: break
-
-                # check gripper knuckle-part collision (part can only be in between gripper fingers)
-                if timestep == 0 and open_ratio == open_ratios[0] and len(self.gripper_knuckle_names) > 0:
-                    gripper_knuckle_meshes = {name: mesh.copy().apply_transform(gripper_transforms[name]) for name, mesh in self.gripper_knuckle_meshes.items()}
-                    knuckle_mesh = trimesh.util.concatenate(list(gripper_knuckle_meshes.values())).convex_hull
-                    _, contact_data = self.part_col_manager.in_collision_single(knuckle_mesh, return_data=True)
+                    
+                    _, contact_data = self.gripper_col_manager_buffered.in_collision_other(self.part_col_manager, return_data=True)
                     for cdata in contact_data:
                         for part_id_i in self.part_ids:
                             if part_id_i == part_id: continue
                             if part_id_i in cdata.names:
+                                if part_id_i in parts_after: 
+                                    if verbose: print('[check_grasp_feasible] gripper-after parts collision')
+                                    if timestep == 0: return None
+                                    else: grasps['move'] = None; break
+                                parts_in_collision_move.add(part_id_i) 
+                                if timestep == 0:
+                                    parts_in_collision_hold['fix'].add(part_id_i)
+                                    parts_in_collision_hold['move'].add(part_id_i)
+                        if grasps['move'] is None: break
+                    if grasps['move'] is None: break
+                    
+                    # check gripper knuckle-part collision 
+                    if timestep == 0 and open_ratio == open_ratios[0] and len(self.gripper_knuckle_names) > 0:
+                        gripper_knuckle_meshes = {name: mesh.copy().apply_transform(gripper_transforms[name]) for name, mesh in self.gripper_knuckle_meshes.items()}
+                        knuckle_mesh = trimesh.util.concatenate(list(gripper_knuckle_meshes.values())).convex_hull
+                        _, contact_data = self.part_col_manager.in_collision_single(knuckle_mesh, return_data=True)
+                        for cdata in contact_data:
+                            for part_id_i in self.part_ids:
+                                if part_id_i == part_id: continue
+                                if part_id_i in cdata.names:
+                                    if part_id_i in parts_after:
+                                        if verbose: print('[check_grasp_feasible] gripper-knuckle-after parts collision')
+                                        return None
+                                    parts_in_collision_move.add(part_id_i)
+                                    parts_in_collision_hold['fix'].add(part_id_i)
+                                    parts_in_collision_hold['move'].add(part_id_i)
+
+                # HERE WE START CHECKING THE ARM IK AND COLLISIONS
+                for arm_type, arm_chain in self.arm_chains.items():
+                    if timestep > 0 and (arm_type == 'hold' or grasps['move'] is None): continue
+
+                    target_pos = ft_pos if self.has_ft_sensor[arm_type] else gripper_pos
+
+                    # --- FIX 2: FAST REACHABILITY GATE (CORRECTED UNITS) ---
+                    # The workspace is in centimeters. The absolute maximum physical wingspan
+                    # of the Panda/UR5e/xArm7 is ~85.0 cm. We use 95.0 cm for a safe margin.
+                    # if np.linalg.norm(target_pos - arm_chain.base_pos) > 95.0:
+                    #     if verbose: print(f'[check_grasp_feasible] Out of physical reach for {arm_type}')
+                    #     grasps[arm_type] = None
+                    #     continue
+                    # -------------------------------------------------------
+
+                    # check IK
+                    gripper_ori = get_ik_target_orientation(arm_chain, self.gripper_type, gripper_quat)
+                    if timestep == 0:
+                        arm_q_default = arm_chain.active_to_full(arm_chain.rest_q)
+                        optimizer = self.ik_optimizer
+                        regularization_parameter = self.ik_regularization
+                    else:
+                        arm_q_default = grasps['move'][timestep - 1].arm_q
+                        optimizer = 'L-BFGS-B'
+                        regularization_parameter = 0.0
+                    arm_q, ik_success = arm_chain.inverse_kinematics_above_ground(target_position=target_pos, target_orientation=gripper_ori, orientation_mode='all', initial_position=arm_q_default, optimizer=optimizer, regularization_parameter=regularization_parameter)
+                    if not ik_success:
+                        if verbose: print(f'[check_grasp_feasible] IK failed for {arm_type}')
+                        grasps[arm_type] = None
+                        continue
+                    debug_gripper_pos, debug_gripper_quat = get_gripper_pos_quat_from_arm_q(arm_chain, arm_q, self.gripper_type, has_ft_sensor=self.has_ft_sensor[arm_type])
+                    if not (np.allclose(gripper_pos, debug_gripper_pos, atol=1e-4) and np.allclose(gripper_quat, debug_gripper_quat, atol=1e-4)):
+                        if verbose: print(f'[check_grasp_feasible] IK failed for {arm_type}')
+                        grasps[arm_type] = None
+                        continue
+                
+                    # arm collision manager
+                    arm_transforms = get_arm_meshes_transforms(self.arm_meshes_buffered, arm_chain, arm_q)
+                    self.apply_transforms_to_col_manager(self.arm_col_manager_buffered, arm_transforms)
+
+                    # check arm-ground/box collision
+                    _, objs_in_collision_ground = self.arm_col_manager_buffered.in_collision_other(self.ground_col_manager, return_names=True)
+                    _, objs_in_collision_box = self.arm_col_manager_buffered.in_collision_other(self.box_col_manager[arm_type], return_names=True)
+                    objs_in_collision = list(objs_in_collision_ground) + list(objs_in_collision_box)
+                    for obj_pair in objs_in_collision:
+                        if arm_chain.get_base_link_name() in obj_pair: continue
+                        if verbose: print('[check_grasp_feasible] arm-ground collision')
+                        grasps[arm_type] = None
+                        break
+                    if grasps[arm_type] is None: continue
+
+                    # check arm-part collision
+                    _, objs_in_collision = self.arm_col_manager_buffered.in_collision_other(self.part_col_manager, return_names=True)
+                    for obj_pair in objs_in_collision:
+                        if part_id in obj_pair:
+                            if verbose: print('[check_grasp_feasible] arm-grasping part collision')
+                            grasps[arm_type] = None
+                            break
+                        for part_id_i in self.part_ids:
+                            if part_id_i in obj_pair:
                                 if part_id_i in parts_after:
-                                    if verbose: print('[check_grasp_feasible] gripper-knuckle-after parts collision')
-                                    return None
-                                parts_in_collision_move.add(part_id_i)
-                                parts_in_collision_hold['fix'].add(part_id_i)
-                                parts_in_collision_hold['move'].add(part_id_i)
+                                    if verbose: print('[check_grasp_feasible] arm-after parts collision')
+                                    grasps[arm_type] = None
+                                    break
+                                if arm_type == 'move':
+                                    parts_in_collision_move.add(part_id_i)
+                                elif arm_type == 'hold':
+                                    parts_in_collision_hold['fix'].add(part_id_i)
+                                    parts_in_collision_hold['move'].add(part_id_i)
+                        if grasps[arm_type] is None: break
+                    if grasps[arm_type] is None: continue
+                
+                    # check arm self-collision
+                    _, collision_names = self.arm_col_manager_buffered.in_collision_internal(return_names=True)
+                    for (col_arm_name1, col_arm_name2) in collision_names:
+                        if arm_chain.check_colliding_links(col_arm_name1, col_arm_name2):
+                            if verbose: print('[check_grasp_feasible] arm self-collision')
+                            grasps[arm_type] = None
+                            break
+                    if grasps[arm_type] is None: continue
+                
+                    # check arm-gripper collision
+                    _, collision_names = self.gripper_col_manager.in_collision_other(self.arm_col_manager_buffered, return_names=True)
+                    for (col_gripper_name, col_arm_name) in collision_names:
+                        if col_gripper_name != 'ft_sensor' and col_arm_name != arm_chain.get_eef_link_name():
+                            if verbose: print('[check_grasp_feasible] arm-gripper collision')
+                            grasps[arm_type] = None
+                            break
+                    if grasps[arm_type] is None: continue
 
-            # HERE WE START CHECKING THE ARM IK AND COLLISIONS
-            for arm_type, arm_chain in self.arm_chains.items():
-                if timestep > 0 and (arm_type == 'hold' or grasps['move'] is None): continue
+                    # Saves the arm position, euler angles and joint angles for the grasp
+                    if arm_type == 'move':
+                        grasps[arm_type][timestep].arm_pos = arm_chain.base_pos
+                        grasps[arm_type][timestep].arm_euler = arm_chain.base_euler
+                        grasps[arm_type][timestep].arm_q = arm_q
+                    elif arm_type == 'hold':
+                        grasps[arm_type].arm_pos = arm_chain.base_pos
+                        grasps[arm_type].arm_euler = arm_chain.base_euler
+                        grasps[arm_type].arm_q = arm_q
+                    else:
+                        raise NotImplementedError
 
-                # check IK
-                gripper_ori = get_ik_target_orientation(arm_chain, self.gripper_type, gripper_quat)
-                if timestep == 0:
-                    arm_q_default = arm_chain.active_to_full(arm_chain.rest_q)
-                    optimizer = self.ik_optimizer
-                    regularization_parameter = self.ik_regularization
-                else:
-                    arm_q_default = grasps['move'][timestep - 1].arm_q
-                    optimizer = 'L-BFGS-B'
-                    regularization_parameter = 0.0
-                arm_q, ik_success = arm_chain.inverse_kinematics_above_ground(target_position=ft_pos if self.has_ft_sensor[arm_type] else gripper_pos, target_orientation=gripper_ori, orientation_mode='all', initial_position=arm_q_default, optimizer=optimizer, regularization_parameter=regularization_parameter)
-                if not ik_success:
-                    if verbose: print(f'[check_grasp_feasible] IK failed for {arm_type}')
-                    grasps[arm_type] = None
-                    continue
-                debug_gripper_pos, debug_gripper_quat = get_gripper_pos_quat_from_arm_q(arm_chain, arm_q, self.gripper_type, has_ft_sensor=self.has_ft_sensor[arm_type])
-                if not (np.allclose(gripper_pos, debug_gripper_pos, atol=1e-4) and np.allclose(gripper_quat, debug_gripper_quat, atol=1e-4)):
-                    if verbose: print(f'[check_grasp_feasible] IK failed for {arm_type}')
-                    grasps[arm_type] = None
-                    continue
-            
-                # arm collision manager
-                arm_transforms = get_arm_meshes_transforms(self.arm_meshes_buffered, arm_chain, arm_q)
-                self.apply_transforms_to_col_manager(self.arm_col_manager_buffered, arm_transforms)
+                if all(grasp is None for grasp in grasps.values()):
+                    return None
 
-                # check arm-ground/box collision
-                _, objs_in_collision_ground = self.arm_col_manager_buffered.in_collision_other(self.ground_col_manager, return_names=True)
-                _, objs_in_collision_box = self.arm_col_manager_buffered.in_collision_other(self.box_col_manager[arm_type], return_names=True)
-                objs_in_collision = list(objs_in_collision_ground) + list(objs_in_collision_box)
-                for obj_pair in objs_in_collision:
-                    if arm_chain.get_base_link_name() in obj_pair: continue
-                    if verbose: print('[check_grasp_feasible] arm-ground collision')
-                    grasps[arm_type] = None
-                    break
-                if grasps[arm_type] is None: continue
-
-                # check arm-part collision
-                _, objs_in_collision = self.arm_col_manager_buffered.in_collision_other(self.part_col_manager, return_names=True)
-                for obj_pair in objs_in_collision:
-                    if part_id in obj_pair:
-                        if verbose: print('[check_grasp_feasible] arm-grasping part collision')
-                        grasps[arm_type] = None
-                        break
-                    for part_id_i in self.part_ids:
-                        if part_id_i in obj_pair:
-                            if part_id_i in parts_after:
-                                if verbose: print('[check_grasp_feasible] arm-after parts collision')
-                                grasps[arm_type] = None
-                                break
-                            if arm_type == 'move':
-                                parts_in_collision_move.add(part_id_i)
-                            elif arm_type == 'hold':
-                                parts_in_collision_hold['fix'].add(part_id_i)
-                                parts_in_collision_hold['move'].add(part_id_i)
-                    if grasps[arm_type] is None: break
-                if grasps[arm_type] is None: continue
-            
-                # check arm self-collision
-                _, collision_names = self.arm_col_manager_buffered.in_collision_internal(return_names=True)
-                for (col_arm_name1, col_arm_name2) in collision_names:
-                    if arm_chain.check_colliding_links(col_arm_name1, col_arm_name2):
-                        if verbose: print('[check_grasp_feasible] arm self-collision')
-                        grasps[arm_type] = None
-                        break
-                if grasps[arm_type] is None: continue
-            
-                # check arm-gripper collision
-                _, collision_names = self.gripper_col_manager.in_collision_other(self.arm_col_manager_buffered, return_names=True)
-                for (col_gripper_name, col_arm_name) in collision_names:
-                    if col_gripper_name != 'ft_sensor' and col_arm_name != arm_chain.get_eef_link_name():
-                        if verbose: print('[check_grasp_feasible] arm-gripper collision')
-                        grasps[arm_type] = None
-                        break
-                if grasps[arm_type] is None: continue
-
-                # Saves the arm position, euler angles and joint angles for the grasp
-                if arm_type == 'move':
-                    grasps[arm_type][timestep].arm_pos = arm_chain.base_pos
-                    grasps[arm_type][timestep].arm_euler = arm_chain.base_euler
-                    grasps[arm_type][timestep].arm_q = arm_q
-                elif arm_type == 'hold':
-                    grasps[arm_type].arm_pos = arm_chain.base_pos
-                    grasps[arm_type].arm_euler = arm_chain.base_euler
-                    grasps[arm_type].arm_q = arm_q
-                else:
-                    raise NotImplementedError
-
-            if all(grasp is None for grasp in grasps.values()):
-                return None
-            
+        finally:
+            # --- FIX 1 (CONTINUED) ---
+            # Guarantee the part is reset for the next grasp evaluation
+            self.part_col_manager.set_transform(part_id, self.part_final_transforms[part_id])
+            # -------------------------  
         '''
         Check retract grasp reachability
         '''
@@ -458,26 +445,77 @@ class GraspArmGenerator(GraspGenerator):
             grasps['hold'].parts_in_collision_hold['fix'] = list(parts_in_collision_hold['fix'])
             
         return grasps
-    
+
+    ## Previous Version
+    # def compute_contact_points(self, grasp, part_id, n_sample=1000):
+    #     part_mesh = self.part_meshes[part_id].copy()
+    #     part_mesh.apply_transform(self.part_final_transforms[part_id])
+
+    #     gripper_pos, gripper_quat, open_ratio = grasp.pos, grasp.quat, grasp.open_ratio
+    #     gripper_finger_meshes = {name: mesh.copy() for name, mesh in self.gripper_meshes_visual.items() if name in get_gripper_finger_names(self.gripper_type)}
+    #     gripper_finger_meshes = transform_gripper_meshes(self.gripper_type, gripper_finger_meshes, gripper_pos, gripper_quat, np.eye(4), open_ratio - 0.01) # NOTE: 0.01 for slight penetration
+
+    #     grasp_info = get_grasp_info_from_gripper_state(self.gripper_type, grasp.pos, grasp.quat, grasp.open_ratio)
+
+    #     contact_points = []
+    #     for name, mesh in gripper_finger_meshes.items():
+    #         assert 'left' in name or 'right' in name
+    #         l2r_direction = grasp_info['l2r_direction'] if 'left' in name else -grasp_info['l2r_direction']
+    #         if self.arm_type == 'panda': l2r_direction = -l2r_direction # TODO: fix bug for panda!
+    #         gripper_surface_points, _ = sample_points_with_normal_alignment(mesh, l2r_direction, n_sample)
+    #         # trimesh.Scene([mesh, trimesh.PointCloud(gripper_surface_points, color=[255,0,0])]).show()
+    #         # gripper_surface_points = mesh.sample(n_sample)
+    #         contact_points.extend(gripper_surface_points[part_mesh.contains(gripper_surface_points)])
+
+    #     grasp.contact_points = contact_points
+    #     return grasp
+
     def compute_contact_points(self, grasp, part_id, n_sample=1000):
-        part_mesh = self.part_meshes[part_id].copy()
-        part_mesh.apply_transform(self.part_final_transforms[part_id])
+        # 1. NO MORE COPYING THE PART MESH! (Fixes the BVH rebuild bottleneck)
+        # We use the raw part mesh and its pre-built spatial tree
+        part_mesh = self.part_meshes[part_id]
+        part_transform = self.part_final_transforms[part_id]
+        inv_part_transform = np.linalg.inv(part_transform)
 
         gripper_pos, gripper_quat, open_ratio = grasp.pos, grasp.quat, grasp.open_ratio
-        gripper_finger_meshes = {name: mesh.copy() for name, mesh in self.gripper_meshes_visual.items() if name in get_gripper_finger_names(self.gripper_type)}
-        gripper_finger_meshes = transform_gripper_meshes(self.gripper_type, gripper_finger_meshes, gripper_pos, gripper_quat, np.eye(4), open_ratio - 0.01) # NOTE: 0.01 for slight penetration
-
         grasp_info = get_grasp_info_from_gripper_state(self.gripper_type, grasp.pos, grasp.quat, grasp.open_ratio)
+        
+        finger_names = get_gripper_finger_names(self.gripper_type)
+        finger_visuals = {name: self.gripper_meshes_visual[name] for name in finger_names}
+        
+        # We only generate the 4x4 matrices, we DO NOT physically move the meshes
+        finger_transforms = get_gripper_meshes_transforms(self.gripper_type, finger_visuals, gripper_pos, gripper_quat, np.eye(4), open_ratio - 0.01)
+
+        # 2. Caching mechanism to avoid repeated Trimesh surface sampling
+        if not hasattr(self, '_cached_finger_points'):
+            self._cached_finger_points = {}
 
         contact_points = []
-        for name, mesh in gripper_finger_meshes.items():
-            assert 'left' in name or 'right' in name
+        for name in finger_names:
             l2r_direction = grasp_info['l2r_direction'] if 'left' in name else -grasp_info['l2r_direction']
-            if self.arm_type == 'panda': l2r_direction = -l2r_direction # TODO: fix bug for panda!
-            gripper_surface_points, _ = sample_points_with_normal_alignment(mesh, l2r_direction, n_sample)
-            # trimesh.Scene([mesh, trimesh.PointCloud(gripper_surface_points, color=[255,0,0])]).show()
-            # gripper_surface_points = mesh.sample(n_sample)
-            contact_points.extend(gripper_surface_points[part_mesh.contains(gripper_surface_points)])
+            if self.arm_type == 'panda': l2r_direction = -l2r_direction 
+
+            matrix = finger_transforms[name]
+
+            # Sample the raw mesh ONCE and cache it forever for this worker
+            if name not in self._cached_finger_points:
+                raw_mesh = finger_visuals[name]
+                # Calculate local direction by inverting the rotation matrix
+                local_dir = matrix[:3, :3].T @ l2r_direction
+                raw_pts, _ = sample_points_with_normal_alignment(raw_mesh, local_dir, n_sample)
+                self._cached_finger_points[name] = raw_pts
+
+            # Mathematically snap the cached points to the current global grasp pose
+            raw_pts = self._cached_finger_points[name]
+            pts_hom = np.hstack((raw_pts, np.ones((len(raw_pts), 1))))
+            global_pts = (matrix @ pts_hom.T).T[:, :3]
+
+            # 3. Mathematically snap the global points to the part's spatial BVH frame
+            local_to_part_pts = (inv_part_transform @ np.hstack((global_pts, np.ones((len(global_pts), 1)))).T).T[:, :3]
+            
+            # Instant lookup (BVH tree remains completely untouched and cached!)
+            inside_mask = part_mesh.contains(local_to_part_pts)
+            contact_points.extend(global_pts[inside_mask])
 
         grasp.contact_points = contact_points
         return grasp
@@ -551,88 +589,183 @@ class GraspArmGenerator(GraspGenerator):
         
         return grasps
 
-    def new_generate_grasps(self, part_id, max_n_grasp=None, n_proc=1, verbose=False):
-        grasps_cand = []
-        grasp_id = 0
+    ## Previous Version
+    # def new_generate_grasps(self, part_id, max_n_grasp=None, n_proc=1, verbose=False):
+    #     grasps_cand = []
+    #     grasp_id = 0
 
-        part_mesh = self.part_meshes[part_id].copy()
-        part_mesh.apply_transform(self.part_final_transforms[part_id])
+    #     part_mesh = self.part_meshes[part_id].copy()
+    #     part_mesh.apply_transform(self.part_final_transforms[part_id])
 
-        collision_meshes = []
-        # for part_after in self.G_preced.nodes[part_id]['parts_after']: # NOTE: disabled due to slowing down
-        #     collision_meshes.append(self.part_meshes[part_after].copy().apply_transform(self.part_final_transforms[part_after]))
+    #     collision_meshes = []
+    #     # for part_after in self.G_preced.nodes[part_id]['parts_after']: # NOTE: disabled due to slowing down
+    #     #     collision_meshes.append(self.part_meshes[part_after].copy().apply_transform(self.part_final_transforms[part_after]))
 
-        # compute antipodal points
-        antipodal_pairs = compute_antipodal_pairs(part_mesh, sample_budget=self.n_surface_pt, antipodal_thres=self.antipodal_thres, collision_meshes=collision_meshes)
-        for antipodal_points in antipodal_pairs:
-            open_ratio = get_gripper_open_ratio(self.gripper_type, antipodal_points)
-            if open_ratio is None or open_ratio > 0.95: continue
+    #     # compute antipodal points
+    #     antipodal_pairs = compute_antipodal_pairs(part_mesh, sample_budget=self.n_surface_pt, antipodal_thres=self.antipodal_thres, collision_meshes=collision_meshes)
+    #     for antipodal_points in antipodal_pairs:
+    #         open_ratio = get_gripper_open_ratio(self.gripper_type, antipodal_points)
+    #         if open_ratio is None or open_ratio > 0.95: continue
 
-            # compute grasps
-            for antipodal_points_i in [antipodal_points]:
-            # for antipodal_points_i in [antipodal_points, antipodal_points[::-1]]: # NOTE: more grasps but slower
-                gripper_pos_list, gripper_quat_list = generate_gripper_states(self.gripper_type, antipodal_points_i, open_ratio, self.n_angle, offset_delta=self.offset_delta)
-                for gripper_pos, gripper_quat in zip(gripper_pos_list, gripper_quat_list):
-                    grasp = Grasp(part_id, grasp_id, gripper_pos, gripper_quat, open_ratio)
-                    grasp_id += 1
-                    grasps_cand.append(grasp)
+    #         # compute grasps
+    #         for antipodal_points_i in [antipodal_points]:
+    #         # for antipodal_points_i in [antipodal_points, antipodal_points[::-1]]: # NOTE: more grasps but slower
+    #             gripper_pos_list, gripper_quat_list = generate_gripper_states(self.gripper_type, antipodal_points_i, open_ratio, self.n_angle, offset_delta=self.offset_delta)
+    #             for gripper_pos, gripper_quat in zip(gripper_pos_list, gripper_quat_list):
+    #                 grasp = Grasp(part_id, grasp_id, gripper_pos, gripper_quat, open_ratio)
+    #                 grasp_id += 1
+    #                 grasps_cand.append(grasp)
 
-        # calculate gripper-part contact area
-        grasps_cand_new = []
-        args = [(grasp, part_id, self.n_surface_pt) for grasp in grasps_cand]
-        for grasp in parallel_execute(self.compute_contact_points, args, num_proc=n_proc, show_progress=verbose, desc='contact area computation'):
-            if len(grasp.contact_points) == 0:
-                continue
-            grasps_cand_new.append(grasp)
-        grasps_cand = grasps_cand_new
+    #     # calculate gripper-part contact area
+    #     grasps_cand_new = []
+    #     args = [(grasp, part_id, self.n_surface_pt) for grasp in grasps_cand]
+    #     for grasp in parallel_execute(self.compute_contact_points, args, num_proc=n_proc, show_progress=verbose, desc='contact area computation'):
+    #         if len(grasp.contact_points) == 0:
+    #             continue
+    #         grasps_cand_new.append(grasp)
+    #     grasps_cand = grasps_cand_new
 
-        # check grasp feasibility (NEW)
-        grasps_new = {'move': [], 'hold': []}
+    #     # check grasp feasibility (NEW)
+    #     grasps_new = {'move': [], 'hold': []}
         
-        if max_n_grasp is not None:
-            # we shuffle before evaluating feasibility to preserve equivalnece
-            np.random.shuffle(grasps_cand)
+    #     if max_n_grasp is not None:
+    #         # we shuffle before evaluating feasibility to preserve equivalnece
+    #         np.random.shuffle(grasps_cand)
             
-            # separate to chunks (?)
-            chunk_size = max_n_grasp * 3 
+    #         # separate to chunks (?)
+    #         chunk_size = max_n_grasp * 3 
             
-            for i in range(0, len(grasps_cand), chunk_size):
-                chunk = grasps_cand[i : i + chunk_size]
-                args = [(grasp, part_id, False if n_proc > 1 else verbose) for grasp in chunk]
+    #         for i in range(0, len(grasps_cand), chunk_size):
+    #             chunk = grasps_cand[i : i + chunk_size]
+    #             args = [(grasp, part_id, False if n_proc > 1 else verbose) for grasp in chunk]
                 
-                # run same parallel execution 
-                for grasp in parallel_execute(self.check_grasp_feasible, args, num_proc=n_proc, show_progress=verbose, desc=f'grasp generation (batch {i//chunk_size + 1})'):
+    #             # run same parallel execution 
+    #             for grasp in parallel_execute(self.check_grasp_feasible, args, num_proc=n_proc, show_progress=verbose, desc=f'grasp generation (batch {i//chunk_size + 1})'):
+    #                 if grasp is not None:
+    #                     if grasp['move'] is not None:
+    #                         grasps_new['move'].append(grasp['move'])
+    #                     if grasp['hold'] is not None:
+    #                         grasps_new['hold'].append(grasp['hold'])
+                
+    #             # early exit (we only register feasible grasps until we get maximum permissible number)
+    #             if len(grasps_new['move']) >= max_n_grasp and len(grasps_new['hold']) >= max_n_grasp:
+    #                 break
+    #     else:
+    #         # Standard execution if no limit is provided
+    #         args = [(grasp, part_id, False if n_proc > 1 else verbose) for grasp in grasps_cand]
+    #         for grasp in parallel_execute(self.check_grasp_feasible, args, num_proc=n_proc, show_progress=verbose, desc='grasp generation'):
+    #             if grasp is not None:
+    #                 if grasp['move'] is not None:
+    #                     grasps_new['move'].append(grasp['move'])
+    #                 if grasp['hold'] is not None:
+    #                     grasps_new['hold'].append(grasp['hold'])
+
+    #     grasps = grasps_new
+
+    #     # limit number of grasps (Exact cutoff, as our final batch might have slightly overshot)
+    #     if max_n_grasp is not None:
+    #         random_move_indices = np.random.choice(len(grasps['move']), min(max_n_grasp, len(grasps['move'])), replace=False)
+    #         grasps['move'] = [grasps['move'][i] for i in random_move_indices]
+    #         grasps['hold'] = np.random.choice(grasps['hold'], min(max_n_grasp, len(grasps['hold'])), replace=False).tolist()
+
+    #     if verbose:
+    #         print(f'[generate_grasps] {len(grasps["move"])} move grasps and {len(grasps["hold"])} hold grasps generated for part {part_id}')
+        
+    #     return grasps
+
+    def new_generate_grasps(self, part_id, max_n_grasp=None, n_proc=1, verbose=False):
+            grasps_cand = []
+            grasp_id = 0
+    
+            part_mesh = self.part_meshes[part_id].copy()
+            part_mesh.apply_transform(self.part_final_transforms[part_id])
+    
+            collision_meshes = []
+            # for part_after in self.G_preced.nodes[part_id]['parts_after']: # NOTE: disabled due to slowing down
+            #     collision_meshes.append(self.part_meshes[part_after].copy().apply_transform(self.part_final_transforms[part_after]))
+    
+            # compute antipodal points
+            antipodal_pairs = compute_antipodal_pairs(part_mesh, sample_budget=self.n_surface_pt, antipodal_thres=self.antipodal_thres, collision_meshes=collision_meshes)
+            for antipodal_points in antipodal_pairs:
+                open_ratio = get_gripper_open_ratio(self.gripper_type, antipodal_points)
+                if open_ratio is None or open_ratio > 0.95: continue
+    
+                # compute grasps
+                for antipodal_points_i in [antipodal_points]:
+                # for antipodal_points_i in [antipodal_points, antipodal_points[::-1]]: # NOTE: more grasps but slower
+                    gripper_pos_list, gripper_quat_list = generate_gripper_states(self.gripper_type, antipodal_points_i, open_ratio, self.n_angle, offset_delta=self.offset_delta)
+                    for gripper_pos, gripper_quat in zip(gripper_pos_list, gripper_quat_list):
+                        grasp = Grasp(part_id, grasp_id, gripper_pos, gripper_quat, open_ratio)
+                        grasp_id += 1
+                        grasps_cand.append(grasp)
+    
+            # check grasp feasibility (NEW)
+            grasps_new = {'move': [], 'hold': []}
+            
+            if max_n_grasp is not None:
+                # we shuffle before evaluating feasibility to preserve equivalnece
+                np.random.shuffle(grasps_cand)
+                
+                # separate to chunks (?)
+                chunk_size = max_n_grasp * 3 
+                
+                for i in range(0, len(grasps_cand), chunk_size):
+                    chunk = grasps_cand[i : i + chunk_size]
+                    
+                    # --- NEW: LAZY CONTACT AREA FILTERING ---
+                    # We only ray-cast on this specific chunk of ~30 grasps instead of all of them at once.
+                    chunk_filtered = []
+                    args_contact = [(grasp, part_id, self.n_surface_pt) for grasp in chunk]
+                    for grasp in parallel_execute(self.compute_contact_points, args_contact, num_proc=n_proc, show_progress=False):
+                        if len(grasp.contact_points) > 0:
+                            chunk_filtered.append(grasp)
+                            
+                    # If no grasps in this chunk make contact, skip to the next chunk
+                    if not chunk_filtered:
+                        continue
+                    # ----------------------------------------
+                    
+                    args = [(grasp, part_id, False if n_proc > 1 else verbose) for grasp in chunk_filtered]
+                    
+                    # run same parallel execution 
+                    for grasp in parallel_execute(self.check_grasp_feasible, args, num_proc=n_proc, show_progress=verbose, desc=f'grasp generation (batch {i//chunk_size + 1})'):
+                        if grasp is not None:
+                            if grasp['move'] is not None:
+                                grasps_new['move'].append(grasp['move'])
+                            if grasp['hold'] is not None:
+                                grasps_new['hold'].append(grasp['hold'])
+                    
+                    # early exit (we only register feasible grasps until we get maximum permissible number)
+                    if len(grasps_new['move']) >= max_n_grasp and len(grasps_new['hold']) >= max_n_grasp:
+                        break
+            else:
+                # Standard execution if no limit is provided
+                grasps_cand_new = []
+                args_contact = [(grasp, part_id, self.n_surface_pt) for grasp in grasps_cand]
+                for grasp in parallel_execute(self.compute_contact_points, args_contact, num_proc=n_proc, show_progress=verbose, desc='contact area computation'):
+                    if len(grasp.contact_points) > 0:
+                        grasps_cand_new.append(grasp)
+    
+                args = [(grasp, part_id, False if n_proc > 1 else verbose) for grasp in grasps_cand_new]
+                for grasp in parallel_execute(self.check_grasp_feasible, args, num_proc=n_proc, show_progress=verbose, desc='grasp generation'):
                     if grasp is not None:
                         if grasp['move'] is not None:
                             grasps_new['move'].append(grasp['move'])
                         if grasp['hold'] is not None:
                             grasps_new['hold'].append(grasp['hold'])
-                
-                # early exit (we only register feasible grasps until we get maximum permissible number)
-                if len(grasps_new['move']) >= max_n_grasp and len(grasps_new['hold']) >= max_n_grasp:
-                    break
-        else:
-            # Standard execution if no limit is provided
-            args = [(grasp, part_id, False if n_proc > 1 else verbose) for grasp in grasps_cand]
-            for grasp in parallel_execute(self.check_grasp_feasible, args, num_proc=n_proc, show_progress=verbose, desc='grasp generation'):
-                if grasp is not None:
-                    if grasp['move'] is not None:
-                        grasps_new['move'].append(grasp['move'])
-                    if grasp['hold'] is not None:
-                        grasps_new['hold'].append(grasp['hold'])
-
-        grasps = grasps_new
-
-        # limit number of grasps (Exact cutoff, as our final batch might have slightly overshot)
-        if max_n_grasp is not None:
-            random_move_indices = np.random.choice(len(grasps['move']), min(max_n_grasp, len(grasps['move'])), replace=False)
-            grasps['move'] = [grasps['move'][i] for i in random_move_indices]
-            grasps['hold'] = np.random.choice(grasps['hold'], min(max_n_grasp, len(grasps['hold'])), replace=False).tolist()
-
-        if verbose:
-            print(f'[generate_grasps] {len(grasps["move"])} move grasps and {len(grasps["hold"])} hold grasps generated for part {part_id}')
-        
-        return grasps
+    
+            grasps = grasps_new
+    
+            # limit number of grasps (Exact cutoff, as our final batch might have slightly overshot)
+            if max_n_grasp is not None:
+                random_move_indices = np.random.choice(len(grasps['move']), min(max_n_grasp, len(grasps['move'])), replace=False)
+                grasps['move'] = [grasps['move'][i] for i in random_move_indices]
+                grasps['hold'] = np.random.choice(grasps['hold'], min(max_n_grasp, len(grasps['hold'])), replace=False).tolist()
+    
+            if verbose:
+                print(f'[generate_grasps] {len(grasps["move"])} move grasps and {len(grasps["hold"])} hold grasps generated for part {part_id}')
+            
+            return grasps
     
 
     

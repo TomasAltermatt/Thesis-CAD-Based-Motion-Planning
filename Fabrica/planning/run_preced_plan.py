@@ -228,9 +228,9 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
                     )
                     
                     parts_assembled.remove(part_move)
-                    tier[part_move] = {'action': action_vec, 'path': path}
+                    tier[part_move] = {'action': action_vec, 'path': path, 'is_straight': True}
             
-            # --- STAGE 3: PARALLEL WORKER FALLBACK ---
+            # --- STAGE 3: PARALLEL WORKER FALLBACK --- (MISSING TESTING TO SELECT HEURISTIC FOR SORTING EFFICIENTLY)
             if len(tier) == 0:
                 print(f'[run_preced_plan] Absolute lock. Sorting and evaluating in parallel: {still_locked_parts}')
                 
@@ -290,9 +290,10 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
             # centered_path = np.array(info['path']) + np.concatenate([assembly_center, np.zeros(3)])
             # add zeros as the last 3 dimensions to make the PARTS path 6 dimensional
             centered_path = np.hstack([info['path'] + assembly_center, np.zeros((len(info['path']), 3))])
-            G.add_node(part, action=info['action'], path=centered_path, parts_before=[], parts_after=[])
+            # Added "is_straight" for grasp generation access
+            G.add_node(part, action=info['action'], path=centered_path, is_straight=info.get('is_straight', False), parts_before=[], parts_after=[])
     for part in parts_assembled:
-        G.add_node(part, action=None, path=None, parts_before=[], parts_after=[])
+        G.add_node(part, action=None, path=None, is_straight=False, parts_before=[], parts_after=[])
     
     parts_removed = []
     args, kwargs = [], []
