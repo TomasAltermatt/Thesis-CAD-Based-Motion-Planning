@@ -77,15 +77,15 @@
   
   <!--///////////////////////////////////// LEFT ARM ////////////////////////////////  -->
   <!-- joint between body and link_1_l -->
-  <joint name="yumi_joint_1_l" type="revolute">
+  <joint name="yumi_joint_1" type="revolute">
     <parent link="yumi_body"/>
-    <child link="yumi_link_1_l"/>
+    <child link="yumi_link_1"/>
     <origin rpy="0.9781 -0.5716 2.3180" xyz="0.05355 0.07250 0.41492"/>
     <axis xyz="0 0 1"/>
     <limit effort="300" lower="-2.94087978961" upper="2.94087978961" velocity="3.14159265359"/>
     <dynamics damping="0.5"/>
   </joint>
-  <link name="yumi_link_1_l">
+  <link name="yumi_link_1">
     <inertial>
       <origin rpy="0 0 0" xyz="0 -0.03 0.12"/>
       <mass value="2"/>
@@ -107,15 +107,15 @@
     </collision>
   </link>
   <!-- joint between link_1_l and link_2_l -->
-  <joint name="yumi_joint_2_l" type="revolute">
-    <parent link="yumi_link_1_l"/>
-    <child link="yumi_link_2_l"/>
+  <joint name="yumi_joint_2" type="revolute">
+    <parent link="yumi_link_1"/>
+    <child link="yumi_link_2"/>
     <origin rpy="1.57079632679 0.0 0.0" xyz="0.03 0.0 0.1"/>
     <axis xyz="0 0 1"/>
     <limit effort="300" lower="-2.50454747661" upper="0.759218224618" velocity="3.14159265359"/>
     <dynamics damping="0.5"/>
   </joint>
-  <link name="yumi_link_2_l">
+  <link name="yumi_link_2">
     <inertial>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <mass value="2"/>
@@ -137,15 +137,15 @@
     </collision>
   </link>
   <!-- joint between link_2_l and link_3_l -->
-  <joint name="yumi_joint_7_l" type="revolute">
-    <parent link="yumi_link_2_l"/>
-    <child link="yumi_link_3_l"/>
+  <joint name="yumi_joint_7" type="revolute">
+    <parent link="yumi_link_2"/>
+    <child link="yumi_link_3"/>
     <origin rpy="-1.57079632679 0.0 0.0" xyz="-0.03 0.17283 0.0"/>
     <axis xyz="0 0 1"/>
     <limit effort="300" lower="-2.94087978961" upper="2.94087978961" velocity="3.14159265359"/>
     <dynamics damping="0.5"/>
   </joint>
-  <link name="yumi_link_3_l">
+  <link name="yumi_link_3">
     <inertial>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <mass value="2"/>
@@ -167,15 +167,15 @@
     </collision>
   </link>
   <!-- joint between link_3_l and link_4_l -->
-  <joint name="yumi_joint_3_l" type="revolute">
-    <parent link="yumi_link_3_l"/>
-    <child link="yumi_link_4_l"/>
+  <joint name="yumi_joint_3" type="revolute">
+    <parent link="yumi_link_3"/>
+    <child link="yumi_link_4"/>
     <origin rpy="1.57079632679 -1.57079632679 0.0" xyz="-0.04188 0.0 0.07873"/>
     <axis xyz="0 0 1"/>
     <limit effort="300" lower="-2.15548162621" upper="1.3962634016" velocity="3.14159265359"/>
     <dynamics damping="0.5"/>
   </joint>
-  <link name="yumi_link_4_l">
+  <link name="yumi_link_4">
     <inertial>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <mass value="2"/>
@@ -197,15 +197,15 @@
     </collision>
   </link>
   <!-- joint between link_4_l and link_5_l -->
-  <joint name="yumi_joint_4_l" type="revolute">
-    <parent link="yumi_link_4_l"/>
-    <child link="yumi_link_5_l"/>
+  <joint name="yumi_joint_4" type="revolute">
+    <parent link="yumi_link_4"/>
+    <child link="yumi_link_5"/>
     <origin rpy="-1.57079632679 0.0 0.0" xyz="0.0405 0.16461 0.0"/>
     <axis xyz="0 0 1"/>
     <limit effort="300" lower="-5.06145483078" upper="5.06145483078" velocity="6.98131700798"/>
     <dynamics damping="0.5"/>
   </joint>
-  <link name="yumi_link_5_l">
+  <link name="yumi_link_5">
     <inertial>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <mass value="2"/>
@@ -227,15 +227,15 @@
     </collision>
   </link>
   <!-- joint between link_5_l and link_6_l -->
-  <joint name="yumi_joint_5_l" type="revolute">
-    <parent link="yumi_link_5_l"/>
-    <child link="yumi_link_6_l"/>
+  <joint name="yumi_joint_5" type="revolute">
+    <parent link="yumi_link_5"/>
+    <child link="yumi_link_6"/>
     <origin rpy="1.57079632679 0.0 0.0" xyz="-0.027 0 0.10039"/>
     <axis xyz="0 0 1"/>
     <limit effort="300" lower="-1.53588974176" upper="2.40855436775" velocity="6.98131700798"/>
     <dynamics damping="0.5"/>
   </joint>
-  <link name="yumi_link_6_l">
+  <link name="yumi_link_6">
     <inertial>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <mass value="2"/>
@@ -257,15 +257,15 @@
     </collision>
   </link>
   <!-- joint between link_6_l and link_7_l -->
-  <joint name="yumi_joint_6_l" type="revolute">
-    <parent link="yumi_link_6_l"/>
-    <child link="yumi_link_7_l"/>
+  <joint name="yumi_joint_6" type="revolute">
+    <parent link="yumi_link_6"/>
+    <child link="yumi_link_7"/>
     <origin rpy="-1.57079632679 0.0 0.0" xyz="0.027 0.029 0.0"/>
     <axis xyz="0 0 1"/>
     <limit effort="300" lower="-3.99680398707" upper="3.99680398707" velocity="6.98131700798"/>
     <dynamics damping="0.5"/>
   </joint>
-  <link name="yumi_link_7_l">
+  <link name="yumi_link_7">
     <inertial>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <mass value="2"/>
@@ -362,72 +362,72 @@
       <mechanicalReduction>1</mechanicalReduction>
     </actuator>
   </transmission>
-  <transmission name="yumi_tran_1_l">
+  <transmission name="yumi_tran_1">
     <type>transmission_interface/SimpleTransmission</type>
-    <joint name="yumi_joint_1_l">
+    <joint name="yumi_joint_1">
       <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
     </joint>
-    <actuator name="yumi_motor_1_l">
+    <actuator name="yumi_motor_1">
       <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
       <mechanicalReduction>1</mechanicalReduction>
     </actuator>
   </transmission>
-  <transmission name="yumi_tran_2_l">
+  <transmission name="yumi_tran_2">
     <type>transmission_interface/SimpleTransmission</type>
-    <joint name="yumi_joint_2_l">
+    <joint name="yumi_joint_2">
       <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
     </joint>
-    <actuator name="yumi_motor_2_l">
+    <actuator name="yumi_motor_2">
       <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
       <mechanicalReduction>1</mechanicalReduction>
     </actuator>
   </transmission>
-  <transmission name="yumi_tran_3_l">
+  <transmission name="yumi_tran_3">
     <type>transmission_interface/SimpleTransmission</type>
-    <joint name="yumi_joint_3_l">
+    <joint name="yumi_joint_3">
       <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
     </joint>
-    <actuator name="yumi_motor_3_l">
+    <actuator name="yumi_motor_3">
       <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
       <mechanicalReduction>1</mechanicalReduction>
     </actuator>
   </transmission>
-  <transmission name="yumi_tran_4_l">
+  <transmission name="yumi_tran_4">
     <type>transmission_interface/SimpleTransmission</type>
-    <joint name="yumi_joint_4_l">
+    <joint name="yumi_joint_4">
       <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
     </joint>
-    <actuator name="yumi_motor_4_l">
+    <actuator name="yumi_motor_4">
       <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
       <mechanicalReduction>1</mechanicalReduction>
     </actuator>
   </transmission>
-  <transmission name="yumi_tran_5_l">
+  <transmission name="yumi_tran_5">
     <type>transmission_interface/SimpleTransmission</type>
-    <joint name="yumi_joint_5_l">
+    <joint name="yumi_joint_5">
       <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
     </joint>
-    <actuator name="yumi_motor_5_l">
+    <actuator name="yumi_motor_5">
       <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
       <mechanicalReduction>1</mechanicalReduction>
     </actuator>
   </transmission>
-  <transmission name="yumi_tran_6_l">
+  <transmission name="yumi_tran_6">
     <type>transmission_interface/SimpleTransmission</type>
-    <joint name="yumi_joint_6_l">
+    <joint name="yumi_joint_6">
       <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
     </joint>
-    <actuator name="yumi_motor_6_l">
+    <actuator name="yumi_motor_6">
       <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
       <mechanicalReduction>1</mechanicalReduction>
     </actuator>
   </transmission>
-  <transmission name="yumi_tran_7_l">
+  <transmission name="yumi_tran_7">
     <type>transmission_interface/SimpleTransmission</type>
-    <joint name="yumi_joint_7_l">
+    <joint name="yumi_joint_7">
       <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
     </joint>
-    <actuator name="yumi_motor_7_l">
+    <actuator name="yumi_motor_7">
       <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
       <mechanicalReduction>1</mechanicalReduction>
     </actuator>

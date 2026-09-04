@@ -509,6 +509,20 @@ def load_arm_meshes(arm_type, asset_folder, visual=False, convex=True, combined=
             for name in linknames:
                 filename = name.replace('_link', '').replace('_', '')
                 meshes[name] = trimesh.load(os.path.join(asset_folder, 'ur5e', 'collision', f'{filename}.obj'))
+    # Added Yumi arm meshes           
+    elif arm_type == 'yumi':
+        if visual:
+            meshes['yumi_body'] = trimesh.load(os.path.join(asset_folder, 'yumi', 'visual', 'body.obj'))
+            for i in range(1, 8):
+                meshes[f'yumi_link_{i}'] = trimesh.load(os.path.join(asset_folder, 'yumi', 'visual', f'link_{i}.obj'))
+        else:
+            meshes['yumi_body'] = trimesh.load(os.path.join(asset_folder, 'yumi', 'collision', 'body.obj'))
+            for i in range(1, 8):
+                meshes[f'yumi_link_{i}'] = trimesh.load(os.path.join(asset_folder, 'yumi', 'collision', f'link_{i}.obj'))
+
+        for name in meshes:
+            meshes[name].apply_scale(100.0)
+
     else:
         raise NotImplementedError
     if not visual and convex:

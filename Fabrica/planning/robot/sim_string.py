@@ -393,6 +393,8 @@ def get_arm_eef_joint(arm_type):
         return 'panda_joint8'
     elif arm_type == 'ur5e':
         return 'ee_fixed_joint'
+    elif arm_type == 'yumi':
+        return 'yumi_link_7' # Temporary hook for the IK endpoint
     else:
         raise NotImplementedError
 
@@ -404,5 +406,8 @@ def get_arm_joints(arm_type):
         return ['panda_joint1', 'panda_joint2', 'panda_joint3', 'panda_joint4', 'panda_joint5', 'panda_joint6', 'panda_joint7']
     elif arm_type == 'ur5e':
         return ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint', 'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint']
+    elif arm_type == 'yumi':
+        # YuMi's strange native URDF order: 1, 2, 7, 3, 4, 5, 6
+        return ['yumi_joint_1', 'yumi_joint_2', 'yumi_joint_7', 'yumi_joint_3', 'yumi_joint_4', 'yumi_joint_5', 'yumi_joint_6']
     else:
         raise NotImplementedError
