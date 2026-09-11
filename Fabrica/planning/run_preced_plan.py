@@ -99,6 +99,7 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
     assembly_manifest_OBB = None
     
     t_start = time()
+    total_simulations_run = 0
     if use_heuristic:
         master_part_ids = parts_assembled.copy()
         
@@ -132,14 +133,19 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
                         num_proc=inner_num_proc, pose=np.eye(4), save_sdf=True, 
                         return_path=True, optimize_path=True, debug=0, render=False,
                         directional_matrices=directional_matrices_AABB,  
-                        master_part_ids=master_part_ids
+                        master_part_ids=master_part_ids,
+                        return_sim_count=True
                     ))
                 
                 if not args:
                     continue
                     
                 found_success = False
-                for (action, path), ret_arg, _ in parallel_execute(check_assemblable_parallel, args, kwargs, num_proc=num_proc, return_args=True, show_progress=verbose, desc='check_assemblable'):
+                for (action, path, sim_count), ret_arg, _ in parallel_execute(check_assemblable_parallel, args, kwargs, num_proc=num_proc, return_args=True, show_progress=verbose, desc='check_assemblable'):
+
+                    nonlocal total_simulations_run
+                    total_simulations_run += sim_count
+                    
                     if action is not None:
                         part_move = ret_arg[-1]
                         parts_assembled.remove(part_move)
@@ -333,7 +339,8 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
     save_graph(G, log_dir)
     stats_path = os.path.join(log_dir, 'stats.json')
     with open(stats_path, 'w') as fp:
-        json.dump({'preced_plan': {'time': round(time() - t_start, 2)}}, fp)
+        json.dump({'preced_plan': {'time': round(time() - t_start, 2)},
+                   'total_simulations': total_simulations_run}, fp)
 
 
 def draw_graph(G, save_path=None):

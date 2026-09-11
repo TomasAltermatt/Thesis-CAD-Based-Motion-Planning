@@ -237,10 +237,11 @@ def get_R3_actions():
     return actions
 
 
-def check_assemblable(asset_folder, assembly_dir, parts_fix, part_move, pose=None, save_sdf=False, debug=0, render=False, return_path=False, optimize_path=False, min_sep=None, adaptive_sample=False):
+def check_assemblable(asset_folder, assembly_dir, parts_fix, part_move, pose=None, save_sdf=False, debug=0, render=False, return_path=False, optimize_path=False, min_sep=None, adaptive_sample=False, return_sim_count=False):
     '''
     Check if certain parts are disassemblable
     '''
+    sim_count = 0
     planner = MultiPartPathPlanner(asset_folder, assembly_dir, parts_fix, part_move, pose=pose, save_sdf=save_sdf, adaptive_sample=adaptive_sample)
 
     actions = get_R3_actions()
@@ -248,6 +249,7 @@ def check_assemblable(asset_folder, assembly_dir, parts_fix, part_move, pose=Non
     best_path = None
     best_path_len = np.inf
     for action in actions:
+        sim_count += 1
         success, path = planner.check_success(action, return_path=True, min_sep=min_sep, max_path_len=best_path_len)
         if debug > 0:
             print(f'[check_assemblable] success: {success}, parts_fix: {parts_fix}, part_move: {part_move}, action: {action}, path_len: {len(path)}')
@@ -266,6 +268,7 @@ def check_assemblable(asset_folder, assembly_dir, parts_fix, part_move, pose=Non
             best_dirs = best_dirs[np.linalg.norm(best_dirs, axis=1) > 1e-6]
             opt_action = np.median(best_dirs / np.linalg.norm(best_dirs, axis=1)[:, None], axis=0)
             opt_action = opt_action / np.linalg.norm(opt_action)
+            sim_count += 1
             success, opt_path = planner.check_success(opt_action, return_path=True, min_sep=min_sep)
             if debug > 0:
                 print(f'[check_assemblable] success: {success}, parts_fix: {parts_fix}, part_move: {part_move}, action (optimized): {opt_action}, path_len (optimized): {len(opt_path)}')
@@ -277,10 +280,12 @@ def check_assemblable(asset_folder, assembly_dir, parts_fix, part_move, pose=Non
                 best_action = opt_action
         best_path = np.array(best_path)
 
-    if return_path:
-        return best_action, best_path
+    if return_sim_count:
+        if return_path: return best_action, best_path, sim_count
+        else: return best_action, sim_count
     else:
-        return best_action
+        if return_path: return best_action, best_path
+        else: return best_action
 
 
 def _check_assemblable_worker(asset_folder, assembly_dir, parts_fix, part_move, pose, save_sdf, optimize_path, min_sep, adaptive_sample, action, debug, render):
@@ -288,6 +293,7 @@ def _check_assemblable_worker(asset_folder, assembly_dir, parts_fix, part_move, 
     Worker process for check_assemblable_parallel
     '''
     # check_success is used to check if the action is feasible ONLY FOR THE MOVING PART, NOT INCLUDING ROBOT ARM YET
+    sim_count = 1  # Track the primary action check
     planner = MultiPartPathPlanner(asset_folder, assembly_dir, parts_fix, part_move, pose=pose, save_sdf=save_sdf, adaptive_sample=adaptive_sample)
     success, path = planner.check_success(action, return_path=True, min_sep=min_sep)
 
@@ -306,6 +312,8 @@ def _check_assemblable_worker(asset_folder, assembly_dir, parts_fix, part_move, 
             dirs = dirs[np.linalg.norm(dirs, axis=1) > 1e-6]
             opt_action = np.median(dirs / np.linalg.norm(dirs, axis=1)[:, None], axis=0)
             opt_action = opt_action / np.linalg.norm(opt_action)
+
+            sim_count += 1  # Track the optimization pass
             success, opt_path = planner.check_success(opt_action, return_path=True, min_sep=min_sep)
             if debug > 0:
                 print(f'[check_assemblable] success: {success}, parts_fix: {parts_fix}, part_move: {part_move}, action (optimized): {opt_action}, path_len (optimized): {len(opt_path)}')
@@ -316,10 +324,10 @@ def _check_assemblable_worker(asset_folder, assembly_dir, parts_fix, part_move, 
                 action = opt_action
         path = np.array(path)
 
-    return success, path, action
+    return success, path, action, sim_count
 
 
-def check_assemblable_parallel(asset_folder, assembly_dir, parts_fix, part_move, num_proc, pose=None, save_sdf=False, debug=0, render=False, return_path=False, optimize_path=False, min_sep=None, adaptive_sample=False, directional_matrices=None, master_part_ids=None):
+def check_assemblable_parallel(asset_folder, assembly_dir, parts_fix, part_move, num_proc, pose=None, save_sdf=False, debug=0, render=False, return_path=False, optimize_path=False, min_sep=None, adaptive_sample=False, directional_matrices=None, master_part_ids=None, return_sim_count=False):
     '''
     Parallel version of check_assemblable
     '''
@@ -330,10 +338,9 @@ def check_assemblable_parallel(asset_folder, assembly_dir, parts_fix, part_move,
         if action is not None:
             if 1:
                 print(f'[JIT Pre-Filter] Successfully bypassed Redmax simulation for {part_move} along {action}!')
-            if return_path:
-                return action, path
-            else:
-                return action
+            if return_sim_count:
+                return action, path, 0 if return_path else action, 0 # 0 Redmax sims used!
+            return action, path if return_path else action
     # ---------------------------------
 
     # HERE WE ARE TESTING ALL THE POSSIBLE ACTIONS IN R3 WHICH IS NOT EFFICIENT
@@ -342,17 +349,19 @@ def check_assemblable_parallel(asset_folder, assembly_dir, parts_fix, part_move,
     # DONT IMPLEMENT MATRICES ON CHECK ASSEMBLABLE, ITS BETTER TO CHECK ONCE WE OPTIMIZE THE ACTION BASED ON THE PATH FOUND
     actions = get_R3_actions()
     if num_proc < len(actions):
-        return check_assemblable(asset_folder, assembly_dir, parts_fix, part_move, pose=pose, save_sdf=save_sdf, debug=debug, render=render, return_path=return_path, optimize_path=optimize_path, min_sep=min_sep, adaptive_sample=adaptive_sample)
+        return check_assemblable(asset_folder, assembly_dir, parts_fix, part_move, pose=pose, save_sdf=save_sdf, debug=debug, render=render, return_path=return_path, optimize_path=optimize_path, min_sep=min_sep, adaptive_sample=adaptive_sample, return_sim_count=return_sim_count)
     
     best_action = None
     best_path = None
     best_path_len = np.inf
+    total_sims = 0
 
     worker_args = []
     for action in actions:
         worker_args.append((asset_folder, assembly_dir, parts_fix, part_move, pose, save_sdf, optimize_path, min_sep, adaptive_sample, action, 0, False))
 
-    for (success, path, action) in parallel_execute(_check_assemblable_worker, worker_args, num_proc=num_proc, terminate_func=None, show_progress=False):
+    for (success, path, action, sim_count) in parallel_execute(_check_assemblable_worker, worker_args, num_proc=num_proc, terminate_func=None, show_progress=False):
+        total_sims += sim_count
         if debug > 0:
             print(f'[check_assemblable] success: {success}, parts_fix: {parts_fix}, part_move: {part_move}, action: {action}, path_len: {len(path)}')
         if success and len(path) < best_path_len:
@@ -360,10 +369,12 @@ def check_assemblable_parallel(asset_folder, assembly_dir, parts_fix, part_move,
             best_path_len = len(path)
             best_action = action
 
-    if return_path:
-        return best_action, best_path
+    if return_sim_count:
+        if return_path: return best_action, best_path, total_sims
+        else: return best_action, total_sims
     else:
-        return best_action
+        if return_path: return best_action, best_path
+        else: return best_action
 
 
 def check_all_connection_assemblable(asset_folder, assembly_dir, parts=None, contact_eps=CONTACT_EPS, save_sdf=False, num_proc=1, debug=0, render=False):
