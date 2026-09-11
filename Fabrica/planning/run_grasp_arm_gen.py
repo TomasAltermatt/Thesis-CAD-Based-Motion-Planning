@@ -24,18 +24,20 @@ from assets.transform import get_transform_from_path
 from planning.robot.util_grasp import compute_antipodal_pairs, generate_gripper_states, get_antipodal_aligned_grasp, sample_points_with_normal_alignment, get_grasp_info_from_gripper_state, get_reverse_grasp
 from planning.robot.util_arm import get_arm_chain, get_ik_target_orientation, get_gripper_pos_quat_from_arm_q, get_ft_pos_from_gripper_pos_quat
 from planning.robot.workcell import get_dual_arm_box
+from planning.robot.workcell import get_fixture_min_y, get_max_bin_size_blocking
 from planning.robot.geometry import load_arm_meshes, transform_gripper_meshes, transform_arm_meshes, get_arm_meshes_transforms, get_gripper_meshes_transforms, get_buffered_arm_meshes, \
     get_gripper_base_name, get_gripper_open_ratio, get_gripper_finger_names, get_gripper_knuckle_names
 from planning.config import RETRACT_OPEN_RATIO, CHECK_GRIPPERS_INTERLOCK
 from planning.run_grasp_gen import GraspGenerator, Grasp
 from utils.parallel import parallel_execute
+from matrix_code.IM_Generation.functions import evaluate_optimized_action
 
 
 class GraspArmGenerator(GraspGenerator):
 
-    def __init__(self, asset_folder, assembly_dir, preced_graph, gripper_type=None, arm_type=None, has_ft_sensor=None, seed=0, n_surface_pt=100, n_angle=10, antipodal_thres=0.95, ik_optimizer=None, ik_regularization=None, offset_delta=0.0, reduced_limit=0.0):
+    def __init__(self, asset_folder, assembly_dir, preced_graph, gripper_type=None, arm_type=None, has_ft_sensor=None, seed=0, n_surface_pt=100, n_angle=10, antipodal_thres=0.95, ik_optimizer=None, ik_regularization=None, offset_delta=0.0, reduced_limit=0.0, use_cython=True):
         GraspGenerator.__init__(self, asset_folder, assembly_dir, preced_graph, gripper_type=gripper_type, arm_type=arm_type, has_ft_sensor=has_ft_sensor['move'] or has_ft_sensor['hold'], seed=seed, n_surface_pt=n_surface_pt, n_angle=n_angle, antipodal_thres=antipodal_thres, offset_delta=offset_delta)
-
+        self.use_cython = use_cython
         # New attribute to save part things
         self.part_extraction_tunnels = {}
         for part_id in self.part_ids:
@@ -96,7 +98,19 @@ class GraspArmGenerator(GraspGenerator):
         for name, mesh in self.arm_meshes.items():  # unbuffered arm meshes for hold
             self.col_manager_hold.add_object(name, mesh)
 
-        self.arm_chains = {'move': get_arm_chain(arm_type, 'move', reduced_limit=reduced_limit), 'hold': get_arm_chain(arm_type, 'hold', reduced_limit=reduced_limit)}
+        #self.arm_chains = {'move': get_arm_chain(arm_type, 'move', reduced_limit=reduced_limit), 'hold': get_arm_chain(arm_type, 'hold', reduced_limit=reduced_limit)}
+        if self.arm_type == 'yumi':
+            self.arm_chains = {
+                'move_right': get_arm_chain(arm_type, 'move', reduced_limit=reduced_limit, side='right'),
+                'move_left': get_arm_chain(arm_type, 'move', reduced_limit=reduced_limit, side='left'),
+                'hold_right': get_arm_chain(arm_type, 'hold', reduced_limit=reduced_limit, side='right'),
+                'hold_left': get_arm_chain(arm_type, 'hold', reduced_limit=reduced_limit, side='left')
+            }
+        else:
+            self.arm_chains = {
+                'move': get_arm_chain(arm_type, 'move', reduced_limit=reduced_limit), 
+                'hold': get_arm_chain(arm_type, 'hold', reduced_limit=reduced_limit)
+            }
 
         # gripper knuckle
         self.gripper_knuckle_names = get_gripper_knuckle_names(self.gripper_type)
@@ -110,6 +124,34 @@ class GraspArmGenerator(GraspGenerator):
             box_outer_mesh = trimesh.creation.box(bounds=np.vstack([box_lower - 1.0, box_upper + 1.0]))
             box_mesh = box_outer_mesh.difference(box_inner_mesh)
             self.box_col_manager[motion_type].add_object('box', box_mesh)
+
+        if self.arm_type == 'yumi':
+            self.box_col_manager['right'] = self.box_col_manager['move']
+            self.box_col_manager['left'] = self.box_col_manager['hold']
+
+        # --- NEW: CACHE TRANSFORMED STATIC MESHES ONCE ---
+        self.static_part_meshes_cache = {}
+        for pid in self.part_ids:
+            mesh = self.part_meshes[pid].copy()
+            mesh.apply_transform(self.part_final_transforms[pid])
+            _ = mesh.face_adjacency # Pre-build the adjacency graph for Cython here!
+            self.static_part_meshes_cache[pid] = mesh
+
+        # --- NEW: CACHE GRIPPER CYTHON PROXY (MAX OPEN) ---
+        # Build a single "Fat" Convex Hull of the fully open gripper at the origin ONCE.
+        open_transforms = get_gripper_meshes_transforms(self.gripper_type, self.gripper_meshes_buffered, np.zeros(3), np.array([0, 0, 0, 1]), np.eye(4), 1.0)
+        all_verts = []
+        for name, transform in open_transforms.items():
+            verts = self.gripper_meshes_buffered[name].vertices
+            verts_hom = np.hstack((verts, np.ones((len(verts), 1))))
+            all_verts.append((transform @ verts_hom.T).T[:, :3])
+        
+        base_proxy = trimesh.PointCloud(np.vstack(all_verts)).convex_hull
+        self.gripper_proxy_faces = base_proxy.faces
+        self.gripper_proxy_face_adj = base_proxy.face_adjacency
+        self.gripper_proxy_verts = base_proxy.vertices
+        self.gripper_proxy_verts_hom = np.hstack((self.gripper_proxy_verts, np.ones((len(self.gripper_proxy_verts), 1))))
+        # -------------------------------------------------
 
     def visualize_col_managers(self, col_managers, other_meshes=[]):
         meshes = {}
@@ -133,6 +175,11 @@ class GraspArmGenerator(GraspGenerator):
     # I check feasibility of a grasp on a SINGLE part, both in hold and move, so this is feasibility check saves the grasps on both 
     # move and hold
     def check_grasp_feasible(self, grasp, part_id, verbose=False):
+        stats = [0, 0] # [fcl_skips, fcl_calls]
+        result = self._check_grasp_feasible_inner(grasp, part_id, stats, verbose)
+        return result, stats
+    
+    def _check_grasp_feasible_inner(self, grasp, part_id, stats, verbose=False):
         n_timestep = 3
         parts_after = self.G_preced.nodes[part_id]['parts_after']
 
@@ -173,11 +220,62 @@ class GraspArmGenerator(GraspGenerator):
                 self.part_col_manager.set_transform(part_id, part_transform)
                 # ------------------------------------------
 
+                action_vec = self.G_preced.nodes[part_id].get('action', None)
+                is_straight_path = self.G_preced.nodes[part_id].get('is_straight', False)
+                #print(is_straight_path)
+
                 # THIS CHECK IS FOR ONLY THE FLOATING GRIPPER NOT CONSIDERING THE ARM YET
                 for open_ratio in open_ratios:
 
                     # gripper collision manager
                     gripper_transforms = get_gripper_meshes_transforms(self.gripper_type, self.gripper_meshes, gripper_pos, gripper_quat, np.eye(4), min(open_ratio + 0.05, 1.0)) 
+
+                    skip_other_parts_fcl = False
+                    # COMMENT THE BLOCK OUT WHEN NOT USING CYTHON FOR TIME TESTS
+                    # --- NEW: ZERO-OVERHEAD CYTHON GATEKEEPER ---
+                    if self.use_cython and is_straight_path and action_vec is not None and timestep == 0:
+                        
+                        # 1. Pure NumPy Transform of the Pre-Cached Proxy
+                        base_transform = np.eye(4)
+                        base_transform[:3, 3] = gripper_pos
+                        base_transform[:3, :3] = R.from_quat(gripper_quat).as_matrix()
+                        
+                        new_verts = (base_transform @ self.gripper_proxy_verts_hom.T).T[:, :3]
+                        
+                        # 2. Inject into Trimesh (process=False prevents heavy recalculations)
+                        mock_gripper_convex = trimesh.Trimesh(vertices=new_verts, faces=self.gripper_proxy_faces, process=False)
+                        # Forcibly inject the pre-computed face adjacency graph
+                        mock_gripper_convex._cache['face_adjacency'] = self.gripper_proxy_face_adj
+                        
+                        # 3. Sweep the Proxy through Cython
+                        cython_collision = False
+                        for part_id_i in self.part_ids:
+                            if part_id_i == part_id: continue
+                            
+                            part_b_mesh = self.static_part_meshes_cache[part_id_i]
+                            
+                            pos_entry, _ = evaluate_optimized_action(
+                                part_a_mesh=mock_gripper_convex, 
+                                part_b_mesh=part_b_mesh, 
+                                raw_opt_action=action_vec
+                            )
+                            if pos_entry > 0:
+                                cython_collision = True
+                                break
+                        
+                        # 4. The Gate: If clear, bypass FCL for other parts!
+                        if not cython_collision:
+                            skip_other_parts_fcl = True
+                            stats[0] += 1 # Record fcl skip
+                        else:
+                            stats[1] += 1 # Record fcl call
+                    else:
+                        stats[1] += 1 # Record fcl call
+                    # -------------------------------------------
+                    
+                    
+                    
+
                     self.apply_transforms_to_col_manager(self.gripper_col_manager, gripper_transforms)
                     self.apply_transforms_to_col_manager(self.gripper_col_manager_buffered, gripper_transforms)
 
@@ -187,45 +285,79 @@ class GraspArmGenerator(GraspGenerator):
                         if timestep == 0: return None
                         else: grasps['move'] = None; break
                     
-                    # check gripper-part collision
+                    # check gripper-part collision (ALWAYS check the part we are holding)
                     _, contact_data = self.gripper_col_manager.in_collision_other(self.part_col_manager, return_data=True)
                     for cdata in contact_data:
                         if part_id in cdata.names:
                             if timestep == 0: return None
                             else: grasps['move'] = None; break
                     if grasps['move'] is None: break
-                    
-                    _, contact_data = self.gripper_col_manager_buffered.in_collision_other(self.part_col_manager, return_data=True)
-                    for cdata in contact_data:
-                        for part_id_i in self.part_ids:
-                            if part_id_i == part_id: continue
-                            if part_id_i in cdata.names:
-                                if part_id_i in parts_after: 
-                                    if verbose: print('[check_grasp_feasible] gripper-after parts collision')
-                                    if timestep == 0: return None
-                                    else: grasps['move'] = None; break
-                                parts_in_collision_move.add(part_id_i) 
-                                if timestep == 0:
-                                    parts_in_collision_hold['fix'].add(part_id_i)
-                                    parts_in_collision_hold['move'].add(part_id_i)
-                        if grasps['move'] is None: break
-                    if grasps['move'] is None: break
-                    
-                    # check gripper knuckle-part collision 
-                    if timestep == 0 and open_ratio == open_ratios[0] and len(self.gripper_knuckle_names) > 0:
-                        gripper_knuckle_meshes = {name: mesh.copy().apply_transform(gripper_transforms[name]) for name, mesh in self.gripper_knuckle_meshes.items()}
-                        knuckle_mesh = trimesh.util.concatenate(list(gripper_knuckle_meshes.values())).convex_hull
-                        _, contact_data = self.part_col_manager.in_collision_single(knuckle_mesh, return_data=True)
+
+                    # Only run the heavy FCL broadphase and knuckle checks if Cython flagged a potential hit
+                    if not skip_other_parts_fcl:
+                        _, contact_data = self.gripper_col_manager_buffered.in_collision_other(self.part_col_manager, return_data=True)
                         for cdata in contact_data:
                             for part_id_i in self.part_ids:
                                 if part_id_i == part_id: continue
                                 if part_id_i in cdata.names:
-                                    if part_id_i in parts_after:
-                                        if verbose: print('[check_grasp_feasible] gripper-knuckle-after parts collision')
-                                        return None
-                                    parts_in_collision_move.add(part_id_i)
-                                    parts_in_collision_hold['fix'].add(part_id_i)
-                                    parts_in_collision_hold['move'].add(part_id_i)
+                                    if part_id_i in parts_after: 
+                                        if verbose: print('[check_grasp_feasible] gripper-after parts collision')
+                                        if timestep == 0: return None
+                                        else: grasps['move'] = None; break
+                                    parts_in_collision_move.add(part_id_i) 
+                                    if timestep == 0:
+                                        parts_in_collision_hold['fix'].add(part_id_i)
+                                        parts_in_collision_hold['move'].add(part_id_i)
+                        if grasps['move'] is None: break
+                        
+                        # FIX: Moved the knuckle check INSIDE the fallback!
+                        if timestep == 0 and open_ratio == open_ratios[0] and len(self.gripper_knuckle_names) > 0:
+                            gripper_knuckle_meshes = {name: mesh.copy().apply_transform(gripper_transforms[name]) for name, mesh in self.gripper_knuckle_meshes.items()}
+                            knuckle_mesh = trimesh.util.concatenate(list(gripper_knuckle_meshes.values())).convex_hull
+                            _, contact_data = self.part_col_manager.in_collision_single(knuckle_mesh, return_data=True)
+                            for cdata in contact_data:
+                                for part_id_i in self.part_ids:
+                                    if part_id_i == part_id: continue
+                                    if part_id_i in cdata.names:
+                                        if part_id_i in parts_after:
+                                            if verbose: print('[check_grasp_feasible] gripper-knuckle-after parts collision')
+                                            return None
+                                        parts_in_collision_move.add(part_id_i)
+                                        parts_in_collision_hold['fix'].add(part_id_i)
+                                        parts_in_collision_hold['move'].add(part_id_i)
+                    # ------------------------------------
+                    # _, contact_data = self.gripper_col_manager_buffered.in_collision_other(self.part_col_manager, return_data=True)
+                    # for cdata in contact_data:
+                    #     for part_id_i in self.part_ids:
+                    #         if part_id_i == part_id: continue
+                    #         if part_id_i in cdata.names:
+                    #             if part_id_i in parts_after: 
+                    #                 if verbose: print('[check_grasp_feasible] gripper-after parts collision')
+                    #                 if timestep == 0: return None
+                    #                 else: grasps['move'] = None; break
+                    #             parts_in_collision_move.add(part_id_i) 
+                    #             if timestep == 0:
+                    #                 parts_in_collision_hold['fix'].add(part_id_i)
+                    #                 parts_in_collision_hold['move'].add(part_id_i)
+                    #     if grasps['move'] is None: break
+                    # if grasps['move'] is None: break
+                    
+                    # # check gripper knuckle-part collision 
+                    # if timestep == 0 and open_ratio == open_ratios[0] and len(self.gripper_knuckle_names) > 0:
+                    #     gripper_knuckle_meshes = {name: mesh.copy().apply_transform(gripper_transforms[name]) for name, mesh in self.gripper_knuckle_meshes.items()}
+                    #     knuckle_mesh = trimesh.util.concatenate(list(gripper_knuckle_meshes.values())).convex_hull
+                    #     _, contact_data = self.part_col_manager.in_collision_single(knuckle_mesh, return_data=True)
+                    #     for cdata in contact_data:
+                    #         for part_id_i in self.part_ids:
+                    #             if part_id_i == part_id: continue
+                    #             if part_id_i in cdata.names:
+                    #                 if part_id_i in parts_after:
+                    #                     if verbose: print('[check_grasp_feasible] gripper-knuckle-after parts collision')
+                    #                     return None
+                    #                 parts_in_collision_move.add(part_id_i)
+                    #                 parts_in_collision_hold['fix'].add(part_id_i)
+                    #                 parts_in_collision_hold['move'].add(part_id_i)
+
 
                 # HERE WE START CHECKING THE ARM IK AND COLLISIONS
                 for arm_type, arm_chain in self.arm_chains.items():
@@ -233,14 +365,6 @@ class GraspArmGenerator(GraspGenerator):
 
                     target_pos = ft_pos if self.has_ft_sensor[arm_type] else gripper_pos
 
-                    # --- FIX 2: FAST REACHABILITY GATE (CORRECTED UNITS) ---
-                    # The workspace is in centimeters. The absolute maximum physical wingspan
-                    # of the Panda/UR5e/xArm7 is ~85.0 cm. We use 95.0 cm for a safe margin.
-                    # if np.linalg.norm(target_pos - arm_chain.base_pos) > 95.0:
-                    #     if verbose: print(f'[check_grasp_feasible] Out of physical reach for {arm_type}')
-                    #     grasps[arm_type] = None
-                    #     continue
-                    # -------------------------------------------------------
 
                     # check IK
                     gripper_ori = get_ik_target_orientation(arm_chain, self.gripper_type, gripper_quat)
@@ -708,7 +832,7 @@ class GraspArmGenerator(GraspGenerator):
                 
                 # separate to chunks (?)
                 chunk_size = max_n_grasp * 3 
-                
+                total_skips, total_calls = 0, 0
                 for i in range(0, len(grasps_cand), chunk_size):
                     chunk = grasps_cand[i : i + chunk_size]
                     
@@ -728,12 +852,16 @@ class GraspArmGenerator(GraspGenerator):
                     args = [(grasp, part_id, False if n_proc > 1 else verbose) for grasp in chunk_filtered]
                     
                     # run same parallel execution 
-                    for grasp in parallel_execute(self.check_grasp_feasible, args, num_proc=n_proc, show_progress=verbose, desc=f'grasp generation (batch {i//chunk_size + 1})'):
-                        if grasp is not None:
-                            if grasp['move'] is not None:
-                                grasps_new['move'].append(grasp['move'])
-                            if grasp['hold'] is not None:
-                                grasps_new['hold'].append(grasp['hold'])
+                    for grasp_res, stats in parallel_execute(self.check_grasp_feasible, args, num_proc=n_proc, show_progress=verbose, desc=f'grasp generation (batch {i//chunk_size + 1})'):
+                        total_skips += stats[0]
+                        total_calls += stats[1]
+                        
+                        if grasp_res is not None:
+                            if grasp_res['move'] is not None:
+                                grasps_new['move'].append(grasp_res['move'])
+                            if grasp_res['hold'] is not None:
+                                grasps_new['hold'].append(grasp_res['hold'])
+            
                     
                     # early exit (we only register feasible grasps until we get maximum permissible number)
                     if len(grasps_new['move']) >= max_n_grasp and len(grasps_new['hold']) >= max_n_grasp:
@@ -746,13 +874,16 @@ class GraspArmGenerator(GraspGenerator):
                     if len(grasp.contact_points) > 0:
                         grasps_cand_new.append(grasp)
     
+                total_skips, total_calls = 0, 0
                 args = [(grasp, part_id, False if n_proc > 1 else verbose) for grasp in grasps_cand_new]
-                for grasp in parallel_execute(self.check_grasp_feasible, args, num_proc=n_proc, show_progress=verbose, desc='grasp generation'):
-                    if grasp is not None:
-                        if grasp['move'] is not None:
-                            grasps_new['move'].append(grasp['move'])
-                        if grasp['hold'] is not None:
-                            grasps_new['hold'].append(grasp['hold'])
+                for grasp_res, stats in parallel_execute(self.check_grasp_feasible, args, num_proc=n_proc, show_progress=verbose, desc='grasp generation'):
+                    total_skips += stats[0]
+                    total_calls += stats[1]
+                    if grasp_res is not None:
+                        if grasp_res['move'] is not None:
+                            grasps_new['move'].append(grasp_res['move'])
+                        if grasp_res['hold'] is not None:
+                            grasps_new['hold'].append(grasp_res['hold'])
     
             grasps = grasps_new
     
@@ -765,23 +896,27 @@ class GraspArmGenerator(GraspGenerator):
             if verbose:
                 print(f'[generate_grasps] {len(grasps["move"])} move grasps and {len(grasps["hold"])} hold grasps generated for part {part_id}')
             
-            return grasps
+            return grasps, (total_skips, total_calls)
     
 
     
     def generate_grasps_all(self, max_n_grasp=None, n_proc=1, verbose=False):
         grasps = {part_id: [] for part_id in self.part_ids}
         args = [(part_id, max_n_grasp, max(n_proc // len(self.part_ids), 1), False) for part_id in self.part_ids]
-        for grasps_i, ret_arg in parallel_execute(self.new_generate_grasps, args, num_proc=min(n_proc, len(self.part_ids)), return_args=True, show_progress=verbose, desc='grasp generation'):
+        global_skips, global_calls = 0, 0
+        for res, ret_arg in parallel_execute(self.new_generate_grasps, args, num_proc=min(n_proc, len(self.part_ids)), return_args=True, show_progress=verbose, desc='grasp generation'):
+            grasps_i, stats_i = res
             part_id = ret_arg[0]
             grasps[part_id] = grasps_i
+            global_skips += stats_i[0]
+            global_calls += stats_i[1]
             # self.visualize_grasps([g[0] for g in grasps_i['move']] + grasps_i['hold'])
         
         if verbose:
             for part_id, grasps_i in grasps.items():
                 print(f'[generate_grasps_all] {len(grasps_i["move"])} move grasps and {len(grasps_i["hold"])} hold grasps generated for part {part_id}')
 
-        return grasps
+        return grasps, (global_skips, global_calls)
     
     def check_grasp_id_pair_feasible_batch(self, grasp_move, grasps_hold, verbose=False):
         grasp_id_pairs = []
@@ -858,7 +993,7 @@ class GraspArmGenerator(GraspGenerator):
         return grasp_id_pairs_all
     
 
-def run_grasp_arm_gen(assembly_dir, log_dir, gripper, arm, ft_sensor, seed, n_surface_pt, n_angle, antipodal_thres, ik_optimizer, ik_regularization, offset_delta, reduced_limit, max_n_grasp, num_proc, verbose):
+def run_grasp_arm_gen(assembly_dir, log_dir, gripper, arm, ft_sensor, seed, n_surface_pt, n_angle, antipodal_thres, ik_optimizer, ik_regularization, offset_delta, reduced_limit, max_n_grasp, num_proc, verbose, use_cython=False):
     asset_folder = os.path.join(project_base_dir, './assets')
 
     precedence_path = os.path.join(log_dir, 'precedence.pkl')
@@ -875,9 +1010,9 @@ def run_grasp_arm_gen(assembly_dir, log_dir, gripper, arm, ft_sensor, seed, n_su
 
     t_start = time()
     grasp_generator = GraspArmGenerator(asset_folder, assembly_dir, G_preced, gripper, arm, has_ft_sensor,
-        seed, n_surface_pt, n_angle, antipodal_thres, ik_optimizer, ik_regularization, offset_delta, reduced_limit)
+        seed, n_surface_pt, n_angle, antipodal_thres, ik_optimizer, ik_regularization, offset_delta, reduced_limit, use_cython)
 
-    grasps_all = grasp_generator.generate_grasps_all(max_n_grasp=max_n_grasp, n_proc=num_proc, verbose=verbose)
+    grasps_all, (fcl_skips, fcl_calls) = grasp_generator.generate_grasps_all(max_n_grasp=max_n_grasp, n_proc=num_proc, verbose=verbose)
     grasp_id_pairs_all = grasp_generator.filter_grasp_id_pairs_all(grasps_all, n_proc=num_proc, verbose=verbose)
 
     if log_dir is not None:
@@ -920,7 +1055,13 @@ def run_grasp_arm_gen(assembly_dir, log_dir, gripper, arm, ft_sensor, seed, n_su
         stats_path = os.path.join(log_dir, 'stats.json')
         with open(stats_path, 'r') as fp:
             stats = json.load(fp)
-        stats['grasp_gen'] = {'success': success, 'time': round(time() - t_start, 2)}  
+        stats['grasp_gen'] = {
+            'success': success, 
+            'time': round(time() - t_start, 2),
+            'fcl_skips': fcl_skips,
+            'fcl_calls': fcl_calls,
+            'cython_enabled': use_cython
+        }  
         with open(stats_path, 'w') as fp:
             json.dump(stats, fp)
 
@@ -940,9 +1081,10 @@ if __name__ == '__main__':
     parser.add_argument('--ik-regularization', type=float, default=1.0, help='IK regularization')
     parser.add_argument('--offset-delta', type=float, default=0.0)
     parser.add_argument('--reduced-limit', type=float, default=0.1, help='reduced joint limit in percentage')
+    parser.add_argument('--disable-cython', action='store_true', default=False, help='Disable Cython gatekeeper for baseline testing')
     parser.add_argument('--num-proc', type=int, default=1, help='number of processes')
     parser.add_argument('--seed', type=int, default=0, help='random seed')
     parser.add_argument('--verbose', action='store_true', default=False, help='verbose')
     args = parser.parse_args()
 
-    run_grasp_arm_gen(args.assembly_dir, args.log_dir, args.gripper, args.arm, args.ft_sensor, args.seed, args.n_surface_pt, args.n_angle, args.antipodal_thres, args.ik_optimizer, args.ik_regularization, args.offset_delta, args.reduced_limit, args.max_n_grasp, args.num_proc, args.verbose)
+    run_grasp_arm_gen(args.assembly_dir, args.log_dir, args.gripper, args.arm, args.ft_sensor, args.seed, args.n_surface_pt, args.n_angle, args.antipodal_thres, args.ik_optimizer, args.ik_regularization, args.offset_delta, args.reduced_limit, args.max_n_grasp, args.num_proc, args.verbose, use_cython=not args.disable_cython)
