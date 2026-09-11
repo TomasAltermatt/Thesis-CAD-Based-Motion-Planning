@@ -835,21 +835,7 @@ class GraspArmGenerator(GraspGenerator):
                 total_skips, total_calls = 0, 0
                 for i in range(0, len(grasps_cand), chunk_size):
                     chunk = grasps_cand[i : i + chunk_size]
-                    
-                    # --- NEW: LAZY CONTACT AREA FILTERING ---
-                    # We only ray-cast on this specific chunk of ~30 grasps instead of all of them at once.
-                    chunk_filtered = []
-                    args_contact = [(grasp, part_id, self.n_surface_pt) for grasp in chunk]
-                    for grasp in parallel_execute(self.compute_contact_points, args_contact, num_proc=n_proc, show_progress=False):
-                        if len(grasp.contact_points) > 0:
-                            chunk_filtered.append(grasp)
-                            
-                    # If no grasps in this chunk make contact, skip to the next chunk
-                    if not chunk_filtered:
-                        continue
-                    # ----------------------------------------
-                    
-                    args = [(grasp, part_id, False if n_proc > 1 else verbose) for grasp in chunk_filtered]
+                    args = [(grasp, part_id, False if n_proc > 1 else verbose) for grasp in chunk]
                     
                     # run same parallel execution 
                     for grasp_res, stats in parallel_execute(self.check_grasp_feasible, args, num_proc=n_proc, show_progress=verbose, desc=f'grasp generation (batch {i//chunk_size + 1})'):
@@ -956,10 +942,30 @@ class GraspArmGenerator(GraspGenerator):
             in_collision = False
             for transform_move in transforms_move:
                 self.apply_transforms_to_col_manager(self.col_manager_move_buffered, transform_move)
-                if self.col_manager_move_buffered.in_collision_other(self.col_manager_hold):
-                    if verbose: print('[check_grasp_id_pair_feasible_batch] move-hold collision')
-                    in_collision = True
-                    break
+                
+                # Only do the torso revision checks on Yumi, not the other arms since theres no need for it and slows down
+                if self.arm_type == 'yumi':
+                    # Heavy exhaustive check to filter shared torso overlaps
+                    is_col, collision_names = self.col_manager_move_buffered.in_collision_other(self.col_manager_hold, return_names=True)
+                    if is_col:
+                        base_name = self.arm_chains['move'].get_base_link_name()
+                        real_collisions = []
+                        for pair in collision_names:
+                            if pair[0] == base_name and pair[1] == base_name: continue
+                            if 'yumi_body' in pair and any(link in pair for link in ['yumi_link_1', 'yumi_link_2']): continue
+                            real_collisions.append(pair)
+                        
+                        if len(real_collisions) > 0:
+                            if verbose: print(f'[check_grasp_id_pair_feasible_batch] move-hold collision: {real_collisions[0]}')
+                            in_collision = True
+                            break
+                else:
+                    # Lightning-fast short-circuit check for Panda/UR5e/xArm7
+                    if self.col_manager_move_buffered.in_collision_other(self.col_manager_hold):
+                        if verbose: print('[check_grasp_id_pair_feasible_batch] move-hold collision')
+                        in_collision = True
+                        break
+                # ------------------------------------
             if in_collision: continue
 
             # check if gripper_move and gripper_hold form an interlock by checking convex hull collision
