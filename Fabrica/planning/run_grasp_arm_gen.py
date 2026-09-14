@@ -153,6 +153,18 @@ class GraspArmGenerator(GraspGenerator):
         self.gripper_proxy_verts_hom = np.hstack((self.gripper_proxy_verts, np.ones((len(self.gripper_proxy_verts), 1))))
         # -------------------------------------------------
 
+        # --- FIX: REBUILD INHERITED FIXTURE BOX ---
+        if 'fixture' in self.ground_col_manager._objs:
+            self.ground_col_manager.remove_object('fixture')
+            
+        correct_bin_size = get_max_bin_size_blocking(self.arm_type)
+        self.fixture_box = trimesh.creation.box(
+            (correct_bin_size[0], correct_bin_size[1], 100.0), 
+            transform=trimesh.transformations.translation_matrix([0, correct_bin_size[1] / 2 + get_fixture_min_y(self.arm_type), 50.0])
+        )
+        self.ground_col_manager.add_object('fixture', self.fixture_box)
+        # ------------------------------------------
+
     def visualize_col_managers(self, col_managers, other_meshes=[]):
         meshes = {}
         meshes.update(self.arm_meshes_buffered)
@@ -185,7 +197,9 @@ class GraspArmGenerator(GraspGenerator):
             grasp = self.compute_contact_points(grasp, part_id, self.n_surface_pt)
             if len(grasp.contact_points) == 0:
                 return None
-            
+
+        verbose = 0
+        
         n_timestep = 3
         parts_after = self.G_preced.nodes[part_id]['parts_after']
 
@@ -400,14 +414,14 @@ class GraspArmGenerator(GraspGenerator):
                         regularization_parameter = 0.0
                     arm_q, ik_success = arm_chain.inverse_kinematics_above_ground(target_position=target_pos, target_orientation=gripper_ori, orientation_mode='all', initial_position=arm_q_default, optimizer=optimizer, regularization_parameter=regularization_parameter)
                     if not ik_success:
-                        if verbose: print(f'[check_grasp_feasible] IK failed for {arm_key}')
+                        if verbose: print(f'[check_grasp_feasible] IK failed for {arm_key} (inverse kinematics unsuccessful)')
                         grasps[arm_key] = None
                         continue
                     debug_gripper_pos, debug_gripper_quat = get_gripper_pos_quat_from_arm_q(arm_chain, arm_q, self.gripper_type, has_ft_sensor=self.has_ft_sensor[motion_type])
                     pos_match = np.allclose(gripper_pos, debug_gripper_pos, atol=1e-4)
                     quat_match = np.allclose(gripper_quat, debug_gripper_quat, atol=1e-4) or np.allclose(gripper_quat, -debug_gripper_quat, atol=1e-4)
                     if not (pos_match and quat_match):
-                        if verbose: print(f'[check_grasp_feasible] IK failed for {arm_key}')
+                        if verbose: print(f'[check_grasp_feasible] IK failed for {arm_key} (debug gripper pose mismatch)')
                         grasps[arm_key] = None
                         continue
                 
@@ -422,7 +436,7 @@ class GraspArmGenerator(GraspGenerator):
                     objs_in_collision = list(objs_in_collision_ground) + list(objs_in_collision_box)
                     for obj_pair in objs_in_collision:
                         if arm_chain.get_base_link_name() in obj_pair: continue
-                        if verbose: print('[check_grasp_feasible] arm-ground collision')
+                        if verbose: print(f'[check_grasp_feasible] arm-ground collision: {obj_pair}')
                         grasps[arm_key] = None
                         break
                     if grasps[arm_key] is None: continue
@@ -431,7 +445,7 @@ class GraspArmGenerator(GraspGenerator):
                     _, objs_in_collision = self.arm_col_manager_buffered.in_collision_other(self.part_col_manager, return_names=True)
                     for obj_pair in objs_in_collision:
                         if part_id in obj_pair:
-                            if verbose: print('[check_grasp_feasible] arm-grasping part collision')
+                            if verbose: print(f'[check_grasp_feasible] arm-grasping part collision: {obj_pair}')
                             grasps[arm_key] = None
                             break
                         for part_id_i in self.part_ids:
@@ -452,7 +466,7 @@ class GraspArmGenerator(GraspGenerator):
                     _, collision_names = self.arm_col_manager_buffered.in_collision_internal(return_names=True)
                     for (col_arm_name1, col_arm_name2) in collision_names:
                         if arm_chain.check_colliding_links(col_arm_name1, col_arm_name2):
-                            if verbose: print('[check_grasp_feasible] arm self-collision')
+                            if verbose: print(f'[check_grasp_feasible] arm self-collision: {col_arm_name1} and {col_arm_name2}')
                             grasps[arm_key] = None
                             break
                     if grasps[arm_key] is None: continue
@@ -461,7 +475,10 @@ class GraspArmGenerator(GraspGenerator):
                     _, collision_names = self.gripper_col_manager.in_collision_other(self.arm_col_manager_buffered, return_names=True)
                     for (col_gripper_name, col_arm_name) in collision_names:
                         if col_gripper_name != 'ft_sensor' and col_arm_name != arm_chain.get_eef_link_name():
-                            if verbose: print('[check_grasp_feasible] arm-gripper collision')
+                            # bypass wrist intersection for yumi since gripper is panda and arm is yumi
+                            if self.arm_type == 'yumi' and col_arm_name in ['yumi_link_6', 'yumi_link_5']:
+                                continue
+                            if verbose: print(f'[check_grasp_feasible] arm-gripper collision: {col_gripper_name} and {col_arm_name}')
                             grasps[arm_key] = None
                             break
                     if grasps[arm_key] is None: continue
@@ -623,7 +640,8 @@ class GraspArmGenerator(GraspGenerator):
         contact_points = []
         for name in finger_names:
             l2r_direction = grasp_info['l2r_direction'] if 'left' in name else -grasp_info['l2r_direction']
-            if self.arm_type == 'panda': l2r_direction = -l2r_direction 
+            # if self.arm_type == 'panda': l2r_direction = -l2r_direction
+            if self.gripper_type == 'panda': l2r_direction = -l2r_direction 
 
             matrix = finger_transforms[name]
 
@@ -831,7 +849,7 @@ class GraspArmGenerator(GraspGenerator):
     
             # check grasp feasibility (NEW)
             grasps_new = {'move': [], 'hold': []}
-            
+            print(f'[new_generate_grasps] {len(grasps_cand)} candidate grasps generated for part {part_id}')
             if max_n_grasp is not None:
                 # we shuffle before evaluating feasibility to preserve equivalnece
                 np.random.shuffle(grasps_cand)
@@ -929,6 +947,71 @@ class GraspArmGenerator(GraspGenerator):
                 print(f'[generate_grasps_all] {len(grasps_i["move"])} move grasps and {len(grasps_i["hold"])} hold grasps generated for part {part_id}')
 
         return grasps, (global_skips, global_calls)
+
+    # Version with visualizer
+    # def generate_grasps_all(self, max_n_grasp=None, n_proc=1, verbose=False):
+            
+        #     # ==========================================
+        #     # --- WORKCELL CONFIGURATION VISUALIZER ---
+        #     # ==========================================
+        #     print("\n[VISUALIZER] Rendering Workcell Layout...")
+        #     scene_meshes = []
+            
+        #     # 1. Add Ground
+        #     if hasattr(self, 'ground_mesh') and self.ground_mesh is not None:
+        #         ground = self.ground_mesh.copy()
+        #         ground.visual.face_colors = [200, 200, 200, 100] 
+        #         scene_meshes.append(ground)
+    
+        #     # 2. Add ACCURATE Fixture Packing Limits (Green)
+        #     from planning.robot.workcell import get_fixture_min_y, get_max_bin_size_blocking
+        #     min_y = get_fixture_min_y(self.arm_type)
+        #     max_bin_blocking = get_max_bin_size_blocking(self.arm_type)
+            
+        #     # The box starts exactly at min_y and grows in +Y towards the robot
+        #     box_min = np.array([-max_bin_blocking[0] / 2, min_y, 0.0])
+        #     box_max = np.array([max_bin_blocking[0] / 2, min_y + max_bin_blocking[1], 10.0])
+            
+        #     accurate_fixture_box = trimesh.creation.box(bounds=[box_min, box_max])
+        #     accurate_fixture_box.visual.face_colors = [0, 255, 0, 150]
+        #     scene_meshes.append(accurate_fixture_box)
+            
+        #     # 3. Add Assembly Parts at Assembly Center (Blue)
+        #     for pid, p_mesh in self.part_meshes.items():
+        #         mesh = p_mesh.copy()
+        #         mesh.apply_transform(self.part_final_transforms[pid])
+        #         mesh.visual.face_colors = [0, 0, 255, 255]
+        #         scene_meshes.append(mesh)
+                
+        #     # 4. Add the Robot at its resting pose (Red)
+        #     arm_chain = self.arm_chains.get('move_right', self.arm_chains.get('move', list(self.arm_chains.values())[0]))
+        #     arm_q = arm_chain.active_to_full(arm_chain.rest_q)
+        #     arm_transforms = get_arm_meshes_transforms(self.arm_meshes, arm_chain, arm_q)
+            
+        #     for name, transform in arm_transforms.items():
+        #         mesh = self.arm_meshes[name].copy()
+        #         mesh.apply_transform(transform)
+        #         mesh.visual.face_colors = [255, 0, 0, 150] 
+        #         scene_meshes.append(mesh)
+                
+        #     # Standard Pyglet viewer
+        #     trimesh.Scene(scene_meshes).show()
+            
+        #     print("Visualizer closed. Exiting script so you can tune workcell.py...")
+        #     import sys; sys.exit(0)
+        #     # ==========================================
+    
+        #     grasps = {part_id: [] for part_id in self.part_ids}
+        #     args = [(part_id, max_n_grasp, max(n_proc // len(self.part_ids), 1), verbose) for part_id in self.part_ids]
+        #     for grasps_i, ret_arg in parallel_execute(self.new_generate_grasps, args, num_proc=min(n_proc, len(self.part_ids)), return_args=True, show_progress=verbose, desc='grasp generation'):
+        #         part_id = ret_arg[0]
+        #         grasps[part_id] = grasps_i
+            
+        #     if verbose:
+        #         for part_id, grasps_i in grasps.items():
+        #             print(f'[generate_grasps_all] {len(grasps_i["move"])} move grasps and {len(grasps_i["hold"])} hold grasps generated for part {part_id}')
+    
+        #     return grasps
     
     def check_grasp_id_pair_feasible_batch(self, grasp_move, grasps_hold, verbose=False):
         grasp_id_pairs = []
