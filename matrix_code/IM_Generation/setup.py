@@ -4,7 +4,11 @@ import numpy as np
 
 # A completely flat extension definition since we are running it from inside the folder
 extensions = [
-    Extension("narrow_phase_c", ["narrow_phase_c.pyx"])
+    Extension(
+        "narrow_phase_c", 
+        ["narrow_phase_c.pyx"],
+        extra_compile_args=["-O3", "-ffast-math", "-march=native"]
+    )
 ]
 
 setup(

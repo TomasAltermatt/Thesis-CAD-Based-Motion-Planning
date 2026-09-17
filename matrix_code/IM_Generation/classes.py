@@ -22,11 +22,35 @@ class PseudoFace:
         # Calculate 2D coordinates by projecting 3D triangles on the extraction plane
         self.triangles_2d = self.triangles_3d[:, :, [self.u_axis, self.v_axis]]
 
-        # Calculate the bounding box of the pseudo-face in 2D
-        self.u_min = self.triangles_2d[:, :, 0].min()
-        self.u_max = self.triangles_2d[:, :, 0].max()
-        self.v_min = self.triangles_2d[:, :, 1].min()
-        self.v_max = self.triangles_2d[:, :, 1].max()
+        # 1. Calculate bounding box of each facet in 2D
+        mins = self.triangles_2d.min(axis=1)  
+        maxs = self.triangles_2d.max(axis=1)  
+        aabbs = np.hstack((mins, maxs)).astype(np.float64) # [min_u, min_v, max_u, max_v]
+
+        # 2. SORT EVERYTHING BY MIN_U for Sweep-and-Prune
+        sort_idx = np.argsort(aabbs[:, 0])
+        self.face_indices = self.face_indices[sort_idx]
+        self.triangles_3d = self.triangles_3d[sort_idx]
+        self.triangles_2d = self.triangles_2d[sort_idx]
+        aabbs = aabbs[sort_idx]
+
+        # 3. Pre-cache contiguous C-arrays ONCE during creation
+        self.triangles_2d_contig = np.ascontiguousarray(self.triangles_2d, dtype=np.float64)
+        self.triangles_3d_contig = np.ascontiguousarray(self.triangles_3d, dtype=np.float64)
+        self.aabbs_contig = np.ascontiguousarray(aabbs, dtype=np.float64)
+        
+        # ---> CACHE NORMALS TO PREVENT ADVANCED INDEXING OVERHEAD <---
+        self.normals_contig = np.ascontiguousarray(part.face_normals[self.face_indices], dtype=np.float64)
+
+        # 4. Overall pseudo-face bounds
+        self.u_min = aabbs[:, 0].min()
+        self.u_max = aabbs[:, 2].max()
+        self.v_min = aabbs[:, 1].min()
+        self.v_max = aabbs[:, 3].max()
+        
+        # ---> CACHE W-BOUNDS TO PREVENT O(N) REDUCTIONS IN THE HOT LOOP <---
+        self.w_min = self.triangles_3d[:, :, self.extraction_axis].min()
+        self.w_max = self.triangles_3d[:, :, self.extraction_axis].max()
     
     def get_focus_facets(self, SR):
         # Get the facets that intersect with center points of SR limits
@@ -37,17 +61,16 @@ class PseudoFace:
         center_u = (SR_min_u + SR_max_u) / 2
         center_v = (SR_min_v + SR_max_v) / 2
 
-        # Get bounding box of each facet in 2D
-        mins = self.triangles_2d.min(axis=1)  # (num_facets, 2)
-        maxs = self.triangles_2d.max(axis=1)  # (num_facets, 2)
+        # Access the pre-cached AABBs instantly
+        mins = self.aabbs_contig[:, :2]  
+        maxs = self.aabbs_contig[:, 2:]  
 
-        # Get probe points
         probe_points = np.array([
-            [SR_min_u, center_v],  # Left Mid
-            [SR_max_u, center_v],  # Right Mid
-            [center_u, SR_min_v],  # Bottom Mid
-            [center_u, SR_max_v],  # Top Mid
-            [center_u, center_v]   # Center
+            [SR_min_u, center_v],  
+            [SR_max_u, center_v],  
+            [center_u, SR_min_v],  
+            [center_u, SR_max_v],  
+            [center_u, center_v]   
         ])
 
         u_hits = (mins[:, None, 0] <= probe_points[:, 0]) & (probe_points[:, 0] <= maxs[:, None, 0])
@@ -79,8 +102,8 @@ class PseudoFace:
         center_v = (min_v + max_v) / 2
 
         # Find the physical depth range of this face to extrude the box cleanly
-        min_w = self.triangles_3d[:, :, w_idx].min()
-        max_w = self.triangles_3d[:, :, w_idx].max()
+        min_w = self.w_min
+        max_w = self.w_max
         center_w = (min_w + max_w) / 2
 
         # 3. Build the 6-element PyVista bounding box array [xmin, xmax, ymin, ymax, zmin, zmax]

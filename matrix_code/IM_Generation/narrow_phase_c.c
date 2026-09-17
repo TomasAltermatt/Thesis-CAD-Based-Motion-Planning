@@ -4,6 +4,11 @@
 {
     "distutils": {
         "depends": [],
+        "extra_compile_args": [
+            "-O3",
+            "-ffast-math",
+            "-march=native"
+        ],
         "name": "narrow_phase_c",
         "sources": [
             "narrow_phase_c.pyx"
@@ -1151,8 +1156,8 @@ static int __Pyx_init_co_variables(void) {
 #include "numpy/ndarraytypes.h"
 #include "numpy/arrayscalars.h"
 #include "numpy/ufuncobject.h"
-#include "pythread.h"
 #include <stdlib.h>
+#include "pythread.h"
 #ifdef _OPENMP
 #include <omp.h>
 #endif /* _OPENMP */
@@ -2717,27 +2722,6 @@ static CYTHON_INLINE long __Pyx_div_long(long, long, int b_is_constant);
 /* PyImportError_Check.proto */
 #define __Pyx_PyExc_ImportError_Check(obj)  __Pyx_TypeCheck(obj, PyExc_ImportError)
 
-/* ListAppend.proto */
-#if CYTHON_USE_PYLIST_INTERNALS && CYTHON_ASSUME_SAFE_MACROS
-static CYTHON_INLINE int __Pyx_PyList_Append(PyObject* list, PyObject* x) {
-    PyListObject* L = (PyListObject*) list;
-    Py_ssize_t len = Py_SIZE(list);
-    if (likely(L->allocated > len) & likely(len > (L->allocated >> 1))) {
-        Py_INCREF(x);
-        #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030d0000
-        L->ob_item[len] = x;
-        #else
-        PyList_SET_ITEM(list, len, x);
-        #endif
-        __Pyx_SET_SIZE(list, len + 1);
-        return 0;
-    }
-    return PyList_Append(list, x);
-}
-#else
-#define __Pyx_PyList_Append(L,x) PyList_Append(L,x)
-#endif
-
 /* AllocateExtensionType.proto */
 static PyObject *__Pyx_AllocateExtensionType(PyTypeObject *t, int is_final);
 
@@ -3060,10 +3044,10 @@ static int __Pyx_ValidateAndInit_memviewslice(
                 PyObject *original_obj);
 
 /* ObjectToMemviewSlice.proto */
-static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_dsdsds_double(PyObject *, int writable_flag);
+static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_d_d_dc_double(PyObject *, int writable_flag);
 
 /* ObjectToMemviewSlice.proto */
-static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_dsds_double(PyObject *, int writable_flag);
+static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(PyObject *, int writable_flag);
 
 /* RealImag.proto */
 #if CYTHON_CCOMPLEX
@@ -3194,9 +3178,6 @@ static int __Pyx_VectorcallBuilder_AddArgStr(const char *key, PyObject *value, P
 /* CIntToPy.proto */
 static CYTHON_INLINE PyObject* __Pyx_PyLong_From_int(int value);
 
-/* CIntToPy.proto */
-static CYTHON_INLINE PyObject* __Pyx_PyLong_From_long(long value);
-
 /* PyObjectCall2Args.proto (used by PyObjectCallMethod1) */
 static CYTHON_INLINE PyObject* __Pyx_PyObject_Call2Args(PyObject* function, PyObject* arg1, PyObject* arg2);
 
@@ -3211,6 +3192,9 @@ static CYTHON_INLINE int __Pyx_CheckUnpickleChecksum(long checksum, long checksu
 
 /* CIntFromPy.proto */
 static CYTHON_INLINE long __Pyx_PyLong_As_long(PyObject *);
+
+/* CIntToPy.proto */
+static CYTHON_INLINE PyObject* __Pyx_PyLong_From_long(long value);
 
 /* CIntFromPy.proto */
 static CYTHON_INLINE char __Pyx_PyLong_As_char(PyObject *);
@@ -3332,6 +3316,8 @@ static CYTHON_INLINE char *__pyx_f_5numpy_7ndarray_4data_data(PyArrayObject *__p
 
 /* Module declarations from "numpy" */
 
+/* Module declarations from "libc.stdlib" */
+
 /* Module declarations from "narrow_phase_c" */
 static PyObject *__pyx_collections_abc_Sequence = 0;
 static PyObject *generic = 0;
@@ -3341,12 +3327,11 @@ static PyObject *contiguous = 0;
 static PyObject *indirect_contiguous = 0;
 static int __pyx_memoryview_thread_locks_used;
 static PyThread_type_lock __pyx_memoryview_thread_locks[8];
-static CYTHON_INLINE int __pyx_f_14narrow_phase_c_check_2d_sat_overlap(__Pyx_memviewslice, __Pyx_memviewslice); /*proto*/
-static PyObject *__pyx_f_14narrow_phase_c_get_intersecting_pairs_c(__Pyx_memviewslice, __Pyx_memviewslice, int __pyx_skip_dispatch); /*proto*/
-static int __pyx_f_14narrow_phase_c_fast_any_intersection_c(__Pyx_memviewslice, __Pyx_memviewslice, int __pyx_skip_dispatch); /*proto*/
-static CYTHON_INLINE int __pyx_f_14narrow_phase_c_point_in_triangle(double, double, __Pyx_memviewslice); /*proto*/
+static CYTHON_INLINE int __pyx_f_14narrow_phase_c_check_2d_sat_overlap(__Pyx_memviewslice, int, __Pyx_memviewslice, int); /*proto*/
+static int __pyx_f_14narrow_phase_c_fast_any_intersection_c(__Pyx_memviewslice, __Pyx_memviewslice, __Pyx_memviewslice, __Pyx_memviewslice, int __pyx_skip_dispatch); /*proto*/
+static CYTHON_INLINE int __pyx_f_14narrow_phase_c_point_in_triangle(double, double, __Pyx_memviewslice, int); /*proto*/
 static CYTHON_INLINE int __pyx_f_14narrow_phase_c_get_line_intersection(double, double, double, double, double, double, double, double, double *, double *); /*proto*/
-static PyObject *__pyx_f_14narrow_phase_c_evaluate_deep_narrow_phase_c(__Pyx_memviewslice, __Pyx_memviewslice, __Pyx_memviewslice, __Pyx_memviewslice, __Pyx_memviewslice, __Pyx_memviewslice, PyObject *, int, int, int, double, double, int, double, int __pyx_skip_dispatch); /*proto*/
+static PyObject *__pyx_f_14narrow_phase_c_evaluate_overlap_c(__Pyx_memviewslice, __Pyx_memviewslice, __Pyx_memviewslice, __Pyx_memviewslice, __Pyx_memviewslice, __Pyx_memviewslice, __Pyx_memviewslice, __Pyx_memviewslice, int, int, int, double, double, int, double, int, int __pyx_skip_dispatch); /*proto*/
 static int __pyx_array_allocate_buffer(struct __pyx_array_obj *); /*proto*/
 static struct __pyx_array_obj *__pyx_array_new(PyObject *, Py_ssize_t, char *, char const *, char *); /*proto*/
 static PyObject *__pyx_memoryview_new(PyObject *, int, int, __Pyx_TypeInfo const *); /*proto*/
@@ -3439,9 +3424,8 @@ static void __pyx_memoryviewslice___pyx_pf_15View_dot_MemoryView_16_memoryviewsl
 static PyObject *__pyx_pf___pyx_memoryviewslice___reduce_cython__(CYTHON_UNUSED struct __pyx_memoryviewslice_obj *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf___pyx_memoryviewslice_2__setstate_cython__(CYTHON_UNUSED struct __pyx_memoryviewslice_obj *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v___pyx_state); /* proto */
 static PyObject *__pyx_pf_15View_dot_MemoryView___pyx_unpickle_Enum(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v___pyx_type, long __pyx_v___pyx_checksum, PyObject *__pyx_v___pyx_state); /* proto */
-static PyObject *__pyx_pf_14narrow_phase_c_get_intersecting_pairs_c(CYTHON_UNUSED PyObject *__pyx_self, __Pyx_memviewslice __pyx_v_tris_a_2d, __Pyx_memviewslice __pyx_v_tris_b_2d); /* proto */
-static PyObject *__pyx_pf_14narrow_phase_c_2fast_any_intersection_c(CYTHON_UNUSED PyObject *__pyx_self, __Pyx_memviewslice __pyx_v_tris_a_2d, __Pyx_memviewslice __pyx_v_tris_b_2d); /* proto */
-static PyObject *__pyx_pf_14narrow_phase_c_4evaluate_deep_narrow_phase_c(CYTHON_UNUSED PyObject *__pyx_self, __Pyx_memviewslice __pyx_v_tris_a_2d, __Pyx_memviewslice __pyx_v_tris_b_2d, __Pyx_memviewslice __pyx_v_tris_a_3d, __Pyx_memviewslice __pyx_v_tris_b_3d, __Pyx_memviewslice __pyx_v_normals_a, __Pyx_memviewslice __pyx_v_normals_b, PyObject *__pyx_v_intersecting_pairs, int __pyx_v_w_idx, int __pyx_v_u_idx, int __pyx_v_v_idx, double __pyx_v_w_tol, double __pyx_v_n_tol, int __pyx_v_use_MRT, double __pyx_v_mrt_tol); /* proto */
+static PyObject *__pyx_pf_14narrow_phase_c_fast_any_intersection_c(CYTHON_UNUSED PyObject *__pyx_self, __Pyx_memviewslice __pyx_v_tris_a_2d, __Pyx_memviewslice __pyx_v_tris_b_2d, __Pyx_memviewslice __pyx_v_aabbs_a, __Pyx_memviewslice __pyx_v_aabbs_b); /* proto */
+static PyObject *__pyx_pf_14narrow_phase_c_2evaluate_overlap_c(CYTHON_UNUSED PyObject *__pyx_self, __Pyx_memviewslice __pyx_v_tris_a_2d, __Pyx_memviewslice __pyx_v_tris_b_2d, __Pyx_memviewslice __pyx_v_aabbs_a, __Pyx_memviewslice __pyx_v_aabbs_b, __Pyx_memviewslice __pyx_v_tris_a_3d, __Pyx_memviewslice __pyx_v_tris_b_3d, __Pyx_memviewslice __pyx_v_normals_a, __Pyx_memviewslice __pyx_v_normals_b, int __pyx_v_w_idx, int __pyx_v_u_idx, int __pyx_v_v_idx, double __pyx_v_w_tol, double __pyx_v_n_tol, int __pyx_v_use_MRT, double __pyx_v_mrt_tol, int __pyx_v_abort_threshold); /* proto */
 static PyObject *__pyx_tp_new_array(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
 static PyObject *__pyx_tp_new_Enum(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
 static PyObject *__pyx_tp_new_memoryview(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
@@ -3494,10 +3478,10 @@ typedef struct {
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_pop;
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_values;
   PyObject *__pyx_slice[1];
-  PyObject *__pyx_tuple[2];
-  PyObject *__pyx_codeobj_tab[3];
+  PyObject *__pyx_tuple[4];
+  PyObject *__pyx_codeobj_tab[2];
   PyObject *__pyx_string_tab[135];
-  PyObject *__pyx_number_tab[5];
+  PyObject *__pyx_number_tab[6];
 /* #### Code section: module_state_contents ### */
 /* CommonTypesMetaclass.module_state_decls */
 PyTypeObject *__pyx_CommonTypesMetaclassType;
@@ -3587,97 +3571,98 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_n_u_Pyx_PyDict_NextRef __pyx_string_tab[46]
 #define __pyx_n_u_Sequence __pyx_string_tab[47]
 #define __pyx_n_u_View_MemoryView __pyx_string_tab[48]
-#define __pyx_n_u_abc __pyx_string_tab[49]
-#define __pyx_n_u_allocate_buffer __pyx_string_tab[50]
-#define __pyx_n_u_annotate __pyx_string_tab[51]
-#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[52]
-#define __pyx_n_u_base __pyx_string_tab[53]
-#define __pyx_n_u_c __pyx_string_tab[54]
-#define __pyx_n_u_class __pyx_string_tab[55]
-#define __pyx_n_u_class_getitem __pyx_string_tab[56]
-#define __pyx_n_u_cline_in_traceback __pyx_string_tab[57]
-#define __pyx_n_u_count __pyx_string_tab[58]
-#define __pyx_n_u_dict __pyx_string_tab[59]
-#define __pyx_n_u_dtype_is_object __pyx_string_tab[60]
-#define __pyx_n_u_encode __pyx_string_tab[61]
-#define __pyx_n_u_enumerate __pyx_string_tab[62]
-#define __pyx_n_u_error __pyx_string_tab[63]
-#define __pyx_n_u_evaluate_deep_narrow_phase_c __pyx_string_tab[64]
-#define __pyx_n_u_fast_any_intersection_c __pyx_string_tab[65]
-#define __pyx_n_u_flags __pyx_string_tab[66]
-#define __pyx_n_u_format __pyx_string_tab[67]
-#define __pyx_n_u_fortran __pyx_string_tab[68]
-#define __pyx_n_u_func __pyx_string_tab[69]
-#define __pyx_n_u_get_intersecting_pairs_c __pyx_string_tab[70]
-#define __pyx_n_u_getstate __pyx_string_tab[71]
-#define __pyx_n_u_id __pyx_string_tab[72]
-#define __pyx_n_u_import __pyx_string_tab[73]
-#define __pyx_n_u_index __pyx_string_tab[74]
-#define __pyx_n_u_intersecting_pairs __pyx_string_tab[75]
-#define __pyx_n_u_is_coroutine __pyx_string_tab[76]
-#define __pyx_n_u_items __pyx_string_tab[77]
-#define __pyx_n_u_itemsize __pyx_string_tab[78]
-#define __pyx_n_u_main __pyx_string_tab[79]
-#define __pyx_n_u_memview __pyx_string_tab[80]
-#define __pyx_n_u_mode __pyx_string_tab[81]
-#define __pyx_n_u_module __pyx_string_tab[82]
-#define __pyx_n_u_mrt_tol __pyx_string_tab[83]
-#define __pyx_n_u_n_tol __pyx_string_tab[84]
-#define __pyx_n_u_name __pyx_string_tab[85]
-#define __pyx_n_u_name_2 __pyx_string_tab[86]
-#define __pyx_n_u_narrow_phase_c __pyx_string_tab[87]
-#define __pyx_n_u_ndim __pyx_string_tab[88]
-#define __pyx_n_u_new __pyx_string_tab[89]
-#define __pyx_n_u_normals_a __pyx_string_tab[90]
-#define __pyx_n_u_normals_b __pyx_string_tab[91]
-#define __pyx_n_u_np __pyx_string_tab[92]
-#define __pyx_n_u_numpy __pyx_string_tab[93]
-#define __pyx_n_u_obj __pyx_string_tab[94]
-#define __pyx_n_u_pack __pyx_string_tab[95]
-#define __pyx_n_u_pop __pyx_string_tab[96]
-#define __pyx_n_u_pyx_checksum __pyx_string_tab[97]
-#define __pyx_n_u_pyx_state __pyx_string_tab[98]
-#define __pyx_n_u_pyx_type __pyx_string_tab[99]
-#define __pyx_n_u_pyx_unpickle_Enum __pyx_string_tab[100]
-#define __pyx_n_u_pyx_vtable __pyx_string_tab[101]
-#define __pyx_n_u_qualname __pyx_string_tab[102]
-#define __pyx_n_u_reduce __pyx_string_tab[103]
-#define __pyx_n_u_reduce_cython __pyx_string_tab[104]
-#define __pyx_n_u_reduce_ex __pyx_string_tab[105]
-#define __pyx_n_u_register __pyx_string_tab[106]
-#define __pyx_n_u_set_name __pyx_string_tab[107]
-#define __pyx_n_u_setdefault __pyx_string_tab[108]
-#define __pyx_n_u_setstate __pyx_string_tab[109]
-#define __pyx_n_u_setstate_cython __pyx_string_tab[110]
-#define __pyx_n_u_shape __pyx_string_tab[111]
-#define __pyx_n_u_size __pyx_string_tab[112]
-#define __pyx_n_u_start __pyx_string_tab[113]
-#define __pyx_n_u_step __pyx_string_tab[114]
-#define __pyx_n_u_stop __pyx_string_tab[115]
-#define __pyx_n_u_struct __pyx_string_tab[116]
-#define __pyx_n_u_test __pyx_string_tab[117]
-#define __pyx_n_u_tris_a_2d __pyx_string_tab[118]
-#define __pyx_n_u_tris_a_3d __pyx_string_tab[119]
-#define __pyx_n_u_tris_b_2d __pyx_string_tab[120]
-#define __pyx_n_u_tris_b_3d __pyx_string_tab[121]
-#define __pyx_n_u_u_idx __pyx_string_tab[122]
-#define __pyx_n_u_unpack __pyx_string_tab[123]
-#define __pyx_n_u_update __pyx_string_tab[124]
-#define __pyx_n_u_use_MRT __pyx_string_tab[125]
-#define __pyx_n_u_v_idx __pyx_string_tab[126]
-#define __pyx_n_u_values __pyx_string_tab[127]
-#define __pyx_n_u_w_idx __pyx_string_tab[128]
-#define __pyx_n_u_w_tol __pyx_string_tab[129]
-#define __pyx_n_u_x __pyx_string_tab[130]
-#define __pyx_kp_b_iso88591_YfAQ_YfAQ_1_U_1_Jc_1A_Jc_1A_E_a __pyx_string_tab[131]
-#define __pyx_kp_b_iso88591_YfAQ_YfAQ_U_1_Jc_1A_Jc_1A_E_as __pyx_string_tab[132]
-#define __pyx_kp_b_iso88591_q_q_AQ_E_9AQ_9AQ_E_aq_7_AT_7_AT __pyx_string_tab[133]
+#define __pyx_n_u_aabbs_a __pyx_string_tab[49]
+#define __pyx_n_u_aabbs_b __pyx_string_tab[50]
+#define __pyx_n_u_abc __pyx_string_tab[51]
+#define __pyx_n_u_abort_threshold __pyx_string_tab[52]
+#define __pyx_n_u_allocate_buffer __pyx_string_tab[53]
+#define __pyx_n_u_annotate __pyx_string_tab[54]
+#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[55]
+#define __pyx_n_u_base __pyx_string_tab[56]
+#define __pyx_n_u_c __pyx_string_tab[57]
+#define __pyx_n_u_class __pyx_string_tab[58]
+#define __pyx_n_u_class_getitem __pyx_string_tab[59]
+#define __pyx_n_u_cline_in_traceback __pyx_string_tab[60]
+#define __pyx_n_u_count __pyx_string_tab[61]
+#define __pyx_n_u_dict __pyx_string_tab[62]
+#define __pyx_n_u_dtype_is_object __pyx_string_tab[63]
+#define __pyx_n_u_encode __pyx_string_tab[64]
+#define __pyx_n_u_enumerate __pyx_string_tab[65]
+#define __pyx_n_u_error __pyx_string_tab[66]
+#define __pyx_n_u_evaluate_overlap_c __pyx_string_tab[67]
+#define __pyx_n_u_fast_any_intersection_c __pyx_string_tab[68]
+#define __pyx_n_u_flags __pyx_string_tab[69]
+#define __pyx_n_u_format __pyx_string_tab[70]
+#define __pyx_n_u_fortran __pyx_string_tab[71]
+#define __pyx_n_u_func __pyx_string_tab[72]
+#define __pyx_n_u_getstate __pyx_string_tab[73]
+#define __pyx_n_u_id __pyx_string_tab[74]
+#define __pyx_n_u_import __pyx_string_tab[75]
+#define __pyx_n_u_index __pyx_string_tab[76]
+#define __pyx_n_u_is_coroutine __pyx_string_tab[77]
+#define __pyx_n_u_items __pyx_string_tab[78]
+#define __pyx_n_u_itemsize __pyx_string_tab[79]
+#define __pyx_n_u_main __pyx_string_tab[80]
+#define __pyx_n_u_memview __pyx_string_tab[81]
+#define __pyx_n_u_mode __pyx_string_tab[82]
+#define __pyx_n_u_module __pyx_string_tab[83]
+#define __pyx_n_u_mrt_tol __pyx_string_tab[84]
+#define __pyx_n_u_n_tol __pyx_string_tab[85]
+#define __pyx_n_u_name __pyx_string_tab[86]
+#define __pyx_n_u_name_2 __pyx_string_tab[87]
+#define __pyx_n_u_narrow_phase_c __pyx_string_tab[88]
+#define __pyx_n_u_ndim __pyx_string_tab[89]
+#define __pyx_n_u_new __pyx_string_tab[90]
+#define __pyx_n_u_normals_a __pyx_string_tab[91]
+#define __pyx_n_u_normals_b __pyx_string_tab[92]
+#define __pyx_n_u_np __pyx_string_tab[93]
+#define __pyx_n_u_numpy __pyx_string_tab[94]
+#define __pyx_n_u_obj __pyx_string_tab[95]
+#define __pyx_n_u_pack __pyx_string_tab[96]
+#define __pyx_n_u_pop __pyx_string_tab[97]
+#define __pyx_n_u_pyx_checksum __pyx_string_tab[98]
+#define __pyx_n_u_pyx_state __pyx_string_tab[99]
+#define __pyx_n_u_pyx_type __pyx_string_tab[100]
+#define __pyx_n_u_pyx_unpickle_Enum __pyx_string_tab[101]
+#define __pyx_n_u_pyx_vtable __pyx_string_tab[102]
+#define __pyx_n_u_qualname __pyx_string_tab[103]
+#define __pyx_n_u_reduce __pyx_string_tab[104]
+#define __pyx_n_u_reduce_cython __pyx_string_tab[105]
+#define __pyx_n_u_reduce_ex __pyx_string_tab[106]
+#define __pyx_n_u_register __pyx_string_tab[107]
+#define __pyx_n_u_set_name __pyx_string_tab[108]
+#define __pyx_n_u_setdefault __pyx_string_tab[109]
+#define __pyx_n_u_setstate __pyx_string_tab[110]
+#define __pyx_n_u_setstate_cython __pyx_string_tab[111]
+#define __pyx_n_u_shape __pyx_string_tab[112]
+#define __pyx_n_u_size __pyx_string_tab[113]
+#define __pyx_n_u_start __pyx_string_tab[114]
+#define __pyx_n_u_step __pyx_string_tab[115]
+#define __pyx_n_u_stop __pyx_string_tab[116]
+#define __pyx_n_u_struct __pyx_string_tab[117]
+#define __pyx_n_u_test __pyx_string_tab[118]
+#define __pyx_n_u_tris_a_2d __pyx_string_tab[119]
+#define __pyx_n_u_tris_a_3d __pyx_string_tab[120]
+#define __pyx_n_u_tris_b_2d __pyx_string_tab[121]
+#define __pyx_n_u_tris_b_3d __pyx_string_tab[122]
+#define __pyx_n_u_u_idx __pyx_string_tab[123]
+#define __pyx_n_u_unpack __pyx_string_tab[124]
+#define __pyx_n_u_update __pyx_string_tab[125]
+#define __pyx_n_u_use_MRT __pyx_string_tab[126]
+#define __pyx_n_u_v_idx __pyx_string_tab[127]
+#define __pyx_n_u_values __pyx_string_tab[128]
+#define __pyx_n_u_w_idx __pyx_string_tab[129]
+#define __pyx_n_u_w_tol __pyx_string_tab[130]
+#define __pyx_n_u_x __pyx_string_tab[131]
+#define __pyx_kp_b_iso88591_YfAQ_YfAQ_q_q_q_q_vS_V3a_1_U_1 __pyx_string_tab[132]
+#define __pyx_kp_b_iso88591_YfAQ_YfAQ_q_vS_V3a_q_U_1_Q_Q_Q __pyx_string_tab[133]
 #define __pyx_n_b_O __pyx_string_tab[134]
 #define __pyx_int_0 __pyx_number_tab[0]
 #define __pyx_int_neg_1 __pyx_number_tab[1]
 #define __pyx_int_1 __pyx_number_tab[2]
 #define __pyx_int_2 __pyx_number_tab[3]
-#define __pyx_int_136983863 __pyx_number_tab[4]
+#define __pyx_int_neg_999 __pyx_number_tab[4]
+#define __pyx_int_136983863 __pyx_number_tab[5]
 /* #### Code section: module_state_clear ### */
 #if CYTHON_USE_MODULE_STATE
 static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
@@ -3717,10 +3702,10 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_memoryviewslice_type);
   Py_CLEAR(clear_module_state->__pyx_type___pyx_memoryviewslice);
   for (int i=0; i<1; ++i) { Py_CLEAR(clear_module_state->__pyx_slice[i]); }
-  for (int i=0; i<2; ++i) { Py_CLEAR(clear_module_state->__pyx_tuple[i]); }
-  for (int i=0; i<3; ++i) { Py_CLEAR(clear_module_state->__pyx_codeobj_tab[i]); }
+  for (int i=0; i<4; ++i) { Py_CLEAR(clear_module_state->__pyx_tuple[i]); }
+  for (int i=0; i<2; ++i) { Py_CLEAR(clear_module_state->__pyx_codeobj_tab[i]); }
   for (int i=0; i<135; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
-  for (int i=0; i<5; ++i) { Py_CLEAR(clear_module_state->__pyx_number_tab[i]); }
+  for (int i=0; i<6; ++i) { Py_CLEAR(clear_module_state->__pyx_number_tab[i]); }
 /* #### Code section: module_state_clear_contents ### */
 /* CommonTypesMetaclass.module_state_clear */
 Py_CLEAR(clear_module_state->__pyx_CommonTypesMetaclassType);
@@ -3768,10 +3753,10 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   Py_VISIT(traverse_module_state->__pyx_memoryviewslice_type);
   Py_VISIT(traverse_module_state->__pyx_type___pyx_memoryviewslice);
   for (int i=0; i<1; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_slice[i]); }
-  for (int i=0; i<2; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_tuple[i]); }
-  for (int i=0; i<3; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_codeobj_tab[i]); }
+  for (int i=0; i<4; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_tuple[i]); }
+  for (int i=0; i<2; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_codeobj_tab[i]); }
   for (int i=0; i<135; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
-  for (int i=0; i<5; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_number_tab[i]); }
+  for (int i=0; i<6; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_number_tab[i]); }
 /* #### Code section: module_state_traverse_contents ### */
 /* CommonTypesMetaclass.module_state_traverse */
 Py_VISIT(traverse_module_state->__pyx_CommonTypesMetaclassType);
@@ -17556,17 +17541,17 @@ static CYTHON_INLINE NPY_DATETIMEUNIT __pyx_f_5numpy_get_datetime64_unit(PyObjec
   return __pyx_r;
 }
 
-/* "narrow_phase_c.pyx":9
- * cimport numpy as cnp
+/* "narrow_phase_c.pyx":11
  * 
- * cdef inline bint check_2d_sat_overlap(double[:, :] t1, double[:, :] t2):             # <<<<<<<<<<<<<<
- *     """
- *     Pure C implementation of the Separating Axis Theorem (SAT) for 2D triangles.
+ * # ---> ::1 FORCES C-CONTIGUOUS POINTER ARITHMETIC (Massive Speedup) <---
+ * cdef inline bint check_2d_sat_overlap(double[:, :, ::1] t1, int i, double[:, :, ::1] t2, int j) nogil:             # <<<<<<<<<<<<<<
+ *     cdef int e, e_next, k
+ *     cdef double nx, ny, dot_val
 */
 
-static CYTHON_INLINE int __pyx_f_14narrow_phase_c_check_2d_sat_overlap(__Pyx_memviewslice __pyx_v_t1, __Pyx_memviewslice __pyx_v_t2) {
-  int __pyx_v_i;
-  int __pyx_v_j;
+static CYTHON_INLINE int __pyx_f_14narrow_phase_c_check_2d_sat_overlap(__Pyx_memviewslice __pyx_v_t1, int __pyx_v_i, __Pyx_memviewslice __pyx_v_t2, int __pyx_v_j) {
+  int __pyx_v_e;
+  int __pyx_v_e_next;
   int __pyx_v_k;
   double __pyx_v_nx;
   double __pyx_v_ny;
@@ -17577,119 +17562,141 @@ static CYTHON_INLINE int __pyx_f_14narrow_phase_c_check_2d_sat_overlap(__Pyx_mem
   double __pyx_v_max2;
   int __pyx_r;
   int __pyx_t_1;
-  Py_ssize_t __pyx_t_2;
+  int __pyx_t_2;
   Py_ssize_t __pyx_t_3;
   Py_ssize_t __pyx_t_4;
   Py_ssize_t __pyx_t_5;
-  double __pyx_t_6;
-  int __pyx_t_7;
-  int __pyx_t_8;
-  int __pyx_t_9;
+  Py_ssize_t __pyx_t_6;
+  Py_ssize_t __pyx_t_7;
+  Py_ssize_t __pyx_t_8;
+  double __pyx_t_9;
+  int __pyx_t_10;
+  int __pyx_t_11;
 
-  /* "narrow_phase_c.pyx":19
+  /* "narrow_phase_c.pyx":16
+ *     cdef double min1, max1, min2, max2
  * 
- *     # Test all 3 edges of Triangle 1
- *     for i in range(3):             # <<<<<<<<<<<<<<
- *         j = (i + 1) % 3
- *         nx = t1[j][1] - t1[i][1]
+ *     for e in range(3):             # <<<<<<<<<<<<<<
+ *         # ---> ELIMINATED SLOW MODULO (%) MATH <---
+ *         e_next = e + 1
 */
   for (__pyx_t_1 = 0; __pyx_t_1 < 3; __pyx_t_1+=1) {
-    __pyx_v_i = __pyx_t_1;
+    __pyx_v_e = __pyx_t_1;
 
-    /* "narrow_phase_c.pyx":20
- *     # Test all 3 edges of Triangle 1
- *     for i in range(3):
- *         j = (i + 1) % 3             # <<<<<<<<<<<<<<
- *         nx = t1[j][1] - t1[i][1]
- *         ny = t1[i][0] - t1[j][0]
+    /* "narrow_phase_c.pyx":18
+ *     for e in range(3):
+ *         # ---> ELIMINATED SLOW MODULO (%) MATH <---
+ *         e_next = e + 1             # <<<<<<<<<<<<<<
+ *         if e_next == 3: e_next = 0
+ * 
 */
-    __pyx_v_j = ((__pyx_v_i + 1) % 3);
+    __pyx_v_e_next = (__pyx_v_e + 1);
+
+    /* "narrow_phase_c.pyx":19
+ *         # ---> ELIMINATED SLOW MODULO (%) MATH <---
+ *         e_next = e + 1
+ *         if e_next == 3: e_next = 0             # <<<<<<<<<<<<<<
+ * 
+ *         nx = t1[i, e_next, 1] - t1[i, e, 1]
+*/
+    __pyx_t_2 = (__pyx_v_e_next == 3);
+    if (__pyx_t_2) {
+      __pyx_v_e_next = 0;
+    }
 
     /* "narrow_phase_c.pyx":21
- *     for i in range(3):
- *         j = (i + 1) % 3
- *         nx = t1[j][1] - t1[i][1]             # <<<<<<<<<<<<<<
- *         ny = t1[i][0] - t1[j][0]
+ *         if e_next == 3: e_next = 0
+ * 
+ *         nx = t1[i, e_next, 1] - t1[i, e, 1]             # <<<<<<<<<<<<<<
+ *         ny = t1[i, e, 0] - t1[i, e_next, 0]
  * 
 */
-    __pyx_t_2 = __pyx_v_j;
-    __pyx_t_3 = 1;
-    __pyx_t_4 = __pyx_v_i;
+    __pyx_t_3 = __pyx_v_i;
+    __pyx_t_4 = __pyx_v_e_next;
     __pyx_t_5 = 1;
-    __pyx_v_nx = ((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t1.data + __pyx_t_2 * __pyx_v_t1.strides[0]) ) + __pyx_t_3 * __pyx_v_t1.strides[1]) ))) - (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t1.data + __pyx_t_4 * __pyx_v_t1.strides[0]) ) + __pyx_t_5 * __pyx_v_t1.strides[1]) ))));
+    __pyx_t_6 = __pyx_v_i;
+    __pyx_t_7 = __pyx_v_e;
+    __pyx_t_8 = 1;
+    __pyx_v_nx = ((*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t1.data + __pyx_t_3 * __pyx_v_t1.strides[0]) ) + __pyx_t_4 * __pyx_v_t1.strides[1]) )) + __pyx_t_5)) ))) - (*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t1.data + __pyx_t_6 * __pyx_v_t1.strides[0]) ) + __pyx_t_7 * __pyx_v_t1.strides[1]) )) + __pyx_t_8)) ))));
 
     /* "narrow_phase_c.pyx":22
- *         j = (i + 1) % 3
- *         nx = t1[j][1] - t1[i][1]
- *         ny = t1[i][0] - t1[j][0]             # <<<<<<<<<<<<<<
  * 
- *         min1 = max1 = t1[0][0]*nx + t1[0][1]*ny
+ *         nx = t1[i, e_next, 1] - t1[i, e, 1]
+ *         ny = t1[i, e, 0] - t1[i, e_next, 0]             # <<<<<<<<<<<<<<
+ * 
+ *         min1 = max1 = t1[i, 0, 0]*nx + t1[i, 0, 1]*ny
 */
+    __pyx_t_8 = __pyx_v_i;
+    __pyx_t_7 = __pyx_v_e;
+    __pyx_t_6 = 0;
     __pyx_t_5 = __pyx_v_i;
-    __pyx_t_4 = 0;
-    __pyx_t_3 = __pyx_v_j;
-    __pyx_t_2 = 0;
-    __pyx_v_ny = ((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t1.data + __pyx_t_5 * __pyx_v_t1.strides[0]) ) + __pyx_t_4 * __pyx_v_t1.strides[1]) ))) - (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t1.data + __pyx_t_3 * __pyx_v_t1.strides[0]) ) + __pyx_t_2 * __pyx_v_t1.strides[1]) ))));
+    __pyx_t_4 = __pyx_v_e_next;
+    __pyx_t_3 = 0;
+    __pyx_v_ny = ((*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t1.data + __pyx_t_8 * __pyx_v_t1.strides[0]) ) + __pyx_t_7 * __pyx_v_t1.strides[1]) )) + __pyx_t_6)) ))) - (*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t1.data + __pyx_t_5 * __pyx_v_t1.strides[0]) ) + __pyx_t_4 * __pyx_v_t1.strides[1]) )) + __pyx_t_3)) ))));
 
     /* "narrow_phase_c.pyx":24
- *         ny = t1[i][0] - t1[j][0]
+ *         ny = t1[i, e, 0] - t1[i, e_next, 0]
  * 
- *         min1 = max1 = t1[0][0]*nx + t1[0][1]*ny             # <<<<<<<<<<<<<<
+ *         min1 = max1 = t1[i, 0, 0]*nx + t1[i, 0, 1]*ny             # <<<<<<<<<<<<<<
  *         for k in range(1, 3):
- *             dot_val = t1[k][0]*nx + t1[k][1]*ny
+ *             dot_val = t1[i, k, 0]*nx + t1[i, k, 1]*ny
 */
-    __pyx_t_2 = 0;
-    __pyx_t_3 = 0;
+    __pyx_t_3 = __pyx_v_i;
     __pyx_t_4 = 0;
-    __pyx_t_5 = 1;
-    __pyx_t_6 = (((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t1.data + __pyx_t_2 * __pyx_v_t1.strides[0]) ) + __pyx_t_3 * __pyx_v_t1.strides[1]) ))) * __pyx_v_nx) + ((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t1.data + __pyx_t_4 * __pyx_v_t1.strides[0]) ) + __pyx_t_5 * __pyx_v_t1.strides[1]) ))) * __pyx_v_ny));
-    __pyx_v_min1 = __pyx_t_6;
-    __pyx_v_max1 = __pyx_t_6;
+    __pyx_t_5 = 0;
+    __pyx_t_6 = __pyx_v_i;
+    __pyx_t_7 = 0;
+    __pyx_t_8 = 1;
+    __pyx_t_9 = (((*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t1.data + __pyx_t_3 * __pyx_v_t1.strides[0]) ) + __pyx_t_4 * __pyx_v_t1.strides[1]) )) + __pyx_t_5)) ))) * __pyx_v_nx) + ((*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t1.data + __pyx_t_6 * __pyx_v_t1.strides[0]) ) + __pyx_t_7 * __pyx_v_t1.strides[1]) )) + __pyx_t_8)) ))) * __pyx_v_ny));
+    __pyx_v_min1 = __pyx_t_9;
+    __pyx_v_max1 = __pyx_t_9;
 
     /* "narrow_phase_c.pyx":25
  * 
- *         min1 = max1 = t1[0][0]*nx + t1[0][1]*ny
+ *         min1 = max1 = t1[i, 0, 0]*nx + t1[i, 0, 1]*ny
  *         for k in range(1, 3):             # <<<<<<<<<<<<<<
- *             dot_val = t1[k][0]*nx + t1[k][1]*ny
+ *             dot_val = t1[i, k, 0]*nx + t1[i, k, 1]*ny
  *             if dot_val < min1: min1 = dot_val
 */
-    for (__pyx_t_7 = 1; __pyx_t_7 < 3; __pyx_t_7+=1) {
-      __pyx_v_k = __pyx_t_7;
+    for (__pyx_t_10 = 1; __pyx_t_10 < 3; __pyx_t_10+=1) {
+      __pyx_v_k = __pyx_t_10;
 
       /* "narrow_phase_c.pyx":26
- *         min1 = max1 = t1[0][0]*nx + t1[0][1]*ny
+ *         min1 = max1 = t1[i, 0, 0]*nx + t1[i, 0, 1]*ny
  *         for k in range(1, 3):
- *             dot_val = t1[k][0]*nx + t1[k][1]*ny             # <<<<<<<<<<<<<<
+ *             dot_val = t1[i, k, 0]*nx + t1[i, k, 1]*ny             # <<<<<<<<<<<<<<
  *             if dot_val < min1: min1 = dot_val
  *             if dot_val > max1: max1 = dot_val
 */
-      __pyx_t_5 = __pyx_v_k;
-      __pyx_t_4 = 0;
-      __pyx_t_3 = __pyx_v_k;
-      __pyx_t_2 = 1;
-      __pyx_v_dot_val = (((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t1.data + __pyx_t_5 * __pyx_v_t1.strides[0]) ) + __pyx_t_4 * __pyx_v_t1.strides[1]) ))) * __pyx_v_nx) + ((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t1.data + __pyx_t_3 * __pyx_v_t1.strides[0]) ) + __pyx_t_2 * __pyx_v_t1.strides[1]) ))) * __pyx_v_ny));
+      __pyx_t_8 = __pyx_v_i;
+      __pyx_t_7 = __pyx_v_k;
+      __pyx_t_6 = 0;
+      __pyx_t_5 = __pyx_v_i;
+      __pyx_t_4 = __pyx_v_k;
+      __pyx_t_3 = 1;
+      __pyx_v_dot_val = (((*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t1.data + __pyx_t_8 * __pyx_v_t1.strides[0]) ) + __pyx_t_7 * __pyx_v_t1.strides[1]) )) + __pyx_t_6)) ))) * __pyx_v_nx) + ((*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t1.data + __pyx_t_5 * __pyx_v_t1.strides[0]) ) + __pyx_t_4 * __pyx_v_t1.strides[1]) )) + __pyx_t_3)) ))) * __pyx_v_ny));
 
       /* "narrow_phase_c.pyx":27
  *         for k in range(1, 3):
- *             dot_val = t1[k][0]*nx + t1[k][1]*ny
+ *             dot_val = t1[i, k, 0]*nx + t1[i, k, 1]*ny
  *             if dot_val < min1: min1 = dot_val             # <<<<<<<<<<<<<<
  *             if dot_val > max1: max1 = dot_val
  * 
 */
-      __pyx_t_8 = (__pyx_v_dot_val < __pyx_v_min1);
-      if (__pyx_t_8) {
+      __pyx_t_2 = (__pyx_v_dot_val < __pyx_v_min1);
+      if (__pyx_t_2) {
         __pyx_v_min1 = __pyx_v_dot_val;
       }
 
       /* "narrow_phase_c.pyx":28
- *             dot_val = t1[k][0]*nx + t1[k][1]*ny
+ *             dot_val = t1[i, k, 0]*nx + t1[i, k, 1]*ny
  *             if dot_val < min1: min1 = dot_val
  *             if dot_val > max1: max1 = dot_val             # <<<<<<<<<<<<<<
  * 
- *         min2 = max2 = t2[0][0]*nx + t2[0][1]*ny
+ *         min2 = max2 = t2[j, 0, 0]*nx + t2[j, 0, 1]*ny
 */
-      __pyx_t_8 = (__pyx_v_dot_val > __pyx_v_max1);
-      if (__pyx_t_8) {
+      __pyx_t_2 = (__pyx_v_dot_val > __pyx_v_max1);
+      if (__pyx_t_2) {
         __pyx_v_max1 = __pyx_v_dot_val;
       }
     }
@@ -17697,62 +17704,66 @@ static CYTHON_INLINE int __pyx_f_14narrow_phase_c_check_2d_sat_overlap(__Pyx_mem
     /* "narrow_phase_c.pyx":30
  *             if dot_val > max1: max1 = dot_val
  * 
- *         min2 = max2 = t2[0][0]*nx + t2[0][1]*ny             # <<<<<<<<<<<<<<
+ *         min2 = max2 = t2[j, 0, 0]*nx + t2[j, 0, 1]*ny             # <<<<<<<<<<<<<<
  *         for k in range(1, 3):
- *             dot_val = t2[k][0]*nx + t2[k][1]*ny
+ *             dot_val = t2[j, k, 0]*nx + t2[j, k, 1]*ny
 */
-    __pyx_t_2 = 0;
-    __pyx_t_3 = 0;
+    __pyx_t_3 = __pyx_v_j;
     __pyx_t_4 = 0;
-    __pyx_t_5 = 1;
-    __pyx_t_6 = (((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t2.data + __pyx_t_2 * __pyx_v_t2.strides[0]) ) + __pyx_t_3 * __pyx_v_t2.strides[1]) ))) * __pyx_v_nx) + ((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t2.data + __pyx_t_4 * __pyx_v_t2.strides[0]) ) + __pyx_t_5 * __pyx_v_t2.strides[1]) ))) * __pyx_v_ny));
-    __pyx_v_min2 = __pyx_t_6;
-    __pyx_v_max2 = __pyx_t_6;
+    __pyx_t_5 = 0;
+    __pyx_t_6 = __pyx_v_j;
+    __pyx_t_7 = 0;
+    __pyx_t_8 = 1;
+    __pyx_t_9 = (((*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t2.data + __pyx_t_3 * __pyx_v_t2.strides[0]) ) + __pyx_t_4 * __pyx_v_t2.strides[1]) )) + __pyx_t_5)) ))) * __pyx_v_nx) + ((*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t2.data + __pyx_t_6 * __pyx_v_t2.strides[0]) ) + __pyx_t_7 * __pyx_v_t2.strides[1]) )) + __pyx_t_8)) ))) * __pyx_v_ny));
+    __pyx_v_min2 = __pyx_t_9;
+    __pyx_v_max2 = __pyx_t_9;
 
     /* "narrow_phase_c.pyx":31
  * 
- *         min2 = max2 = t2[0][0]*nx + t2[0][1]*ny
+ *         min2 = max2 = t2[j, 0, 0]*nx + t2[j, 0, 1]*ny
  *         for k in range(1, 3):             # <<<<<<<<<<<<<<
- *             dot_val = t2[k][0]*nx + t2[k][1]*ny
+ *             dot_val = t2[j, k, 0]*nx + t2[j, k, 1]*ny
  *             if dot_val < min2: min2 = dot_val
 */
-    for (__pyx_t_7 = 1; __pyx_t_7 < 3; __pyx_t_7+=1) {
-      __pyx_v_k = __pyx_t_7;
+    for (__pyx_t_10 = 1; __pyx_t_10 < 3; __pyx_t_10+=1) {
+      __pyx_v_k = __pyx_t_10;
 
       /* "narrow_phase_c.pyx":32
- *         min2 = max2 = t2[0][0]*nx + t2[0][1]*ny
+ *         min2 = max2 = t2[j, 0, 0]*nx + t2[j, 0, 1]*ny
  *         for k in range(1, 3):
- *             dot_val = t2[k][0]*nx + t2[k][1]*ny             # <<<<<<<<<<<<<<
+ *             dot_val = t2[j, k, 0]*nx + t2[j, k, 1]*ny             # <<<<<<<<<<<<<<
  *             if dot_val < min2: min2 = dot_val
  *             if dot_val > max2: max2 = dot_val
 */
-      __pyx_t_5 = __pyx_v_k;
-      __pyx_t_4 = 0;
-      __pyx_t_3 = __pyx_v_k;
-      __pyx_t_2 = 1;
-      __pyx_v_dot_val = (((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t2.data + __pyx_t_5 * __pyx_v_t2.strides[0]) ) + __pyx_t_4 * __pyx_v_t2.strides[1]) ))) * __pyx_v_nx) + ((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t2.data + __pyx_t_3 * __pyx_v_t2.strides[0]) ) + __pyx_t_2 * __pyx_v_t2.strides[1]) ))) * __pyx_v_ny));
+      __pyx_t_8 = __pyx_v_j;
+      __pyx_t_7 = __pyx_v_k;
+      __pyx_t_6 = 0;
+      __pyx_t_5 = __pyx_v_j;
+      __pyx_t_4 = __pyx_v_k;
+      __pyx_t_3 = 1;
+      __pyx_v_dot_val = (((*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t2.data + __pyx_t_8 * __pyx_v_t2.strides[0]) ) + __pyx_t_7 * __pyx_v_t2.strides[1]) )) + __pyx_t_6)) ))) * __pyx_v_nx) + ((*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t2.data + __pyx_t_5 * __pyx_v_t2.strides[0]) ) + __pyx_t_4 * __pyx_v_t2.strides[1]) )) + __pyx_t_3)) ))) * __pyx_v_ny));
 
       /* "narrow_phase_c.pyx":33
  *         for k in range(1, 3):
- *             dot_val = t2[k][0]*nx + t2[k][1]*ny
+ *             dot_val = t2[j, k, 0]*nx + t2[j, k, 1]*ny
  *             if dot_val < min2: min2 = dot_val             # <<<<<<<<<<<<<<
  *             if dot_val > max2: max2 = dot_val
  * 
 */
-      __pyx_t_8 = (__pyx_v_dot_val < __pyx_v_min2);
-      if (__pyx_t_8) {
+      __pyx_t_2 = (__pyx_v_dot_val < __pyx_v_min2);
+      if (__pyx_t_2) {
         __pyx_v_min2 = __pyx_v_dot_val;
       }
 
       /* "narrow_phase_c.pyx":34
- *             dot_val = t2[k][0]*nx + t2[k][1]*ny
+ *             dot_val = t2[j, k, 0]*nx + t2[j, k, 1]*ny
  *             if dot_val < min2: min2 = dot_val
  *             if dot_val > max2: max2 = dot_val             # <<<<<<<<<<<<<<
  * 
  *         if max1 < min2 or max2 < min1:
 */
-      __pyx_t_8 = (__pyx_v_dot_val > __pyx_v_max2);
-      if (__pyx_t_8) {
+      __pyx_t_2 = (__pyx_v_dot_val > __pyx_v_max2);
+      if (__pyx_t_2) {
         __pyx_v_max2 = __pyx_v_dot_val;
       }
     }
@@ -17764,23 +17775,23 @@ static CYTHON_INLINE int __pyx_f_14narrow_phase_c_check_2d_sat_overlap(__Pyx_mem
  *             return False
  * 
 */
-    __pyx_t_9 = (__pyx_v_max1 < __pyx_v_min2);
-    if (!__pyx_t_9) {
+    __pyx_t_11 = (__pyx_v_max1 < __pyx_v_min2);
+    if (!__pyx_t_11) {
     } else {
-      __pyx_t_8 = __pyx_t_9;
-      goto __pyx_L14_bool_binop_done;
+      __pyx_t_2 = __pyx_t_11;
+      goto __pyx_L15_bool_binop_done;
     }
-    __pyx_t_9 = (__pyx_v_max2 < __pyx_v_min1);
-    __pyx_t_8 = __pyx_t_9;
-    __pyx_L14_bool_binop_done:;
-    if (__pyx_t_8) {
+    __pyx_t_11 = (__pyx_v_max2 < __pyx_v_min1);
+    __pyx_t_2 = __pyx_t_11;
+    __pyx_L15_bool_binop_done:;
+    if (__pyx_t_2) {
 
       /* "narrow_phase_c.pyx":37
  * 
  *         if max1 < min2 or max2 < min1:
  *             return False             # <<<<<<<<<<<<<<
  * 
- *     # Test all 3 edges of Triangle 2
+ *     for e in range(3):
 */
       __pyx_r = 0;
       goto __pyx_L0;
@@ -17795,196 +17806,220 @@ static CYTHON_INLINE int __pyx_f_14narrow_phase_c_check_2d_sat_overlap(__Pyx_mem
     }
   }
 
-  /* "narrow_phase_c.pyx":40
+  /* "narrow_phase_c.pyx":39
+ *             return False
  * 
- *     # Test all 3 edges of Triangle 2
- *     for i in range(3):             # <<<<<<<<<<<<<<
- *         j = (i + 1) % 3
- *         nx = t2[j][1] - t2[i][1]
+ *     for e in range(3):             # <<<<<<<<<<<<<<
+ *         e_next = e + 1
+ *         if e_next == 3: e_next = 0
 */
   for (__pyx_t_1 = 0; __pyx_t_1 < 3; __pyx_t_1+=1) {
-    __pyx_v_i = __pyx_t_1;
+    __pyx_v_e = __pyx_t_1;
+
+    /* "narrow_phase_c.pyx":40
+ * 
+ *     for e in range(3):
+ *         e_next = e + 1             # <<<<<<<<<<<<<<
+ *         if e_next == 3: e_next = 0
+ * 
+*/
+    __pyx_v_e_next = (__pyx_v_e + 1);
 
     /* "narrow_phase_c.pyx":41
- *     # Test all 3 edges of Triangle 2
- *     for i in range(3):
- *         j = (i + 1) % 3             # <<<<<<<<<<<<<<
- *         nx = t2[j][1] - t2[i][1]
- *         ny = t2[i][0] - t2[j][0]
-*/
-    __pyx_v_j = ((__pyx_v_i + 1) % 3);
-
-    /* "narrow_phase_c.pyx":42
- *     for i in range(3):
- *         j = (i + 1) % 3
- *         nx = t2[j][1] - t2[i][1]             # <<<<<<<<<<<<<<
- *         ny = t2[i][0] - t2[j][0]
+ *     for e in range(3):
+ *         e_next = e + 1
+ *         if e_next == 3: e_next = 0             # <<<<<<<<<<<<<<
  * 
+ *         nx = t2[j, e_next, 1] - t2[j, e, 1]
 */
-    __pyx_t_2 = __pyx_v_j;
-    __pyx_t_3 = 1;
-    __pyx_t_4 = __pyx_v_i;
-    __pyx_t_5 = 1;
-    __pyx_v_nx = ((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t2.data + __pyx_t_2 * __pyx_v_t2.strides[0]) ) + __pyx_t_3 * __pyx_v_t2.strides[1]) ))) - (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t2.data + __pyx_t_4 * __pyx_v_t2.strides[0]) ) + __pyx_t_5 * __pyx_v_t2.strides[1]) ))));
+    __pyx_t_2 = (__pyx_v_e_next == 3);
+    if (__pyx_t_2) {
+      __pyx_v_e_next = 0;
+    }
 
     /* "narrow_phase_c.pyx":43
- *         j = (i + 1) % 3
- *         nx = t2[j][1] - t2[i][1]
- *         ny = t2[i][0] - t2[j][0]             # <<<<<<<<<<<<<<
+ *         if e_next == 3: e_next = 0
  * 
- *         min1 = max1 = t1[0][0]*nx + t1[0][1]*ny
+ *         nx = t2[j, e_next, 1] - t2[j, e, 1]             # <<<<<<<<<<<<<<
+ *         ny = t2[j, e, 0] - t2[j, e_next, 0]
+ * 
 */
-    __pyx_t_5 = __pyx_v_i;
-    __pyx_t_4 = 0;
     __pyx_t_3 = __pyx_v_j;
-    __pyx_t_2 = 0;
-    __pyx_v_ny = ((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t2.data + __pyx_t_5 * __pyx_v_t2.strides[0]) ) + __pyx_t_4 * __pyx_v_t2.strides[1]) ))) - (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t2.data + __pyx_t_3 * __pyx_v_t2.strides[0]) ) + __pyx_t_2 * __pyx_v_t2.strides[1]) ))));
-
-    /* "narrow_phase_c.pyx":45
- *         ny = t2[i][0] - t2[j][0]
- * 
- *         min1 = max1 = t1[0][0]*nx + t1[0][1]*ny             # <<<<<<<<<<<<<<
- *         for k in range(1, 3):
- *             dot_val = t1[k][0]*nx + t1[k][1]*ny
-*/
-    __pyx_t_2 = 0;
-    __pyx_t_3 = 0;
-    __pyx_t_4 = 0;
+    __pyx_t_4 = __pyx_v_e_next;
     __pyx_t_5 = 1;
-    __pyx_t_6 = (((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t1.data + __pyx_t_2 * __pyx_v_t1.strides[0]) ) + __pyx_t_3 * __pyx_v_t1.strides[1]) ))) * __pyx_v_nx) + ((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t1.data + __pyx_t_4 * __pyx_v_t1.strides[0]) ) + __pyx_t_5 * __pyx_v_t1.strides[1]) ))) * __pyx_v_ny));
-    __pyx_v_min1 = __pyx_t_6;
-    __pyx_v_max1 = __pyx_t_6;
+    __pyx_t_6 = __pyx_v_j;
+    __pyx_t_7 = __pyx_v_e;
+    __pyx_t_8 = 1;
+    __pyx_v_nx = ((*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t2.data + __pyx_t_3 * __pyx_v_t2.strides[0]) ) + __pyx_t_4 * __pyx_v_t2.strides[1]) )) + __pyx_t_5)) ))) - (*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t2.data + __pyx_t_6 * __pyx_v_t2.strides[0]) ) + __pyx_t_7 * __pyx_v_t2.strides[1]) )) + __pyx_t_8)) ))));
+
+    /* "narrow_phase_c.pyx":44
+ * 
+ *         nx = t2[j, e_next, 1] - t2[j, e, 1]
+ *         ny = t2[j, e, 0] - t2[j, e_next, 0]             # <<<<<<<<<<<<<<
+ * 
+ *         min1 = max1 = t1[i, 0, 0]*nx + t1[i, 0, 1]*ny
+*/
+    __pyx_t_8 = __pyx_v_j;
+    __pyx_t_7 = __pyx_v_e;
+    __pyx_t_6 = 0;
+    __pyx_t_5 = __pyx_v_j;
+    __pyx_t_4 = __pyx_v_e_next;
+    __pyx_t_3 = 0;
+    __pyx_v_ny = ((*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t2.data + __pyx_t_8 * __pyx_v_t2.strides[0]) ) + __pyx_t_7 * __pyx_v_t2.strides[1]) )) + __pyx_t_6)) ))) - (*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t2.data + __pyx_t_5 * __pyx_v_t2.strides[0]) ) + __pyx_t_4 * __pyx_v_t2.strides[1]) )) + __pyx_t_3)) ))));
 
     /* "narrow_phase_c.pyx":46
+ *         ny = t2[j, e, 0] - t2[j, e_next, 0]
  * 
- *         min1 = max1 = t1[0][0]*nx + t1[0][1]*ny
+ *         min1 = max1 = t1[i, 0, 0]*nx + t1[i, 0, 1]*ny             # <<<<<<<<<<<<<<
+ *         for k in range(1, 3):
+ *             dot_val = t1[i, k, 0]*nx + t1[i, k, 1]*ny
+*/
+    __pyx_t_3 = __pyx_v_i;
+    __pyx_t_4 = 0;
+    __pyx_t_5 = 0;
+    __pyx_t_6 = __pyx_v_i;
+    __pyx_t_7 = 0;
+    __pyx_t_8 = 1;
+    __pyx_t_9 = (((*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t1.data + __pyx_t_3 * __pyx_v_t1.strides[0]) ) + __pyx_t_4 * __pyx_v_t1.strides[1]) )) + __pyx_t_5)) ))) * __pyx_v_nx) + ((*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t1.data + __pyx_t_6 * __pyx_v_t1.strides[0]) ) + __pyx_t_7 * __pyx_v_t1.strides[1]) )) + __pyx_t_8)) ))) * __pyx_v_ny));
+    __pyx_v_min1 = __pyx_t_9;
+    __pyx_v_max1 = __pyx_t_9;
+
+    /* "narrow_phase_c.pyx":47
+ * 
+ *         min1 = max1 = t1[i, 0, 0]*nx + t1[i, 0, 1]*ny
  *         for k in range(1, 3):             # <<<<<<<<<<<<<<
- *             dot_val = t1[k][0]*nx + t1[k][1]*ny
+ *             dot_val = t1[i, k, 0]*nx + t1[i, k, 1]*ny
  *             if dot_val < min1: min1 = dot_val
 */
-    for (__pyx_t_7 = 1; __pyx_t_7 < 3; __pyx_t_7+=1) {
-      __pyx_v_k = __pyx_t_7;
+    for (__pyx_t_10 = 1; __pyx_t_10 < 3; __pyx_t_10+=1) {
+      __pyx_v_k = __pyx_t_10;
 
-      /* "narrow_phase_c.pyx":47
- *         min1 = max1 = t1[0][0]*nx + t1[0][1]*ny
+      /* "narrow_phase_c.pyx":48
+ *         min1 = max1 = t1[i, 0, 0]*nx + t1[i, 0, 1]*ny
  *         for k in range(1, 3):
- *             dot_val = t1[k][0]*nx + t1[k][1]*ny             # <<<<<<<<<<<<<<
+ *             dot_val = t1[i, k, 0]*nx + t1[i, k, 1]*ny             # <<<<<<<<<<<<<<
  *             if dot_val < min1: min1 = dot_val
  *             if dot_val > max1: max1 = dot_val
 */
-      __pyx_t_5 = __pyx_v_k;
-      __pyx_t_4 = 0;
-      __pyx_t_3 = __pyx_v_k;
-      __pyx_t_2 = 1;
-      __pyx_v_dot_val = (((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t1.data + __pyx_t_5 * __pyx_v_t1.strides[0]) ) + __pyx_t_4 * __pyx_v_t1.strides[1]) ))) * __pyx_v_nx) + ((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t1.data + __pyx_t_3 * __pyx_v_t1.strides[0]) ) + __pyx_t_2 * __pyx_v_t1.strides[1]) ))) * __pyx_v_ny));
+      __pyx_t_8 = __pyx_v_i;
+      __pyx_t_7 = __pyx_v_k;
+      __pyx_t_6 = 0;
+      __pyx_t_5 = __pyx_v_i;
+      __pyx_t_4 = __pyx_v_k;
+      __pyx_t_3 = 1;
+      __pyx_v_dot_val = (((*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t1.data + __pyx_t_8 * __pyx_v_t1.strides[0]) ) + __pyx_t_7 * __pyx_v_t1.strides[1]) )) + __pyx_t_6)) ))) * __pyx_v_nx) + ((*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t1.data + __pyx_t_5 * __pyx_v_t1.strides[0]) ) + __pyx_t_4 * __pyx_v_t1.strides[1]) )) + __pyx_t_3)) ))) * __pyx_v_ny));
 
-      /* "narrow_phase_c.pyx":48
+      /* "narrow_phase_c.pyx":49
  *         for k in range(1, 3):
- *             dot_val = t1[k][0]*nx + t1[k][1]*ny
+ *             dot_val = t1[i, k, 0]*nx + t1[i, k, 1]*ny
  *             if dot_val < min1: min1 = dot_val             # <<<<<<<<<<<<<<
  *             if dot_val > max1: max1 = dot_val
  * 
 */
-      __pyx_t_8 = (__pyx_v_dot_val < __pyx_v_min1);
-      if (__pyx_t_8) {
+      __pyx_t_2 = (__pyx_v_dot_val < __pyx_v_min1);
+      if (__pyx_t_2) {
         __pyx_v_min1 = __pyx_v_dot_val;
       }
 
-      /* "narrow_phase_c.pyx":49
- *             dot_val = t1[k][0]*nx + t1[k][1]*ny
+      /* "narrow_phase_c.pyx":50
+ *             dot_val = t1[i, k, 0]*nx + t1[i, k, 1]*ny
  *             if dot_val < min1: min1 = dot_val
  *             if dot_val > max1: max1 = dot_val             # <<<<<<<<<<<<<<
  * 
- *         min2 = max2 = t2[0][0]*nx + t2[0][1]*ny
+ *         min2 = max2 = t2[j, 0, 0]*nx + t2[j, 0, 1]*ny
 */
-      __pyx_t_8 = (__pyx_v_dot_val > __pyx_v_max1);
-      if (__pyx_t_8) {
+      __pyx_t_2 = (__pyx_v_dot_val > __pyx_v_max1);
+      if (__pyx_t_2) {
         __pyx_v_max1 = __pyx_v_dot_val;
       }
     }
 
-    /* "narrow_phase_c.pyx":51
+    /* "narrow_phase_c.pyx":52
  *             if dot_val > max1: max1 = dot_val
  * 
- *         min2 = max2 = t2[0][0]*nx + t2[0][1]*ny             # <<<<<<<<<<<<<<
+ *         min2 = max2 = t2[j, 0, 0]*nx + t2[j, 0, 1]*ny             # <<<<<<<<<<<<<<
  *         for k in range(1, 3):
- *             dot_val = t2[k][0]*nx + t2[k][1]*ny
+ *             dot_val = t2[j, k, 0]*nx + t2[j, k, 1]*ny
 */
-    __pyx_t_2 = 0;
-    __pyx_t_3 = 0;
+    __pyx_t_3 = __pyx_v_j;
     __pyx_t_4 = 0;
-    __pyx_t_5 = 1;
-    __pyx_t_6 = (((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t2.data + __pyx_t_2 * __pyx_v_t2.strides[0]) ) + __pyx_t_3 * __pyx_v_t2.strides[1]) ))) * __pyx_v_nx) + ((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t2.data + __pyx_t_4 * __pyx_v_t2.strides[0]) ) + __pyx_t_5 * __pyx_v_t2.strides[1]) ))) * __pyx_v_ny));
-    __pyx_v_min2 = __pyx_t_6;
-    __pyx_v_max2 = __pyx_t_6;
+    __pyx_t_5 = 0;
+    __pyx_t_6 = __pyx_v_j;
+    __pyx_t_7 = 0;
+    __pyx_t_8 = 1;
+    __pyx_t_9 = (((*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t2.data + __pyx_t_3 * __pyx_v_t2.strides[0]) ) + __pyx_t_4 * __pyx_v_t2.strides[1]) )) + __pyx_t_5)) ))) * __pyx_v_nx) + ((*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t2.data + __pyx_t_6 * __pyx_v_t2.strides[0]) ) + __pyx_t_7 * __pyx_v_t2.strides[1]) )) + __pyx_t_8)) ))) * __pyx_v_ny));
+    __pyx_v_min2 = __pyx_t_9;
+    __pyx_v_max2 = __pyx_t_9;
 
-    /* "narrow_phase_c.pyx":52
+    /* "narrow_phase_c.pyx":53
  * 
- *         min2 = max2 = t2[0][0]*nx + t2[0][1]*ny
+ *         min2 = max2 = t2[j, 0, 0]*nx + t2[j, 0, 1]*ny
  *         for k in range(1, 3):             # <<<<<<<<<<<<<<
- *             dot_val = t2[k][0]*nx + t2[k][1]*ny
+ *             dot_val = t2[j, k, 0]*nx + t2[j, k, 1]*ny
  *             if dot_val < min2: min2 = dot_val
 */
-    for (__pyx_t_7 = 1; __pyx_t_7 < 3; __pyx_t_7+=1) {
-      __pyx_v_k = __pyx_t_7;
+    for (__pyx_t_10 = 1; __pyx_t_10 < 3; __pyx_t_10+=1) {
+      __pyx_v_k = __pyx_t_10;
 
-      /* "narrow_phase_c.pyx":53
- *         min2 = max2 = t2[0][0]*nx + t2[0][1]*ny
+      /* "narrow_phase_c.pyx":54
+ *         min2 = max2 = t2[j, 0, 0]*nx + t2[j, 0, 1]*ny
  *         for k in range(1, 3):
- *             dot_val = t2[k][0]*nx + t2[k][1]*ny             # <<<<<<<<<<<<<<
+ *             dot_val = t2[j, k, 0]*nx + t2[j, k, 1]*ny             # <<<<<<<<<<<<<<
  *             if dot_val < min2: min2 = dot_val
  *             if dot_val > max2: max2 = dot_val
 */
-      __pyx_t_5 = __pyx_v_k;
-      __pyx_t_4 = 0;
-      __pyx_t_3 = __pyx_v_k;
-      __pyx_t_2 = 1;
-      __pyx_v_dot_val = (((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t2.data + __pyx_t_5 * __pyx_v_t2.strides[0]) ) + __pyx_t_4 * __pyx_v_t2.strides[1]) ))) * __pyx_v_nx) + ((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t2.data + __pyx_t_3 * __pyx_v_t2.strides[0]) ) + __pyx_t_2 * __pyx_v_t2.strides[1]) ))) * __pyx_v_ny));
+      __pyx_t_8 = __pyx_v_j;
+      __pyx_t_7 = __pyx_v_k;
+      __pyx_t_6 = 0;
+      __pyx_t_5 = __pyx_v_j;
+      __pyx_t_4 = __pyx_v_k;
+      __pyx_t_3 = 1;
+      __pyx_v_dot_val = (((*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t2.data + __pyx_t_8 * __pyx_v_t2.strides[0]) ) + __pyx_t_7 * __pyx_v_t2.strides[1]) )) + __pyx_t_6)) ))) * __pyx_v_nx) + ((*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t2.data + __pyx_t_5 * __pyx_v_t2.strides[0]) ) + __pyx_t_4 * __pyx_v_t2.strides[1]) )) + __pyx_t_3)) ))) * __pyx_v_ny));
 
-      /* "narrow_phase_c.pyx":54
+      /* "narrow_phase_c.pyx":55
  *         for k in range(1, 3):
- *             dot_val = t2[k][0]*nx + t2[k][1]*ny
+ *             dot_val = t2[j, k, 0]*nx + t2[j, k, 1]*ny
  *             if dot_val < min2: min2 = dot_val             # <<<<<<<<<<<<<<
  *             if dot_val > max2: max2 = dot_val
  * 
 */
-      __pyx_t_8 = (__pyx_v_dot_val < __pyx_v_min2);
-      if (__pyx_t_8) {
+      __pyx_t_2 = (__pyx_v_dot_val < __pyx_v_min2);
+      if (__pyx_t_2) {
         __pyx_v_min2 = __pyx_v_dot_val;
       }
 
-      /* "narrow_phase_c.pyx":55
- *             dot_val = t2[k][0]*nx + t2[k][1]*ny
+      /* "narrow_phase_c.pyx":56
+ *             dot_val = t2[j, k, 0]*nx + t2[j, k, 1]*ny
  *             if dot_val < min2: min2 = dot_val
  *             if dot_val > max2: max2 = dot_val             # <<<<<<<<<<<<<<
  * 
  *         if max1 < min2 or max2 < min1:
 */
-      __pyx_t_8 = (__pyx_v_dot_val > __pyx_v_max2);
-      if (__pyx_t_8) {
+      __pyx_t_2 = (__pyx_v_dot_val > __pyx_v_max2);
+      if (__pyx_t_2) {
         __pyx_v_max2 = __pyx_v_dot_val;
       }
     }
 
-    /* "narrow_phase_c.pyx":57
+    /* "narrow_phase_c.pyx":58
  *             if dot_val > max2: max2 = dot_val
  * 
  *         if max1 < min2 or max2 < min1:             # <<<<<<<<<<<<<<
  *             return False
  * 
 */
-    __pyx_t_9 = (__pyx_v_max1 < __pyx_v_min2);
-    if (!__pyx_t_9) {
+    __pyx_t_11 = (__pyx_v_max1 < __pyx_v_min2);
+    if (!__pyx_t_11) {
     } else {
-      __pyx_t_8 = __pyx_t_9;
-      goto __pyx_L27_bool_binop_done;
+      __pyx_t_2 = __pyx_t_11;
+      goto __pyx_L29_bool_binop_done;
     }
-    __pyx_t_9 = (__pyx_v_max2 < __pyx_v_min1);
-    __pyx_t_8 = __pyx_t_9;
-    __pyx_L27_bool_binop_done:;
-    if (__pyx_t_8) {
+    __pyx_t_11 = (__pyx_v_max2 < __pyx_v_min1);
+    __pyx_t_2 = __pyx_t_11;
+    __pyx_L29_bool_binop_done:;
+    if (__pyx_t_2) {
 
-      /* "narrow_phase_c.pyx":58
+      /* "narrow_phase_c.pyx":59
  * 
  *         if max1 < min2 or max2 < min1:
  *             return False             # <<<<<<<<<<<<<<
@@ -17994,7 +18029,7 @@ static CYTHON_INLINE int __pyx_f_14narrow_phase_c_check_2d_sat_overlap(__Pyx_mem
       __pyx_r = 0;
       goto __pyx_L0;
 
-      /* "narrow_phase_c.pyx":57
+      /* "narrow_phase_c.pyx":58
  *             if dot_val > max2: max2 = dot_val
  * 
  *         if max1 < min2 or max2 < min1:             # <<<<<<<<<<<<<<
@@ -18004,22 +18039,22 @@ static CYTHON_INLINE int __pyx_f_14narrow_phase_c_check_2d_sat_overlap(__Pyx_mem
     }
   }
 
-  /* "narrow_phase_c.pyx":60
+  /* "narrow_phase_c.pyx":61
  *             return False
  * 
  *     return True             # <<<<<<<<<<<<<<
  * 
- * cpdef list get_intersecting_pairs_c(double[:, :, :] tris_a_2d, double[:, :, :] tris_b_2d):
+ * cpdef bint fast_any_intersection_c(double[:, :, ::1] tris_a_2d, double[:, :, ::1] tris_b_2d, double[:, ::1] aabbs_a, double[:, ::1] aabbs_b):
 */
   __pyx_r = 1;
   goto __pyx_L0;
 
-  /* "narrow_phase_c.pyx":9
- * cimport numpy as cnp
+  /* "narrow_phase_c.pyx":11
  * 
- * cdef inline bint check_2d_sat_overlap(double[:, :] t1, double[:, :] t2):             # <<<<<<<<<<<<<<
- *     """
- *     Pure C implementation of the Separating Axis Theorem (SAT) for 2D triangles.
+ * # ---> ::1 FORCES C-CONTIGUOUS POINTER ARITHMETIC (Massive Speedup) <---
+ * cdef inline bint check_2d_sat_overlap(double[:, :, ::1] t1, int i, double[:, :, ::1] t2, int j) nogil:             # <<<<<<<<<<<<<<
+ *     cdef int e, e_next, k
+ *     cdef double nx, ny, dot_val
 */
 
   /* function exit code */
@@ -18027,1042 +18062,322 @@ static CYTHON_INLINE int __pyx_f_14narrow_phase_c_check_2d_sat_overlap(__Pyx_mem
   return __pyx_r;
 }
 
-/* "narrow_phase_c.pyx":62
+/* "narrow_phase_c.pyx":63
  *     return True
  * 
- * cpdef list get_intersecting_pairs_c(double[:, :, :] tris_a_2d, double[:, :, :] tris_b_2d):             # <<<<<<<<<<<<<<
- *     """
- *     Takes two arrays of 2D triangles, runs AABB and SAT checks in C,
-*/
-
-static PyObject *__pyx_pw_14narrow_phase_c_1get_intersecting_pairs_c(PyObject *__pyx_self, 
-#if CYTHON_METH_FASTCALL
-PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
-#else
-PyObject *__pyx_args, PyObject *__pyx_kwds
-#endif
-); /*proto*/
-static PyObject *__pyx_f_14narrow_phase_c_get_intersecting_pairs_c(__Pyx_memviewslice __pyx_v_tris_a_2d, __Pyx_memviewslice __pyx_v_tris_b_2d, CYTHON_UNUSED int __pyx_skip_dispatch) {
-  int __pyx_v_num_a;
-  int __pyx_v_num_b;
-  int __pyx_v_i;
-  int __pyx_v_j;
-  PyObject *__pyx_v_intersecting_pairs = 0;
-  double __pyx_v_min_a_x;
-  double __pyx_v_max_a_x;
-  double __pyx_v_min_a_y;
-  double __pyx_v_max_a_y;
-  double __pyx_v_min_b_x;
-  double __pyx_v_max_b_x;
-  double __pyx_v_min_b_y;
-  double __pyx_v_max_b_y;
-  int __pyx_v_k;
-  PyObject *__pyx_r = NULL;
-  __Pyx_RefNannyDeclarations
-  PyObject *__pyx_t_1 = NULL;
-  int __pyx_t_2;
-  int __pyx_t_3;
-  int __pyx_t_4;
-  Py_ssize_t __pyx_t_5;
-  Py_ssize_t __pyx_t_6;
-  Py_ssize_t __pyx_t_7;
-  double __pyx_t_8;
-  int __pyx_t_9;
-  int __pyx_t_10;
-  int __pyx_t_11;
-  int __pyx_t_12;
-  int __pyx_t_13;
-  int __pyx_t_14;
-  __Pyx_memviewslice __pyx_t_15 = { 0, 0, { 0 }, { 0 }, { 0 } };
-  __Pyx_memviewslice __pyx_t_16 = { 0, 0, { 0 }, { 0 }, { 0 } };
-  PyObject *__pyx_t_17 = NULL;
-  PyObject *__pyx_t_18 = NULL;
-  int __pyx_t_19;
-  int __pyx_lineno = 0;
-  const char *__pyx_filename = NULL;
-  int __pyx_clineno = 0;
-  __Pyx_RefNannySetupContext("get_intersecting_pairs_c", 0);
-
-  /* "narrow_phase_c.pyx":67
- *     and returns a clean Python list of index pairs that truly intersect.
- *     """
- *     cdef int num_a = tris_a_2d.shape[0]             # <<<<<<<<<<<<<<
- *     cdef int num_b = tris_b_2d.shape[0]
- *     cdef int i, j
-*/
-  __pyx_v_num_a = (__pyx_v_tris_a_2d.shape[0]);
-
-  /* "narrow_phase_c.pyx":68
- *     """
+ * cpdef bint fast_any_intersection_c(double[:, :, ::1] tris_a_2d, double[:, :, ::1] tris_b_2d, double[:, ::1] aabbs_a, double[:, ::1] aabbs_b):             # <<<<<<<<<<<<<<
  *     cdef int num_a = tris_a_2d.shape[0]
- *     cdef int num_b = tris_b_2d.shape[0]             # <<<<<<<<<<<<<<
- *     cdef int i, j
- *     cdef list intersecting_pairs = []
-*/
-  __pyx_v_num_b = (__pyx_v_tris_b_2d.shape[0]);
-
-  /* "narrow_phase_c.pyx":70
  *     cdef int num_b = tris_b_2d.shape[0]
- *     cdef int i, j
- *     cdef list intersecting_pairs = []             # <<<<<<<<<<<<<<
- * 
- *     # Fast C-level bounding box variables
-*/
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 70, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_v_intersecting_pairs = ((PyObject*)__pyx_t_1);
-  __pyx_t_1 = 0;
-
-  /* "narrow_phase_c.pyx":77
- *     cdef int k
- * 
- *     for i in range(num_a):             # <<<<<<<<<<<<<<
- *         min_a_x = max_a_x = tris_a_2d[i][0][0]
- *         min_a_y = max_a_y = tris_a_2d[i][0][1]
-*/
-  __pyx_t_2 = __pyx_v_num_a;
-  __pyx_t_3 = __pyx_t_2;
-  for (__pyx_t_4 = 0; __pyx_t_4 < __pyx_t_3; __pyx_t_4+=1) {
-    __pyx_v_i = __pyx_t_4;
-
-    /* "narrow_phase_c.pyx":78
- * 
- *     for i in range(num_a):
- *         min_a_x = max_a_x = tris_a_2d[i][0][0]             # <<<<<<<<<<<<<<
- *         min_a_y = max_a_y = tris_a_2d[i][0][1]
- *         for k in range(1, 3):
-*/
-    __pyx_t_5 = __pyx_v_i;
-    __pyx_t_6 = 0;
-    __pyx_t_7 = 0;
-    __pyx_t_8 = (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_2d.data + __pyx_t_5 * __pyx_v_tris_a_2d.strides[0]) ) + __pyx_t_6 * __pyx_v_tris_a_2d.strides[1]) ) + __pyx_t_7 * __pyx_v_tris_a_2d.strides[2]) )));
-    __pyx_v_min_a_x = __pyx_t_8;
-    __pyx_v_max_a_x = __pyx_t_8;
-
-    /* "narrow_phase_c.pyx":79
- *     for i in range(num_a):
- *         min_a_x = max_a_x = tris_a_2d[i][0][0]
- *         min_a_y = max_a_y = tris_a_2d[i][0][1]             # <<<<<<<<<<<<<<
- *         for k in range(1, 3):
- *             if tris_a_2d[i][k][0] < min_a_x: min_a_x = tris_a_2d[i][k][0]
-*/
-    __pyx_t_7 = __pyx_v_i;
-    __pyx_t_6 = 0;
-    __pyx_t_5 = 1;
-    __pyx_t_8 = (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_2d.data + __pyx_t_7 * __pyx_v_tris_a_2d.strides[0]) ) + __pyx_t_6 * __pyx_v_tris_a_2d.strides[1]) ) + __pyx_t_5 * __pyx_v_tris_a_2d.strides[2]) )));
-    __pyx_v_min_a_y = __pyx_t_8;
-    __pyx_v_max_a_y = __pyx_t_8;
-
-    /* "narrow_phase_c.pyx":80
- *         min_a_x = max_a_x = tris_a_2d[i][0][0]
- *         min_a_y = max_a_y = tris_a_2d[i][0][1]
- *         for k in range(1, 3):             # <<<<<<<<<<<<<<
- *             if tris_a_2d[i][k][0] < min_a_x: min_a_x = tris_a_2d[i][k][0]
- *             if tris_a_2d[i][k][0] > max_a_x: max_a_x = tris_a_2d[i][k][0]
-*/
-    for (__pyx_t_9 = 1; __pyx_t_9 < 3; __pyx_t_9+=1) {
-      __pyx_v_k = __pyx_t_9;
-
-      /* "narrow_phase_c.pyx":81
- *         min_a_y = max_a_y = tris_a_2d[i][0][1]
- *         for k in range(1, 3):
- *             if tris_a_2d[i][k][0] < min_a_x: min_a_x = tris_a_2d[i][k][0]             # <<<<<<<<<<<<<<
- *             if tris_a_2d[i][k][0] > max_a_x: max_a_x = tris_a_2d[i][k][0]
- *             if tris_a_2d[i][k][1] < min_a_y: min_a_y = tris_a_2d[i][k][1]
-*/
-      __pyx_t_5 = __pyx_v_i;
-      __pyx_t_6 = __pyx_v_k;
-      __pyx_t_7 = 0;
-      __pyx_t_10 = ((*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_2d.data + __pyx_t_5 * __pyx_v_tris_a_2d.strides[0]) ) + __pyx_t_6 * __pyx_v_tris_a_2d.strides[1]) ) + __pyx_t_7 * __pyx_v_tris_a_2d.strides[2]) ))) < __pyx_v_min_a_x);
-      if (__pyx_t_10) {
-        __pyx_t_7 = __pyx_v_i;
-        __pyx_t_6 = __pyx_v_k;
-        __pyx_t_5 = 0;
-        __pyx_v_min_a_x = (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_2d.data + __pyx_t_7 * __pyx_v_tris_a_2d.strides[0]) ) + __pyx_t_6 * __pyx_v_tris_a_2d.strides[1]) ) + __pyx_t_5 * __pyx_v_tris_a_2d.strides[2]) )));
-      }
-
-      /* "narrow_phase_c.pyx":82
- *         for k in range(1, 3):
- *             if tris_a_2d[i][k][0] < min_a_x: min_a_x = tris_a_2d[i][k][0]
- *             if tris_a_2d[i][k][0] > max_a_x: max_a_x = tris_a_2d[i][k][0]             # <<<<<<<<<<<<<<
- *             if tris_a_2d[i][k][1] < min_a_y: min_a_y = tris_a_2d[i][k][1]
- *             if tris_a_2d[i][k][1] > max_a_y: max_a_y = tris_a_2d[i][k][1]
-*/
-      __pyx_t_5 = __pyx_v_i;
-      __pyx_t_6 = __pyx_v_k;
-      __pyx_t_7 = 0;
-      __pyx_t_10 = ((*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_2d.data + __pyx_t_5 * __pyx_v_tris_a_2d.strides[0]) ) + __pyx_t_6 * __pyx_v_tris_a_2d.strides[1]) ) + __pyx_t_7 * __pyx_v_tris_a_2d.strides[2]) ))) > __pyx_v_max_a_x);
-      if (__pyx_t_10) {
-        __pyx_t_7 = __pyx_v_i;
-        __pyx_t_6 = __pyx_v_k;
-        __pyx_t_5 = 0;
-        __pyx_v_max_a_x = (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_2d.data + __pyx_t_7 * __pyx_v_tris_a_2d.strides[0]) ) + __pyx_t_6 * __pyx_v_tris_a_2d.strides[1]) ) + __pyx_t_5 * __pyx_v_tris_a_2d.strides[2]) )));
-      }
-
-      /* "narrow_phase_c.pyx":83
- *             if tris_a_2d[i][k][0] < min_a_x: min_a_x = tris_a_2d[i][k][0]
- *             if tris_a_2d[i][k][0] > max_a_x: max_a_x = tris_a_2d[i][k][0]
- *             if tris_a_2d[i][k][1] < min_a_y: min_a_y = tris_a_2d[i][k][1]             # <<<<<<<<<<<<<<
- *             if tris_a_2d[i][k][1] > max_a_y: max_a_y = tris_a_2d[i][k][1]
- * 
-*/
-      __pyx_t_5 = __pyx_v_i;
-      __pyx_t_6 = __pyx_v_k;
-      __pyx_t_7 = 1;
-      __pyx_t_10 = ((*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_2d.data + __pyx_t_5 * __pyx_v_tris_a_2d.strides[0]) ) + __pyx_t_6 * __pyx_v_tris_a_2d.strides[1]) ) + __pyx_t_7 * __pyx_v_tris_a_2d.strides[2]) ))) < __pyx_v_min_a_y);
-      if (__pyx_t_10) {
-        __pyx_t_7 = __pyx_v_i;
-        __pyx_t_6 = __pyx_v_k;
-        __pyx_t_5 = 1;
-        __pyx_v_min_a_y = (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_2d.data + __pyx_t_7 * __pyx_v_tris_a_2d.strides[0]) ) + __pyx_t_6 * __pyx_v_tris_a_2d.strides[1]) ) + __pyx_t_5 * __pyx_v_tris_a_2d.strides[2]) )));
-      }
-
-      /* "narrow_phase_c.pyx":84
- *             if tris_a_2d[i][k][0] > max_a_x: max_a_x = tris_a_2d[i][k][0]
- *             if tris_a_2d[i][k][1] < min_a_y: min_a_y = tris_a_2d[i][k][1]
- *             if tris_a_2d[i][k][1] > max_a_y: max_a_y = tris_a_2d[i][k][1]             # <<<<<<<<<<<<<<
- * 
- *         for j in range(num_b):
-*/
-      __pyx_t_5 = __pyx_v_i;
-      __pyx_t_6 = __pyx_v_k;
-      __pyx_t_7 = 1;
-      __pyx_t_10 = ((*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_2d.data + __pyx_t_5 * __pyx_v_tris_a_2d.strides[0]) ) + __pyx_t_6 * __pyx_v_tris_a_2d.strides[1]) ) + __pyx_t_7 * __pyx_v_tris_a_2d.strides[2]) ))) > __pyx_v_max_a_y);
-      if (__pyx_t_10) {
-        __pyx_t_7 = __pyx_v_i;
-        __pyx_t_6 = __pyx_v_k;
-        __pyx_t_5 = 1;
-        __pyx_v_max_a_y = (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_2d.data + __pyx_t_7 * __pyx_v_tris_a_2d.strides[0]) ) + __pyx_t_6 * __pyx_v_tris_a_2d.strides[1]) ) + __pyx_t_5 * __pyx_v_tris_a_2d.strides[2]) )));
-      }
-    }
-
-    /* "narrow_phase_c.pyx":86
- *             if tris_a_2d[i][k][1] > max_a_y: max_a_y = tris_a_2d[i][k][1]
- * 
- *         for j in range(num_b):             # <<<<<<<<<<<<<<
- *             min_b_x = max_b_x = tris_b_2d[j][0][0]
- *             min_b_y = max_b_y = tris_b_2d[j][0][1]
-*/
-    __pyx_t_9 = __pyx_v_num_b;
-    __pyx_t_11 = __pyx_t_9;
-    for (__pyx_t_12 = 0; __pyx_t_12 < __pyx_t_11; __pyx_t_12+=1) {
-      __pyx_v_j = __pyx_t_12;
-
-      /* "narrow_phase_c.pyx":87
- * 
- *         for j in range(num_b):
- *             min_b_x = max_b_x = tris_b_2d[j][0][0]             # <<<<<<<<<<<<<<
- *             min_b_y = max_b_y = tris_b_2d[j][0][1]
- *             for k in range(1, 3):
-*/
-      __pyx_t_5 = __pyx_v_j;
-      __pyx_t_6 = 0;
-      __pyx_t_7 = 0;
-      __pyx_t_8 = (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_2d.data + __pyx_t_5 * __pyx_v_tris_b_2d.strides[0]) ) + __pyx_t_6 * __pyx_v_tris_b_2d.strides[1]) ) + __pyx_t_7 * __pyx_v_tris_b_2d.strides[2]) )));
-      __pyx_v_min_b_x = __pyx_t_8;
-      __pyx_v_max_b_x = __pyx_t_8;
-
-      /* "narrow_phase_c.pyx":88
- *         for j in range(num_b):
- *             min_b_x = max_b_x = tris_b_2d[j][0][0]
- *             min_b_y = max_b_y = tris_b_2d[j][0][1]             # <<<<<<<<<<<<<<
- *             for k in range(1, 3):
- *                 if tris_b_2d[j][k][0] < min_b_x: min_b_x = tris_b_2d[j][k][0]
-*/
-      __pyx_t_7 = __pyx_v_j;
-      __pyx_t_6 = 0;
-      __pyx_t_5 = 1;
-      __pyx_t_8 = (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_2d.data + __pyx_t_7 * __pyx_v_tris_b_2d.strides[0]) ) + __pyx_t_6 * __pyx_v_tris_b_2d.strides[1]) ) + __pyx_t_5 * __pyx_v_tris_b_2d.strides[2]) )));
-      __pyx_v_min_b_y = __pyx_t_8;
-      __pyx_v_max_b_y = __pyx_t_8;
-
-      /* "narrow_phase_c.pyx":89
- *             min_b_x = max_b_x = tris_b_2d[j][0][0]
- *             min_b_y = max_b_y = tris_b_2d[j][0][1]
- *             for k in range(1, 3):             # <<<<<<<<<<<<<<
- *                 if tris_b_2d[j][k][0] < min_b_x: min_b_x = tris_b_2d[j][k][0]
- *                 if tris_b_2d[j][k][0] > max_b_x: max_b_x = tris_b_2d[j][k][0]
-*/
-      for (__pyx_t_13 = 1; __pyx_t_13 < 3; __pyx_t_13+=1) {
-        __pyx_v_k = __pyx_t_13;
-
-        /* "narrow_phase_c.pyx":90
- *             min_b_y = max_b_y = tris_b_2d[j][0][1]
- *             for k in range(1, 3):
- *                 if tris_b_2d[j][k][0] < min_b_x: min_b_x = tris_b_2d[j][k][0]             # <<<<<<<<<<<<<<
- *                 if tris_b_2d[j][k][0] > max_b_x: max_b_x = tris_b_2d[j][k][0]
- *                 if tris_b_2d[j][k][1] < min_b_y: min_b_y = tris_b_2d[j][k][1]
-*/
-        __pyx_t_5 = __pyx_v_j;
-        __pyx_t_6 = __pyx_v_k;
-        __pyx_t_7 = 0;
-        __pyx_t_10 = ((*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_2d.data + __pyx_t_5 * __pyx_v_tris_b_2d.strides[0]) ) + __pyx_t_6 * __pyx_v_tris_b_2d.strides[1]) ) + __pyx_t_7 * __pyx_v_tris_b_2d.strides[2]) ))) < __pyx_v_min_b_x);
-        if (__pyx_t_10) {
-          __pyx_t_7 = __pyx_v_j;
-          __pyx_t_6 = __pyx_v_k;
-          __pyx_t_5 = 0;
-          __pyx_v_min_b_x = (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_2d.data + __pyx_t_7 * __pyx_v_tris_b_2d.strides[0]) ) + __pyx_t_6 * __pyx_v_tris_b_2d.strides[1]) ) + __pyx_t_5 * __pyx_v_tris_b_2d.strides[2]) )));
-        }
-
-        /* "narrow_phase_c.pyx":91
- *             for k in range(1, 3):
- *                 if tris_b_2d[j][k][0] < min_b_x: min_b_x = tris_b_2d[j][k][0]
- *                 if tris_b_2d[j][k][0] > max_b_x: max_b_x = tris_b_2d[j][k][0]             # <<<<<<<<<<<<<<
- *                 if tris_b_2d[j][k][1] < min_b_y: min_b_y = tris_b_2d[j][k][1]
- *                 if tris_b_2d[j][k][1] > max_b_y: max_b_y = tris_b_2d[j][k][1]
-*/
-        __pyx_t_5 = __pyx_v_j;
-        __pyx_t_6 = __pyx_v_k;
-        __pyx_t_7 = 0;
-        __pyx_t_10 = ((*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_2d.data + __pyx_t_5 * __pyx_v_tris_b_2d.strides[0]) ) + __pyx_t_6 * __pyx_v_tris_b_2d.strides[1]) ) + __pyx_t_7 * __pyx_v_tris_b_2d.strides[2]) ))) > __pyx_v_max_b_x);
-        if (__pyx_t_10) {
-          __pyx_t_7 = __pyx_v_j;
-          __pyx_t_6 = __pyx_v_k;
-          __pyx_t_5 = 0;
-          __pyx_v_max_b_x = (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_2d.data + __pyx_t_7 * __pyx_v_tris_b_2d.strides[0]) ) + __pyx_t_6 * __pyx_v_tris_b_2d.strides[1]) ) + __pyx_t_5 * __pyx_v_tris_b_2d.strides[2]) )));
-        }
-
-        /* "narrow_phase_c.pyx":92
- *                 if tris_b_2d[j][k][0] < min_b_x: min_b_x = tris_b_2d[j][k][0]
- *                 if tris_b_2d[j][k][0] > max_b_x: max_b_x = tris_b_2d[j][k][0]
- *                 if tris_b_2d[j][k][1] < min_b_y: min_b_y = tris_b_2d[j][k][1]             # <<<<<<<<<<<<<<
- *                 if tris_b_2d[j][k][1] > max_b_y: max_b_y = tris_b_2d[j][k][1]
- * 
-*/
-        __pyx_t_5 = __pyx_v_j;
-        __pyx_t_6 = __pyx_v_k;
-        __pyx_t_7 = 1;
-        __pyx_t_10 = ((*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_2d.data + __pyx_t_5 * __pyx_v_tris_b_2d.strides[0]) ) + __pyx_t_6 * __pyx_v_tris_b_2d.strides[1]) ) + __pyx_t_7 * __pyx_v_tris_b_2d.strides[2]) ))) < __pyx_v_min_b_y);
-        if (__pyx_t_10) {
-          __pyx_t_7 = __pyx_v_j;
-          __pyx_t_6 = __pyx_v_k;
-          __pyx_t_5 = 1;
-          __pyx_v_min_b_y = (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_2d.data + __pyx_t_7 * __pyx_v_tris_b_2d.strides[0]) ) + __pyx_t_6 * __pyx_v_tris_b_2d.strides[1]) ) + __pyx_t_5 * __pyx_v_tris_b_2d.strides[2]) )));
-        }
-
-        /* "narrow_phase_c.pyx":93
- *                 if tris_b_2d[j][k][0] > max_b_x: max_b_x = tris_b_2d[j][k][0]
- *                 if tris_b_2d[j][k][1] < min_b_y: min_b_y = tris_b_2d[j][k][1]
- *                 if tris_b_2d[j][k][1] > max_b_y: max_b_y = tris_b_2d[j][k][1]             # <<<<<<<<<<<<<<
- * 
- *             # C-Speed AABB Filter
-*/
-        __pyx_t_5 = __pyx_v_j;
-        __pyx_t_6 = __pyx_v_k;
-        __pyx_t_7 = 1;
-        __pyx_t_10 = ((*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_2d.data + __pyx_t_5 * __pyx_v_tris_b_2d.strides[0]) ) + __pyx_t_6 * __pyx_v_tris_b_2d.strides[1]) ) + __pyx_t_7 * __pyx_v_tris_b_2d.strides[2]) ))) > __pyx_v_max_b_y);
-        if (__pyx_t_10) {
-          __pyx_t_7 = __pyx_v_j;
-          __pyx_t_6 = __pyx_v_k;
-          __pyx_t_5 = 1;
-          __pyx_v_max_b_y = (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_2d.data + __pyx_t_7 * __pyx_v_tris_b_2d.strides[0]) ) + __pyx_t_6 * __pyx_v_tris_b_2d.strides[1]) ) + __pyx_t_5 * __pyx_v_tris_b_2d.strides[2]) )));
-        }
-      }
-
-      /* "narrow_phase_c.pyx":96
- * 
- *             # C-Speed AABB Filter
- *             if max_a_x < min_b_x or min_a_x > max_b_x or max_a_y < min_b_y or min_a_y > max_b_y:             # <<<<<<<<<<<<<<
- *                 continue
- * 
-*/
-      __pyx_t_14 = (__pyx_v_max_a_x < __pyx_v_min_b_x);
-      if (!__pyx_t_14) {
-      } else {
-        __pyx_t_10 = __pyx_t_14;
-        goto __pyx_L20_bool_binop_done;
-      }
-      __pyx_t_14 = (__pyx_v_min_a_x > __pyx_v_max_b_x);
-      if (!__pyx_t_14) {
-      } else {
-        __pyx_t_10 = __pyx_t_14;
-        goto __pyx_L20_bool_binop_done;
-      }
-      __pyx_t_14 = (__pyx_v_max_a_y < __pyx_v_min_b_y);
-      if (!__pyx_t_14) {
-      } else {
-        __pyx_t_10 = __pyx_t_14;
-        goto __pyx_L20_bool_binop_done;
-      }
-      __pyx_t_14 = (__pyx_v_min_a_y > __pyx_v_max_b_y);
-      __pyx_t_10 = __pyx_t_14;
-      __pyx_L20_bool_binop_done:;
-      if (__pyx_t_10) {
-
-        /* "narrow_phase_c.pyx":97
- *             # C-Speed AABB Filter
- *             if max_a_x < min_b_x or min_a_x > max_b_x or max_a_y < min_b_y or min_a_y > max_b_y:
- *                 continue             # <<<<<<<<<<<<<<
- * 
- *             # C-Speed SAT Math Filter
-*/
-        goto __pyx_L11_continue;
-
-        /* "narrow_phase_c.pyx":96
- * 
- *             # C-Speed AABB Filter
- *             if max_a_x < min_b_x or min_a_x > max_b_x or max_a_y < min_b_y or min_a_y > max_b_y:             # <<<<<<<<<<<<<<
- *                 continue
- * 
-*/
-      }
-
-      /* "narrow_phase_c.pyx":100
- * 
- *             # C-Speed SAT Math Filter
- *             if check_2d_sat_overlap(tris_a_2d[i], tris_b_2d[j]):             # <<<<<<<<<<<<<<
- *                 intersecting_pairs.append((i, j))
- * 
-*/
-      __pyx_t_15.data = __pyx_v_tris_a_2d.data;
-      __pyx_t_15.memview = __pyx_v_tris_a_2d.memview;
-      __PYX_INC_MEMVIEW(&__pyx_t_15, 1);
-      {
-    Py_ssize_t __pyx_tmp_idx = __pyx_v_i;
-    Py_ssize_t __pyx_tmp_stride = __pyx_v_tris_a_2d.strides[0];
-        __pyx_t_15.data += __pyx_tmp_idx * __pyx_tmp_stride;
-}
-
-__pyx_t_15.shape[0] = __pyx_v_tris_a_2d.shape[1];
-__pyx_t_15.strides[0] = __pyx_v_tris_a_2d.strides[1];
-    __pyx_t_15.suboffsets[0] = -1;
-
-__pyx_t_15.shape[1] = __pyx_v_tris_a_2d.shape[2];
-__pyx_t_15.strides[1] = __pyx_v_tris_a_2d.strides[2];
-    __pyx_t_15.suboffsets[1] = -1;
-
-__pyx_t_16.data = __pyx_v_tris_b_2d.data;
-      __pyx_t_16.memview = __pyx_v_tris_b_2d.memview;
-      __PYX_INC_MEMVIEW(&__pyx_t_16, 1);
-      {
-    Py_ssize_t __pyx_tmp_idx = __pyx_v_j;
-    Py_ssize_t __pyx_tmp_stride = __pyx_v_tris_b_2d.strides[0];
-        __pyx_t_16.data += __pyx_tmp_idx * __pyx_tmp_stride;
-}
-
-__pyx_t_16.shape[0] = __pyx_v_tris_b_2d.shape[1];
-__pyx_t_16.strides[0] = __pyx_v_tris_b_2d.strides[1];
-    __pyx_t_16.suboffsets[0] = -1;
-
-__pyx_t_16.shape[1] = __pyx_v_tris_b_2d.shape[2];
-__pyx_t_16.strides[1] = __pyx_v_tris_b_2d.strides[2];
-    __pyx_t_16.suboffsets[1] = -1;
-
-__pyx_t_10 = __pyx_f_14narrow_phase_c_check_2d_sat_overlap(__pyx_t_15, __pyx_t_16); if (unlikely(__pyx_t_10 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 100, __pyx_L1_error)
-      __PYX_XCLEAR_MEMVIEW(&__pyx_t_15, 1);
-      __pyx_t_15.memview = NULL; __pyx_t_15.data = NULL;
-      __PYX_XCLEAR_MEMVIEW(&__pyx_t_16, 1);
-      __pyx_t_16.memview = NULL; __pyx_t_16.data = NULL;
-      if (__pyx_t_10) {
-
-        /* "narrow_phase_c.pyx":101
- *             # C-Speed SAT Math Filter
- *             if check_2d_sat_overlap(tris_a_2d[i], tris_b_2d[j]):
- *                 intersecting_pairs.append((i, j))             # <<<<<<<<<<<<<<
- * 
- *     return intersecting_pairs
-*/
-        __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_i); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 101, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_1);
-        __pyx_t_17 = __Pyx_PyLong_From_int(__pyx_v_j); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 101, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_17);
-        __pyx_t_18 = PyTuple_New(2); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 101, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_18);
-        __Pyx_GIVEREF(__pyx_t_1);
-        if (__Pyx_PyTuple_SET_ITEM(__pyx_t_18, 0, __pyx_t_1) != (0)) __PYX_ERR(0, 101, __pyx_L1_error);
-        __Pyx_GIVEREF(__pyx_t_17);
-        if (__Pyx_PyTuple_SET_ITEM(__pyx_t_18, 1, __pyx_t_17) != (0)) __PYX_ERR(0, 101, __pyx_L1_error);
-        __pyx_t_1 = 0;
-        __pyx_t_17 = 0;
-        __pyx_t_19 = __Pyx_PyList_Append(__pyx_v_intersecting_pairs, __pyx_t_18); if (unlikely(__pyx_t_19 == ((int)-1))) __PYX_ERR(0, 101, __pyx_L1_error)
-        __Pyx_DECREF(__pyx_t_18); __pyx_t_18 = 0;
-
-        /* "narrow_phase_c.pyx":100
- * 
- *             # C-Speed SAT Math Filter
- *             if check_2d_sat_overlap(tris_a_2d[i], tris_b_2d[j]):             # <<<<<<<<<<<<<<
- *                 intersecting_pairs.append((i, j))
- * 
-*/
-      }
-      __pyx_L11_continue:;
-    }
-  }
-
-  /* "narrow_phase_c.pyx":103
- *                 intersecting_pairs.append((i, j))
- * 
- *     return intersecting_pairs             # <<<<<<<<<<<<<<
- * 
- * 
-*/
-  __Pyx_XDECREF(__pyx_r);
-  __Pyx_INCREF(__pyx_v_intersecting_pairs);
-  __pyx_r = __pyx_v_intersecting_pairs;
-  goto __pyx_L0;
-
-  /* "narrow_phase_c.pyx":62
- *     return True
- * 
- * cpdef list get_intersecting_pairs_c(double[:, :, :] tris_a_2d, double[:, :, :] tris_b_2d):             # <<<<<<<<<<<<<<
- *     """
- *     Takes two arrays of 2D triangles, runs AABB and SAT checks in C,
 */
 
-  /* function exit code */
-  __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_1);
-  __PYX_XCLEAR_MEMVIEW(&__pyx_t_15, 1);
-  __PYX_XCLEAR_MEMVIEW(&__pyx_t_16, 1);
-  __Pyx_XDECREF(__pyx_t_17);
-  __Pyx_XDECREF(__pyx_t_18);
-  __Pyx_AddTraceback("narrow_phase_c.get_intersecting_pairs_c", __pyx_clineno, __pyx_lineno, __pyx_filename);
-  __pyx_r = 0;
-  __pyx_L0:;
-  __Pyx_XDECREF(__pyx_v_intersecting_pairs);
-  __Pyx_XGIVEREF(__pyx_r);
-  __Pyx_RefNannyFinishContext();
-  return __pyx_r;
-}
-
-/* Python wrapper */
-static PyObject *__pyx_pw_14narrow_phase_c_1get_intersecting_pairs_c(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_14narrow_phase_c_1fast_any_intersection_c(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_14narrow_phase_c_get_intersecting_pairs_c, "\n    Takes two arrays of 2D triangles, runs AABB and SAT checks in C, \n    and returns a clean Python list of index pairs that truly intersect.\n    ");
-static PyMethodDef __pyx_mdef_14narrow_phase_c_1get_intersecting_pairs_c = {"get_intersecting_pairs_c", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_14narrow_phase_c_1get_intersecting_pairs_c, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_14narrow_phase_c_get_intersecting_pairs_c};
-static PyObject *__pyx_pw_14narrow_phase_c_1get_intersecting_pairs_c(PyObject *__pyx_self, 
-#if CYTHON_METH_FASTCALL
-PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
-#else
-PyObject *__pyx_args, PyObject *__pyx_kwds
-#endif
-) {
-  __Pyx_memviewslice __pyx_v_tris_a_2d = { 0, 0, { 0 }, { 0 }, { 0 } };
-  __Pyx_memviewslice __pyx_v_tris_b_2d = { 0, 0, { 0 }, { 0 }, { 0 } };
-  #if !CYTHON_METH_FASTCALL
-  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
-  #endif
-  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
-  PyObject* values[2] = {0,0};
-  int __pyx_lineno = 0;
-  const char *__pyx_filename = NULL;
-  int __pyx_clineno = 0;
-  PyObject *__pyx_r = 0;
-  __Pyx_RefNannyDeclarations
-  __Pyx_RefNannySetupContext("get_intersecting_pairs_c (wrapper)", 0);
-  #if !CYTHON_METH_FASTCALL
-  #if CYTHON_ASSUME_SAFE_SIZE
-  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
-  #else
-  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
-  #endif
-  #endif
-  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
-  {
-    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_tris_a_2d,&__pyx_mstate_global->__pyx_n_u_tris_b_2d,0};
-    const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 62, __pyx_L3_error)
-    if (__pyx_kwds_len > 0) {
-      switch (__pyx_nargs) {
-        case  2:
-        values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 62, __pyx_L3_error)
-        CYTHON_FALLTHROUGH;
-        case  1:
-        values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 62, __pyx_L3_error)
-        CYTHON_FALLTHROUGH;
-        case  0: break;
-        default: goto __pyx_L5_argtuple_error;
-      }
-      const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "get_intersecting_pairs_c", 0) < (0)) __PYX_ERR(0, 62, __pyx_L3_error)
-      for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("get_intersecting_pairs_c", 1, 2, 2, i); __PYX_ERR(0, 62, __pyx_L3_error) }
-      }
-    } else if (unlikely(__pyx_nargs != 2)) {
-      goto __pyx_L5_argtuple_error;
-    } else {
-      values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 62, __pyx_L3_error)
-      values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 62, __pyx_L3_error)
-    }
-    __pyx_v_tris_a_2d = __Pyx_PyObject_to_MemoryviewSlice_dsdsds_double(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_tris_a_2d.memview)) __PYX_ERR(0, 62, __pyx_L3_error)
-    __pyx_v_tris_b_2d = __Pyx_PyObject_to_MemoryviewSlice_dsdsds_double(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_tris_b_2d.memview)) __PYX_ERR(0, 62, __pyx_L3_error)
-  }
-  goto __pyx_L6_skip;
-  __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("get_intersecting_pairs_c", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 62, __pyx_L3_error)
-  __pyx_L6_skip:;
-  goto __pyx_L4_argument_unpacking_done;
-  __pyx_L3_error:;
-  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
-    Py_XDECREF(values[__pyx_temp]);
-  }
-  __PYX_XCLEAR_MEMVIEW(&__pyx_v_tris_a_2d, 1);
-  __PYX_XCLEAR_MEMVIEW(&__pyx_v_tris_b_2d, 1);
-  __Pyx_AddTraceback("narrow_phase_c.get_intersecting_pairs_c", __pyx_clineno, __pyx_lineno, __pyx_filename);
-  __Pyx_RefNannyFinishContext();
-  return NULL;
-  __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_14narrow_phase_c_get_intersecting_pairs_c(__pyx_self, __pyx_v_tris_a_2d, __pyx_v_tris_b_2d);
-
-  /* function exit code */
-  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
-    Py_XDECREF(values[__pyx_temp]);
-  }
-  __PYX_XCLEAR_MEMVIEW(&__pyx_v_tris_a_2d, 1);
-  __PYX_XCLEAR_MEMVIEW(&__pyx_v_tris_b_2d, 1);
-  __Pyx_RefNannyFinishContext();
-  return __pyx_r;
-}
-
-static PyObject *__pyx_pf_14narrow_phase_c_get_intersecting_pairs_c(CYTHON_UNUSED PyObject *__pyx_self, __Pyx_memviewslice __pyx_v_tris_a_2d, __Pyx_memviewslice __pyx_v_tris_b_2d) {
-  PyObject *__pyx_r = NULL;
-  __Pyx_RefNannyDeclarations
-  PyObject *__pyx_t_1 = NULL;
-  int __pyx_lineno = 0;
-  const char *__pyx_filename = NULL;
-  int __pyx_clineno = 0;
-  __Pyx_RefNannySetupContext("get_intersecting_pairs_c", 0);
-  __Pyx_XDECREF(__pyx_r);
-  if (unlikely(!__pyx_v_tris_a_2d.memview)) { __Pyx_RaiseUnboundLocalError("tris_a_2d"); __PYX_ERR(0, 62, __pyx_L1_error) }
-  if (unlikely(!__pyx_v_tris_b_2d.memview)) { __Pyx_RaiseUnboundLocalError("tris_b_2d"); __PYX_ERR(0, 62, __pyx_L1_error) }
-  __pyx_t_1 = __pyx_f_14narrow_phase_c_get_intersecting_pairs_c(__pyx_v_tris_a_2d, __pyx_v_tris_b_2d, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 62, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_r = __pyx_t_1;
-  __pyx_t_1 = 0;
-  goto __pyx_L0;
-
-  /* function exit code */
-  __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_1);
-  __Pyx_AddTraceback("narrow_phase_c.get_intersecting_pairs_c", __pyx_clineno, __pyx_lineno, __pyx_filename);
-  __pyx_r = NULL;
-  __pyx_L0:;
-  __Pyx_XGIVEREF(__pyx_r);
-  __Pyx_RefNannyFinishContext();
-  return __pyx_r;
-}
-
-/* "narrow_phase_c.pyx":106
- * 
- * 
- * cpdef bint fast_any_intersection_c(double[:, :, :] tris_a_2d, double[:, :, :] tris_b_2d):             # <<<<<<<<<<<<<<
- *     """
- *     Early-exit SAT overlap check.
-*/
-
-static PyObject *__pyx_pw_14narrow_phase_c_3fast_any_intersection_c(PyObject *__pyx_self, 
-#if CYTHON_METH_FASTCALL
-PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
-#else
-PyObject *__pyx_args, PyObject *__pyx_kwds
-#endif
-); /*proto*/
-static int __pyx_f_14narrow_phase_c_fast_any_intersection_c(__Pyx_memviewslice __pyx_v_tris_a_2d, __Pyx_memviewslice __pyx_v_tris_b_2d, CYTHON_UNUSED int __pyx_skip_dispatch) {
+static int __pyx_f_14narrow_phase_c_fast_any_intersection_c(__Pyx_memviewslice __pyx_v_tris_a_2d, __Pyx_memviewslice __pyx_v_tris_b_2d, __Pyx_memviewslice __pyx_v_aabbs_a, __Pyx_memviewslice __pyx_v_aabbs_b, CYTHON_UNUSED int __pyx_skip_dispatch) {
   int __pyx_v_num_a;
   int __pyx_v_num_b;
   int __pyx_v_i;
   int __pyx_v_j;
-  int __pyx_v_k;
-  double __pyx_v_min_a_x;
-  double __pyx_v_max_a_x;
-  double __pyx_v_min_a_y;
-  double __pyx_v_max_a_y;
-  double __pyx_v_min_b_x;
-  double __pyx_v_max_b_x;
-  double __pyx_v_min_b_y;
-  double __pyx_v_max_b_y;
+  int __pyx_v_start_j;
+  double __pyx_v_a_min_x;
+  double __pyx_v_a_max_x;
+  double __pyx_v_a_min_y;
+  double __pyx_v_a_max_y;
   int __pyx_r;
   int __pyx_t_1;
   int __pyx_t_2;
   int __pyx_t_3;
-  Py_ssize_t __pyx_t_4;
-  Py_ssize_t __pyx_t_5;
+  int __pyx_t_4;
+  int __pyx_t_5;
   Py_ssize_t __pyx_t_6;
-  double __pyx_t_7;
+  Py_ssize_t __pyx_t_7;
   int __pyx_t_8;
   int __pyx_t_9;
   int __pyx_t_10;
-  int __pyx_t_11;
-  int __pyx_t_12;
-  int __pyx_t_13;
-  __Pyx_memviewslice __pyx_t_14 = { 0, 0, { 0 }, { 0 }, { 0 } };
-  __Pyx_memviewslice __pyx_t_15 = { 0, 0, { 0 }, { 0 }, { 0 } };
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "narrow_phase_c.pyx":111
- *     Returns True instantly upon finding a single intersection.
- *     """
+  /* "narrow_phase_c.pyx":64
+ * 
+ * cpdef bint fast_any_intersection_c(double[:, :, ::1] tris_a_2d, double[:, :, ::1] tris_b_2d, double[:, ::1] aabbs_a, double[:, ::1] aabbs_b):
  *     cdef int num_a = tris_a_2d.shape[0]             # <<<<<<<<<<<<<<
  *     cdef int num_b = tris_b_2d.shape[0]
- *     cdef int i, j, k
+ *     cdef int i, j
 */
   __pyx_v_num_a = (__pyx_v_tris_a_2d.shape[0]);
 
-  /* "narrow_phase_c.pyx":112
- *     """
+  /* "narrow_phase_c.pyx":65
+ * cpdef bint fast_any_intersection_c(double[:, :, ::1] tris_a_2d, double[:, :, ::1] tris_b_2d, double[:, ::1] aabbs_a, double[:, ::1] aabbs_b):
  *     cdef int num_a = tris_a_2d.shape[0]
  *     cdef int num_b = tris_b_2d.shape[0]             # <<<<<<<<<<<<<<
- *     cdef int i, j, k
- * 
+ *     cdef int i, j
+ *     cdef int start_j = 0
 */
   __pyx_v_num_b = (__pyx_v_tris_b_2d.shape[0]);
 
-  /* "narrow_phase_c.pyx":118
- *     cdef double min_b_x, max_b_x, min_b_y, max_b_y
+  /* "narrow_phase_c.pyx":67
+ *     cdef int num_b = tris_b_2d.shape[0]
+ *     cdef int i, j
+ *     cdef int start_j = 0             # <<<<<<<<<<<<<<
+ * 
+ *     if num_a == 0 or num_b == 0:
+*/
+  __pyx_v_start_j = 0;
+
+  /* "narrow_phase_c.pyx":69
+ *     cdef int start_j = 0
+ * 
+ *     if num_a == 0 or num_b == 0:             # <<<<<<<<<<<<<<
+ *         return False
+ * 
+*/
+  __pyx_t_2 = (__pyx_v_num_a == 0);
+  if (!__pyx_t_2) {
+  } else {
+    __pyx_t_1 = __pyx_t_2;
+    goto __pyx_L4_bool_binop_done;
+  }
+  __pyx_t_2 = (__pyx_v_num_b == 0);
+  __pyx_t_1 = __pyx_t_2;
+  __pyx_L4_bool_binop_done:;
+  if (__pyx_t_1) {
+
+    /* "narrow_phase_c.pyx":70
+ * 
+ *     if num_a == 0 or num_b == 0:
+ *         return False             # <<<<<<<<<<<<<<
+ * 
+ *     cdef double a_min_x, a_max_x, a_min_y, a_max_y
+*/
+    __pyx_r = 0;
+    goto __pyx_L0;
+
+    /* "narrow_phase_c.pyx":69
+ *     cdef int start_j = 0
+ * 
+ *     if num_a == 0 or num_b == 0:             # <<<<<<<<<<<<<<
+ *         return False
+ * 
+*/
+  }
+
+  /* "narrow_phase_c.pyx":74
+ *     cdef double a_min_x, a_max_x, a_min_y, a_max_y
  * 
  *     for i in range(num_a):             # <<<<<<<<<<<<<<
- *         min_a_x = max_a_x = tris_a_2d[i][0][0]
- *         min_a_y = max_a_y = tris_a_2d[i][0][1]
+ *         a_min_x = aabbs_a[i, 0]
+ *         a_min_y = aabbs_a[i, 1]
 */
-  __pyx_t_1 = __pyx_v_num_a;
-  __pyx_t_2 = __pyx_t_1;
-  for (__pyx_t_3 = 0; __pyx_t_3 < __pyx_t_2; __pyx_t_3+=1) {
-    __pyx_v_i = __pyx_t_3;
+  __pyx_t_3 = __pyx_v_num_a;
+  __pyx_t_4 = __pyx_t_3;
+  for (__pyx_t_5 = 0; __pyx_t_5 < __pyx_t_4; __pyx_t_5+=1) {
+    __pyx_v_i = __pyx_t_5;
 
-    /* "narrow_phase_c.pyx":119
+    /* "narrow_phase_c.pyx":75
  * 
  *     for i in range(num_a):
- *         min_a_x = max_a_x = tris_a_2d[i][0][0]             # <<<<<<<<<<<<<<
- *         min_a_y = max_a_y = tris_a_2d[i][0][1]
- *         for k in range(1, 3):
-*/
-    __pyx_t_4 = __pyx_v_i;
-    __pyx_t_5 = 0;
-    __pyx_t_6 = 0;
-    __pyx_t_7 = (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_2d.data + __pyx_t_4 * __pyx_v_tris_a_2d.strides[0]) ) + __pyx_t_5 * __pyx_v_tris_a_2d.strides[1]) ) + __pyx_t_6 * __pyx_v_tris_a_2d.strides[2]) )));
-    __pyx_v_min_a_x = __pyx_t_7;
-    __pyx_v_max_a_x = __pyx_t_7;
-
-    /* "narrow_phase_c.pyx":120
- *     for i in range(num_a):
- *         min_a_x = max_a_x = tris_a_2d[i][0][0]
- *         min_a_y = max_a_y = tris_a_2d[i][0][1]             # <<<<<<<<<<<<<<
- *         for k in range(1, 3):
- *             if tris_a_2d[i][k][0] < min_a_x: min_a_x = tris_a_2d[i][k][0]
+ *         a_min_x = aabbs_a[i, 0]             # <<<<<<<<<<<<<<
+ *         a_min_y = aabbs_a[i, 1]
+ *         a_max_x = aabbs_a[i, 2]
 */
     __pyx_t_6 = __pyx_v_i;
-    __pyx_t_5 = 0;
-    __pyx_t_4 = 1;
-    __pyx_t_7 = (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_2d.data + __pyx_t_6 * __pyx_v_tris_a_2d.strides[0]) ) + __pyx_t_5 * __pyx_v_tris_a_2d.strides[1]) ) + __pyx_t_4 * __pyx_v_tris_a_2d.strides[2]) )));
-    __pyx_v_min_a_y = __pyx_t_7;
-    __pyx_v_max_a_y = __pyx_t_7;
+    __pyx_t_7 = 0;
+    __pyx_v_a_min_x = (*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_aabbs_a.data + __pyx_t_6 * __pyx_v_aabbs_a.strides[0]) )) + __pyx_t_7)) )));
 
-    /* "narrow_phase_c.pyx":121
- *         min_a_x = max_a_x = tris_a_2d[i][0][0]
- *         min_a_y = max_a_y = tris_a_2d[i][0][1]
- *         for k in range(1, 3):             # <<<<<<<<<<<<<<
- *             if tris_a_2d[i][k][0] < min_a_x: min_a_x = tris_a_2d[i][k][0]
- *             if tris_a_2d[i][k][0] > max_a_x: max_a_x = tris_a_2d[i][k][0]
+    /* "narrow_phase_c.pyx":76
+ *     for i in range(num_a):
+ *         a_min_x = aabbs_a[i, 0]
+ *         a_min_y = aabbs_a[i, 1]             # <<<<<<<<<<<<<<
+ *         a_max_x = aabbs_a[i, 2]
+ *         a_max_y = aabbs_a[i, 3]
 */
-    for (__pyx_t_8 = 1; __pyx_t_8 < 3; __pyx_t_8+=1) {
-      __pyx_v_k = __pyx_t_8;
+    __pyx_t_7 = __pyx_v_i;
+    __pyx_t_6 = 1;
+    __pyx_v_a_min_y = (*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_aabbs_a.data + __pyx_t_7 * __pyx_v_aabbs_a.strides[0]) )) + __pyx_t_6)) )));
 
-      /* "narrow_phase_c.pyx":122
- *         min_a_y = max_a_y = tris_a_2d[i][0][1]
- *         for k in range(1, 3):
- *             if tris_a_2d[i][k][0] < min_a_x: min_a_x = tris_a_2d[i][k][0]             # <<<<<<<<<<<<<<
- *             if tris_a_2d[i][k][0] > max_a_x: max_a_x = tris_a_2d[i][k][0]
- *             if tris_a_2d[i][k][1] < min_a_y: min_a_y = tris_a_2d[i][k][1]
-*/
-      __pyx_t_4 = __pyx_v_i;
-      __pyx_t_5 = __pyx_v_k;
-      __pyx_t_6 = 0;
-      __pyx_t_9 = ((*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_2d.data + __pyx_t_4 * __pyx_v_tris_a_2d.strides[0]) ) + __pyx_t_5 * __pyx_v_tris_a_2d.strides[1]) ) + __pyx_t_6 * __pyx_v_tris_a_2d.strides[2]) ))) < __pyx_v_min_a_x);
-      if (__pyx_t_9) {
-        __pyx_t_6 = __pyx_v_i;
-        __pyx_t_5 = __pyx_v_k;
-        __pyx_t_4 = 0;
-        __pyx_v_min_a_x = (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_2d.data + __pyx_t_6 * __pyx_v_tris_a_2d.strides[0]) ) + __pyx_t_5 * __pyx_v_tris_a_2d.strides[1]) ) + __pyx_t_4 * __pyx_v_tris_a_2d.strides[2]) )));
-      }
-
-      /* "narrow_phase_c.pyx":123
- *         for k in range(1, 3):
- *             if tris_a_2d[i][k][0] < min_a_x: min_a_x = tris_a_2d[i][k][0]
- *             if tris_a_2d[i][k][0] > max_a_x: max_a_x = tris_a_2d[i][k][0]             # <<<<<<<<<<<<<<
- *             if tris_a_2d[i][k][1] < min_a_y: min_a_y = tris_a_2d[i][k][1]
- *             if tris_a_2d[i][k][1] > max_a_y: max_a_y = tris_a_2d[i][k][1]
-*/
-      __pyx_t_4 = __pyx_v_i;
-      __pyx_t_5 = __pyx_v_k;
-      __pyx_t_6 = 0;
-      __pyx_t_9 = ((*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_2d.data + __pyx_t_4 * __pyx_v_tris_a_2d.strides[0]) ) + __pyx_t_5 * __pyx_v_tris_a_2d.strides[1]) ) + __pyx_t_6 * __pyx_v_tris_a_2d.strides[2]) ))) > __pyx_v_max_a_x);
-      if (__pyx_t_9) {
-        __pyx_t_6 = __pyx_v_i;
-        __pyx_t_5 = __pyx_v_k;
-        __pyx_t_4 = 0;
-        __pyx_v_max_a_x = (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_2d.data + __pyx_t_6 * __pyx_v_tris_a_2d.strides[0]) ) + __pyx_t_5 * __pyx_v_tris_a_2d.strides[1]) ) + __pyx_t_4 * __pyx_v_tris_a_2d.strides[2]) )));
-      }
-
-      /* "narrow_phase_c.pyx":124
- *             if tris_a_2d[i][k][0] < min_a_x: min_a_x = tris_a_2d[i][k][0]
- *             if tris_a_2d[i][k][0] > max_a_x: max_a_x = tris_a_2d[i][k][0]
- *             if tris_a_2d[i][k][1] < min_a_y: min_a_y = tris_a_2d[i][k][1]             # <<<<<<<<<<<<<<
- *             if tris_a_2d[i][k][1] > max_a_y: max_a_y = tris_a_2d[i][k][1]
+    /* "narrow_phase_c.pyx":77
+ *         a_min_x = aabbs_a[i, 0]
+ *         a_min_y = aabbs_a[i, 1]
+ *         a_max_x = aabbs_a[i, 2]             # <<<<<<<<<<<<<<
+ *         a_max_y = aabbs_a[i, 3]
  * 
 */
-      __pyx_t_4 = __pyx_v_i;
-      __pyx_t_5 = __pyx_v_k;
-      __pyx_t_6 = 1;
-      __pyx_t_9 = ((*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_2d.data + __pyx_t_4 * __pyx_v_tris_a_2d.strides[0]) ) + __pyx_t_5 * __pyx_v_tris_a_2d.strides[1]) ) + __pyx_t_6 * __pyx_v_tris_a_2d.strides[2]) ))) < __pyx_v_min_a_y);
-      if (__pyx_t_9) {
-        __pyx_t_6 = __pyx_v_i;
-        __pyx_t_5 = __pyx_v_k;
-        __pyx_t_4 = 1;
-        __pyx_v_min_a_y = (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_2d.data + __pyx_t_6 * __pyx_v_tris_a_2d.strides[0]) ) + __pyx_t_5 * __pyx_v_tris_a_2d.strides[1]) ) + __pyx_t_4 * __pyx_v_tris_a_2d.strides[2]) )));
-      }
+    __pyx_t_6 = __pyx_v_i;
+    __pyx_t_7 = 2;
+    __pyx_v_a_max_x = (*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_aabbs_a.data + __pyx_t_6 * __pyx_v_aabbs_a.strides[0]) )) + __pyx_t_7)) )));
 
-      /* "narrow_phase_c.pyx":125
- *             if tris_a_2d[i][k][0] > max_a_x: max_a_x = tris_a_2d[i][k][0]
- *             if tris_a_2d[i][k][1] < min_a_y: min_a_y = tris_a_2d[i][k][1]
- *             if tris_a_2d[i][k][1] > max_a_y: max_a_y = tris_a_2d[i][k][1]             # <<<<<<<<<<<<<<
+    /* "narrow_phase_c.pyx":78
+ *         a_min_y = aabbs_a[i, 1]
+ *         a_max_x = aabbs_a[i, 2]
+ *         a_max_y = aabbs_a[i, 3]             # <<<<<<<<<<<<<<
  * 
- *         for j in range(num_b):
+ *         while start_j < num_b and aabbs_b[start_j, 2] < a_min_x:
 */
-      __pyx_t_4 = __pyx_v_i;
-      __pyx_t_5 = __pyx_v_k;
-      __pyx_t_6 = 1;
-      __pyx_t_9 = ((*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_2d.data + __pyx_t_4 * __pyx_v_tris_a_2d.strides[0]) ) + __pyx_t_5 * __pyx_v_tris_a_2d.strides[1]) ) + __pyx_t_6 * __pyx_v_tris_a_2d.strides[2]) ))) > __pyx_v_max_a_y);
-      if (__pyx_t_9) {
-        __pyx_t_6 = __pyx_v_i;
-        __pyx_t_5 = __pyx_v_k;
-        __pyx_t_4 = 1;
-        __pyx_v_max_a_y = (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_2d.data + __pyx_t_6 * __pyx_v_tris_a_2d.strides[0]) ) + __pyx_t_5 * __pyx_v_tris_a_2d.strides[1]) ) + __pyx_t_4 * __pyx_v_tris_a_2d.strides[2]) )));
+    __pyx_t_7 = __pyx_v_i;
+    __pyx_t_6 = 3;
+    __pyx_v_a_max_y = (*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_aabbs_a.data + __pyx_t_7 * __pyx_v_aabbs_a.strides[0]) )) + __pyx_t_6)) )));
+
+    /* "narrow_phase_c.pyx":80
+ *         a_max_y = aabbs_a[i, 3]
+ * 
+ *         while start_j < num_b and aabbs_b[start_j, 2] < a_min_x:             # <<<<<<<<<<<<<<
+ *             start_j += 1
+ * 
+*/
+    while (1) {
+      __pyx_t_2 = (__pyx_v_start_j < __pyx_v_num_b);
+      if (__pyx_t_2) {
+      } else {
+        __pyx_t_1 = __pyx_t_2;
+        goto __pyx_L10_bool_binop_done;
       }
+      __pyx_t_6 = __pyx_v_start_j;
+      __pyx_t_7 = 2;
+      __pyx_t_2 = ((*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_aabbs_b.data + __pyx_t_6 * __pyx_v_aabbs_b.strides[0]) )) + __pyx_t_7)) ))) < __pyx_v_a_min_x);
+      __pyx_t_1 = __pyx_t_2;
+      __pyx_L10_bool_binop_done:;
+      if (!__pyx_t_1) break;
+
+      /* "narrow_phase_c.pyx":81
+ * 
+ *         while start_j < num_b and aabbs_b[start_j, 2] < a_min_x:
+ *             start_j += 1             # <<<<<<<<<<<<<<
+ * 
+ *         for j in range(start_j, num_b):
+*/
+      __pyx_v_start_j = (__pyx_v_start_j + 1);
     }
 
-    /* "narrow_phase_c.pyx":127
- *             if tris_a_2d[i][k][1] > max_a_y: max_a_y = tris_a_2d[i][k][1]
+    /* "narrow_phase_c.pyx":83
+ *             start_j += 1
  * 
- *         for j in range(num_b):             # <<<<<<<<<<<<<<
- *             min_b_x = max_b_x = tris_b_2d[j][0][0]
- *             min_b_y = max_b_y = tris_b_2d[j][0][1]
+ *         for j in range(start_j, num_b):             # <<<<<<<<<<<<<<
+ *             if aabbs_b[j, 0] > a_max_x:
+ *                 break
 */
     __pyx_t_8 = __pyx_v_num_b;
-    __pyx_t_10 = __pyx_t_8;
-    for (__pyx_t_11 = 0; __pyx_t_11 < __pyx_t_10; __pyx_t_11+=1) {
-      __pyx_v_j = __pyx_t_11;
+    __pyx_t_9 = __pyx_t_8;
+    for (__pyx_t_10 = __pyx_v_start_j; __pyx_t_10 < __pyx_t_9; __pyx_t_10+=1) {
+      __pyx_v_j = __pyx_t_10;
 
-      /* "narrow_phase_c.pyx":128
+      /* "narrow_phase_c.pyx":84
  * 
- *         for j in range(num_b):
- *             min_b_x = max_b_x = tris_b_2d[j][0][0]             # <<<<<<<<<<<<<<
- *             min_b_y = max_b_y = tris_b_2d[j][0][1]
- *             for k in range(1, 3):
+ *         for j in range(start_j, num_b):
+ *             if aabbs_b[j, 0] > a_max_x:             # <<<<<<<<<<<<<<
+ *                 break
+ * 
 */
-      __pyx_t_4 = __pyx_v_j;
-      __pyx_t_5 = 0;
+      __pyx_t_7 = __pyx_v_j;
       __pyx_t_6 = 0;
-      __pyx_t_7 = (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_2d.data + __pyx_t_4 * __pyx_v_tris_b_2d.strides[0]) ) + __pyx_t_5 * __pyx_v_tris_b_2d.strides[1]) ) + __pyx_t_6 * __pyx_v_tris_b_2d.strides[2]) )));
-      __pyx_v_min_b_x = __pyx_t_7;
-      __pyx_v_max_b_x = __pyx_t_7;
+      __pyx_t_1 = ((*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_aabbs_b.data + __pyx_t_7 * __pyx_v_aabbs_b.strides[0]) )) + __pyx_t_6)) ))) > __pyx_v_a_max_x);
+      if (__pyx_t_1) {
 
-      /* "narrow_phase_c.pyx":129
- *         for j in range(num_b):
- *             min_b_x = max_b_x = tris_b_2d[j][0][0]
- *             min_b_y = max_b_y = tris_b_2d[j][0][1]             # <<<<<<<<<<<<<<
- *             for k in range(1, 3):
- *                 if tris_b_2d[j][k][0] < min_b_x: min_b_x = tris_b_2d[j][k][0]
+        /* "narrow_phase_c.pyx":85
+ *         for j in range(start_j, num_b):
+ *             if aabbs_b[j, 0] > a_max_x:
+ *                 break             # <<<<<<<<<<<<<<
+ * 
+ *             if aabbs_b[j, 2] < a_min_x:
+*/
+        goto __pyx_L13_break;
+
+        /* "narrow_phase_c.pyx":84
+ * 
+ *         for j in range(start_j, num_b):
+ *             if aabbs_b[j, 0] > a_max_x:             # <<<<<<<<<<<<<<
+ *                 break
+ * 
+*/
+      }
+
+      /* "narrow_phase_c.pyx":87
+ *                 break
+ * 
+ *             if aabbs_b[j, 2] < a_min_x:             # <<<<<<<<<<<<<<
+ *                 continue
+ * 
 */
       __pyx_t_6 = __pyx_v_j;
-      __pyx_t_5 = 0;
-      __pyx_t_4 = 1;
-      __pyx_t_7 = (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_2d.data + __pyx_t_6 * __pyx_v_tris_b_2d.strides[0]) ) + __pyx_t_5 * __pyx_v_tris_b_2d.strides[1]) ) + __pyx_t_4 * __pyx_v_tris_b_2d.strides[2]) )));
-      __pyx_v_min_b_y = __pyx_t_7;
-      __pyx_v_max_b_y = __pyx_t_7;
+      __pyx_t_7 = 2;
+      __pyx_t_1 = ((*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_aabbs_b.data + __pyx_t_6 * __pyx_v_aabbs_b.strides[0]) )) + __pyx_t_7)) ))) < __pyx_v_a_min_x);
+      if (__pyx_t_1) {
 
-      /* "narrow_phase_c.pyx":130
- *             min_b_x = max_b_x = tris_b_2d[j][0][0]
- *             min_b_y = max_b_y = tris_b_2d[j][0][1]
- *             for k in range(1, 3):             # <<<<<<<<<<<<<<
- *                 if tris_b_2d[j][k][0] < min_b_x: min_b_x = tris_b_2d[j][k][0]
- *                 if tris_b_2d[j][k][0] > max_b_x: max_b_x = tris_b_2d[j][k][0]
-*/
-      for (__pyx_t_12 = 1; __pyx_t_12 < 3; __pyx_t_12+=1) {
-        __pyx_v_k = __pyx_t_12;
-
-        /* "narrow_phase_c.pyx":131
- *             min_b_y = max_b_y = tris_b_2d[j][0][1]
- *             for k in range(1, 3):
- *                 if tris_b_2d[j][k][0] < min_b_x: min_b_x = tris_b_2d[j][k][0]             # <<<<<<<<<<<<<<
- *                 if tris_b_2d[j][k][0] > max_b_x: max_b_x = tris_b_2d[j][k][0]
- *                 if tris_b_2d[j][k][1] < min_b_y: min_b_y = tris_b_2d[j][k][1]
-*/
-        __pyx_t_4 = __pyx_v_j;
-        __pyx_t_5 = __pyx_v_k;
-        __pyx_t_6 = 0;
-        __pyx_t_9 = ((*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_2d.data + __pyx_t_4 * __pyx_v_tris_b_2d.strides[0]) ) + __pyx_t_5 * __pyx_v_tris_b_2d.strides[1]) ) + __pyx_t_6 * __pyx_v_tris_b_2d.strides[2]) ))) < __pyx_v_min_b_x);
-        if (__pyx_t_9) {
-          __pyx_t_6 = __pyx_v_j;
-          __pyx_t_5 = __pyx_v_k;
-          __pyx_t_4 = 0;
-          __pyx_v_min_b_x = (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_2d.data + __pyx_t_6 * __pyx_v_tris_b_2d.strides[0]) ) + __pyx_t_5 * __pyx_v_tris_b_2d.strides[1]) ) + __pyx_t_4 * __pyx_v_tris_b_2d.strides[2]) )));
-        }
-
-        /* "narrow_phase_c.pyx":132
- *             for k in range(1, 3):
- *                 if tris_b_2d[j][k][0] < min_b_x: min_b_x = tris_b_2d[j][k][0]
- *                 if tris_b_2d[j][k][0] > max_b_x: max_b_x = tris_b_2d[j][k][0]             # <<<<<<<<<<<<<<
- *                 if tris_b_2d[j][k][1] < min_b_y: min_b_y = tris_b_2d[j][k][1]
- *                 if tris_b_2d[j][k][1] > max_b_y: max_b_y = tris_b_2d[j][k][1]
-*/
-        __pyx_t_4 = __pyx_v_j;
-        __pyx_t_5 = __pyx_v_k;
-        __pyx_t_6 = 0;
-        __pyx_t_9 = ((*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_2d.data + __pyx_t_4 * __pyx_v_tris_b_2d.strides[0]) ) + __pyx_t_5 * __pyx_v_tris_b_2d.strides[1]) ) + __pyx_t_6 * __pyx_v_tris_b_2d.strides[2]) ))) > __pyx_v_max_b_x);
-        if (__pyx_t_9) {
-          __pyx_t_6 = __pyx_v_j;
-          __pyx_t_5 = __pyx_v_k;
-          __pyx_t_4 = 0;
-          __pyx_v_max_b_x = (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_2d.data + __pyx_t_6 * __pyx_v_tris_b_2d.strides[0]) ) + __pyx_t_5 * __pyx_v_tris_b_2d.strides[1]) ) + __pyx_t_4 * __pyx_v_tris_b_2d.strides[2]) )));
-        }
-
-        /* "narrow_phase_c.pyx":133
- *                 if tris_b_2d[j][k][0] < min_b_x: min_b_x = tris_b_2d[j][k][0]
- *                 if tris_b_2d[j][k][0] > max_b_x: max_b_x = tris_b_2d[j][k][0]
- *                 if tris_b_2d[j][k][1] < min_b_y: min_b_y = tris_b_2d[j][k][1]             # <<<<<<<<<<<<<<
- *                 if tris_b_2d[j][k][1] > max_b_y: max_b_y = tris_b_2d[j][k][1]
+        /* "narrow_phase_c.pyx":88
  * 
-*/
-        __pyx_t_4 = __pyx_v_j;
-        __pyx_t_5 = __pyx_v_k;
-        __pyx_t_6 = 1;
-        __pyx_t_9 = ((*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_2d.data + __pyx_t_4 * __pyx_v_tris_b_2d.strides[0]) ) + __pyx_t_5 * __pyx_v_tris_b_2d.strides[1]) ) + __pyx_t_6 * __pyx_v_tris_b_2d.strides[2]) ))) < __pyx_v_min_b_y);
-        if (__pyx_t_9) {
-          __pyx_t_6 = __pyx_v_j;
-          __pyx_t_5 = __pyx_v_k;
-          __pyx_t_4 = 1;
-          __pyx_v_min_b_y = (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_2d.data + __pyx_t_6 * __pyx_v_tris_b_2d.strides[0]) ) + __pyx_t_5 * __pyx_v_tris_b_2d.strides[1]) ) + __pyx_t_4 * __pyx_v_tris_b_2d.strides[2]) )));
-        }
-
-        /* "narrow_phase_c.pyx":134
- *                 if tris_b_2d[j][k][0] > max_b_x: max_b_x = tris_b_2d[j][k][0]
- *                 if tris_b_2d[j][k][1] < min_b_y: min_b_y = tris_b_2d[j][k][1]
- *                 if tris_b_2d[j][k][1] > max_b_y: max_b_y = tris_b_2d[j][k][1]             # <<<<<<<<<<<<<<
- * 
- *             # AABB Filter
-*/
-        __pyx_t_4 = __pyx_v_j;
-        __pyx_t_5 = __pyx_v_k;
-        __pyx_t_6 = 1;
-        __pyx_t_9 = ((*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_2d.data + __pyx_t_4 * __pyx_v_tris_b_2d.strides[0]) ) + __pyx_t_5 * __pyx_v_tris_b_2d.strides[1]) ) + __pyx_t_6 * __pyx_v_tris_b_2d.strides[2]) ))) > __pyx_v_max_b_y);
-        if (__pyx_t_9) {
-          __pyx_t_6 = __pyx_v_j;
-          __pyx_t_5 = __pyx_v_k;
-          __pyx_t_4 = 1;
-          __pyx_v_max_b_y = (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_2d.data + __pyx_t_6 * __pyx_v_tris_b_2d.strides[0]) ) + __pyx_t_5 * __pyx_v_tris_b_2d.strides[1]) ) + __pyx_t_4 * __pyx_v_tris_b_2d.strides[2]) )));
-        }
-      }
-
-      /* "narrow_phase_c.pyx":137
- * 
- *             # AABB Filter
- *             if max_a_x < min_b_x or min_a_x > max_b_x or max_a_y < min_b_y or min_a_y > max_b_y:             # <<<<<<<<<<<<<<
- *                 continue
- * 
-*/
-      __pyx_t_13 = (__pyx_v_max_a_x < __pyx_v_min_b_x);
-      if (!__pyx_t_13) {
-      } else {
-        __pyx_t_9 = __pyx_t_13;
-        goto __pyx_L20_bool_binop_done;
-      }
-      __pyx_t_13 = (__pyx_v_min_a_x > __pyx_v_max_b_x);
-      if (!__pyx_t_13) {
-      } else {
-        __pyx_t_9 = __pyx_t_13;
-        goto __pyx_L20_bool_binop_done;
-      }
-      __pyx_t_13 = (__pyx_v_max_a_y < __pyx_v_min_b_y);
-      if (!__pyx_t_13) {
-      } else {
-        __pyx_t_9 = __pyx_t_13;
-        goto __pyx_L20_bool_binop_done;
-      }
-      __pyx_t_13 = (__pyx_v_min_a_y > __pyx_v_max_b_y);
-      __pyx_t_9 = __pyx_t_13;
-      __pyx_L20_bool_binop_done:;
-      if (__pyx_t_9) {
-
-        /* "narrow_phase_c.pyx":138
- *             # AABB Filter
- *             if max_a_x < min_b_x or min_a_x > max_b_x or max_a_y < min_b_y or min_a_y > max_b_y:
+ *             if aabbs_b[j, 2] < a_min_x:
  *                 continue             # <<<<<<<<<<<<<<
  * 
- *             # SAT Filter - Instant Exit
+ *             if aabbs_b[j, 1] > a_max_y or aabbs_b[j, 3] < a_min_y:
 */
-        goto __pyx_L11_continue;
+        goto __pyx_L12_continue;
 
-        /* "narrow_phase_c.pyx":137
+        /* "narrow_phase_c.pyx":87
+ *                 break
  * 
- *             # AABB Filter
- *             if max_a_x < min_b_x or min_a_x > max_b_x or max_a_y < min_b_y or min_a_y > max_b_y:             # <<<<<<<<<<<<<<
+ *             if aabbs_b[j, 2] < a_min_x:             # <<<<<<<<<<<<<<
  *                 continue
  * 
 */
       }
 
-      /* "narrow_phase_c.pyx":141
+      /* "narrow_phase_c.pyx":90
+ *                 continue
  * 
- *             # SAT Filter - Instant Exit
- *             if check_2d_sat_overlap(tris_a_2d[i], tris_b_2d[j]):             # <<<<<<<<<<<<<<
+ *             if aabbs_b[j, 1] > a_max_y or aabbs_b[j, 3] < a_min_y:             # <<<<<<<<<<<<<<
+ *                 continue
+ * 
+*/
+      __pyx_t_7 = __pyx_v_j;
+      __pyx_t_6 = 1;
+      __pyx_t_2 = ((*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_aabbs_b.data + __pyx_t_7 * __pyx_v_aabbs_b.strides[0]) )) + __pyx_t_6)) ))) > __pyx_v_a_max_y);
+      if (!__pyx_t_2) {
+      } else {
+        __pyx_t_1 = __pyx_t_2;
+        goto __pyx_L17_bool_binop_done;
+      }
+      __pyx_t_6 = __pyx_v_j;
+      __pyx_t_7 = 3;
+      __pyx_t_2 = ((*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_aabbs_b.data + __pyx_t_6 * __pyx_v_aabbs_b.strides[0]) )) + __pyx_t_7)) ))) < __pyx_v_a_min_y);
+      __pyx_t_1 = __pyx_t_2;
+      __pyx_L17_bool_binop_done:;
+      if (__pyx_t_1) {
+
+        /* "narrow_phase_c.pyx":91
+ * 
+ *             if aabbs_b[j, 1] > a_max_y or aabbs_b[j, 3] < a_min_y:
+ *                 continue             # <<<<<<<<<<<<<<
+ * 
+ *             if check_2d_sat_overlap(tris_a_2d, i, tris_b_2d, j):
+*/
+        goto __pyx_L12_continue;
+
+        /* "narrow_phase_c.pyx":90
+ *                 continue
+ * 
+ *             if aabbs_b[j, 1] > a_max_y or aabbs_b[j, 3] < a_min_y:             # <<<<<<<<<<<<<<
+ *                 continue
+ * 
+*/
+      }
+
+      /* "narrow_phase_c.pyx":93
+ *                 continue
+ * 
+ *             if check_2d_sat_overlap(tris_a_2d, i, tris_b_2d, j):             # <<<<<<<<<<<<<<
  *                 return True
  * 
 */
-      __pyx_t_14.data = __pyx_v_tris_a_2d.data;
-      __pyx_t_14.memview = __pyx_v_tris_a_2d.memview;
-      __PYX_INC_MEMVIEW(&__pyx_t_14, 1);
-      {
-    Py_ssize_t __pyx_tmp_idx = __pyx_v_i;
-    Py_ssize_t __pyx_tmp_stride = __pyx_v_tris_a_2d.strides[0];
-        __pyx_t_14.data += __pyx_tmp_idx * __pyx_tmp_stride;
-}
+      __pyx_t_1 = __pyx_f_14narrow_phase_c_check_2d_sat_overlap(__pyx_v_tris_a_2d, __pyx_v_i, __pyx_v_tris_b_2d, __pyx_v_j); if (unlikely(__pyx_t_1 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 93, __pyx_L1_error)
+      if (__pyx_t_1) {
 
-__pyx_t_14.shape[0] = __pyx_v_tris_a_2d.shape[1];
-__pyx_t_14.strides[0] = __pyx_v_tris_a_2d.strides[1];
-    __pyx_t_14.suboffsets[0] = -1;
-
-__pyx_t_14.shape[1] = __pyx_v_tris_a_2d.shape[2];
-__pyx_t_14.strides[1] = __pyx_v_tris_a_2d.strides[2];
-    __pyx_t_14.suboffsets[1] = -1;
-
-__pyx_t_15.data = __pyx_v_tris_b_2d.data;
-      __pyx_t_15.memview = __pyx_v_tris_b_2d.memview;
-      __PYX_INC_MEMVIEW(&__pyx_t_15, 1);
-      {
-    Py_ssize_t __pyx_tmp_idx = __pyx_v_j;
-    Py_ssize_t __pyx_tmp_stride = __pyx_v_tris_b_2d.strides[0];
-        __pyx_t_15.data += __pyx_tmp_idx * __pyx_tmp_stride;
-}
-
-__pyx_t_15.shape[0] = __pyx_v_tris_b_2d.shape[1];
-__pyx_t_15.strides[0] = __pyx_v_tris_b_2d.strides[1];
-    __pyx_t_15.suboffsets[0] = -1;
-
-__pyx_t_15.shape[1] = __pyx_v_tris_b_2d.shape[2];
-__pyx_t_15.strides[1] = __pyx_v_tris_b_2d.strides[2];
-    __pyx_t_15.suboffsets[1] = -1;
-
-__pyx_t_9 = __pyx_f_14narrow_phase_c_check_2d_sat_overlap(__pyx_t_14, __pyx_t_15); if (unlikely(__pyx_t_9 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 141, __pyx_L1_error)
-      __PYX_XCLEAR_MEMVIEW(&__pyx_t_14, 1);
-      __pyx_t_14.memview = NULL; __pyx_t_14.data = NULL;
-      __PYX_XCLEAR_MEMVIEW(&__pyx_t_15, 1);
-      __pyx_t_15.memview = NULL; __pyx_t_15.data = NULL;
-      if (__pyx_t_9) {
-
-        /* "narrow_phase_c.pyx":142
- *             # SAT Filter - Instant Exit
- *             if check_2d_sat_overlap(tris_a_2d[i], tris_b_2d[j]):
+        /* "narrow_phase_c.pyx":94
+ * 
+ *             if check_2d_sat_overlap(tris_a_2d, i, tris_b_2d, j):
  *                 return True             # <<<<<<<<<<<<<<
  * 
  *     return False
@@ -19070,19 +18385,20 @@ __pyx_t_9 = __pyx_f_14narrow_phase_c_check_2d_sat_overlap(__pyx_t_14, __pyx_t_15
         __pyx_r = 1;
         goto __pyx_L0;
 
-        /* "narrow_phase_c.pyx":141
+        /* "narrow_phase_c.pyx":93
+ *                 continue
  * 
- *             # SAT Filter - Instant Exit
- *             if check_2d_sat_overlap(tris_a_2d[i], tris_b_2d[j]):             # <<<<<<<<<<<<<<
+ *             if check_2d_sat_overlap(tris_a_2d, i, tris_b_2d, j):             # <<<<<<<<<<<<<<
  *                 return True
  * 
 */
       }
-      __pyx_L11_continue:;
+      __pyx_L12_continue:;
     }
+    __pyx_L13_break:;
   }
 
-  /* "narrow_phase_c.pyx":144
+  /* "narrow_phase_c.pyx":96
  *                 return True
  * 
  *     return False             # <<<<<<<<<<<<<<
@@ -19092,18 +18408,16 @@ __pyx_t_9 = __pyx_f_14narrow_phase_c_check_2d_sat_overlap(__pyx_t_14, __pyx_t_15
   __pyx_r = 0;
   goto __pyx_L0;
 
-  /* "narrow_phase_c.pyx":106
+  /* "narrow_phase_c.pyx":63
+ *     return True
  * 
- * 
- * cpdef bint fast_any_intersection_c(double[:, :, :] tris_a_2d, double[:, :, :] tris_b_2d):             # <<<<<<<<<<<<<<
- *     """
- *     Early-exit SAT overlap check.
+ * cpdef bint fast_any_intersection_c(double[:, :, ::1] tris_a_2d, double[:, :, ::1] tris_b_2d, double[:, ::1] aabbs_a, double[:, ::1] aabbs_b):             # <<<<<<<<<<<<<<
+ *     cdef int num_a = tris_a_2d.shape[0]
+ *     cdef int num_b = tris_b_2d.shape[0]
 */
 
   /* function exit code */
   __pyx_L1_error:;
-  __PYX_XCLEAR_MEMVIEW(&__pyx_t_14, 1);
-  __PYX_XCLEAR_MEMVIEW(&__pyx_t_15, 1);
   __Pyx_AddTraceback("narrow_phase_c.fast_any_intersection_c", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = -1;
   __pyx_L0:;
@@ -19111,16 +18425,15 @@ __pyx_t_9 = __pyx_f_14narrow_phase_c_check_2d_sat_overlap(__pyx_t_14, __pyx_t_15
 }
 
 /* Python wrapper */
-static PyObject *__pyx_pw_14narrow_phase_c_3fast_any_intersection_c(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_14narrow_phase_c_1fast_any_intersection_c(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_14narrow_phase_c_2fast_any_intersection_c, "\n    Early-exit SAT overlap check. \n    Returns True instantly upon finding a single intersection.\n    ");
-static PyMethodDef __pyx_mdef_14narrow_phase_c_3fast_any_intersection_c = {"fast_any_intersection_c", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_14narrow_phase_c_3fast_any_intersection_c, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_14narrow_phase_c_2fast_any_intersection_c};
-static PyObject *__pyx_pw_14narrow_phase_c_3fast_any_intersection_c(PyObject *__pyx_self, 
+static PyMethodDef __pyx_mdef_14narrow_phase_c_1fast_any_intersection_c = {"fast_any_intersection_c", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_14narrow_phase_c_1fast_any_intersection_c, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_14narrow_phase_c_1fast_any_intersection_c(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -19129,11 +18442,13 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 ) {
   __Pyx_memviewslice __pyx_v_tris_a_2d = { 0, 0, { 0 }, { 0 }, { 0 } };
   __Pyx_memviewslice __pyx_v_tris_b_2d = { 0, 0, { 0 }, { 0 }, { 0 } };
+  __Pyx_memviewslice __pyx_v_aabbs_a = { 0, 0, { 0 }, { 0 }, { 0 } };
+  __Pyx_memviewslice __pyx_v_aabbs_b = { 0, 0, { 0 }, { 0 }, { 0 } };
   #if !CYTHON_METH_FASTCALL
   CYTHON_UNUSED Py_ssize_t __pyx_nargs;
   #endif
   CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
-  PyObject* values[2] = {0,0};
+  PyObject* values[4] = {0,0,0,0};
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
@@ -19149,41 +18464,55 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   #endif
   __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
   {
-    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_tris_a_2d,&__pyx_mstate_global->__pyx_n_u_tris_b_2d,0};
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_tris_a_2d,&__pyx_mstate_global->__pyx_n_u_tris_b_2d,&__pyx_mstate_global->__pyx_n_u_aabbs_a,&__pyx_mstate_global->__pyx_n_u_aabbs_b,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 106, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 63, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
+        case  4:
+        values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 63, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  3:
+        values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 63, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 106, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 63, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 106, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 63, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "fast_any_intersection_c", 0) < (0)) __PYX_ERR(0, 106, __pyx_L3_error)
-      for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("fast_any_intersection_c", 1, 2, 2, i); __PYX_ERR(0, 106, __pyx_L3_error) }
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "fast_any_intersection_c", 0) < (0)) __PYX_ERR(0, 63, __pyx_L3_error)
+      for (Py_ssize_t i = __pyx_nargs; i < 4; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("fast_any_intersection_c", 1, 4, 4, i); __PYX_ERR(0, 63, __pyx_L3_error) }
       }
-    } else if (unlikely(__pyx_nargs != 2)) {
+    } else if (unlikely(__pyx_nargs != 4)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 106, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 63, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 106, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 63, __pyx_L3_error)
+      values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 63, __pyx_L3_error)
+      values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 63, __pyx_L3_error)
     }
-    __pyx_v_tris_a_2d = __Pyx_PyObject_to_MemoryviewSlice_dsdsds_double(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_tris_a_2d.memview)) __PYX_ERR(0, 106, __pyx_L3_error)
-    __pyx_v_tris_b_2d = __Pyx_PyObject_to_MemoryviewSlice_dsdsds_double(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_tris_b_2d.memview)) __PYX_ERR(0, 106, __pyx_L3_error)
+    __pyx_v_tris_a_2d = __Pyx_PyObject_to_MemoryviewSlice_d_d_dc_double(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_tris_a_2d.memview)) __PYX_ERR(0, 63, __pyx_L3_error)
+    __pyx_v_tris_b_2d = __Pyx_PyObject_to_MemoryviewSlice_d_d_dc_double(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_tris_b_2d.memview)) __PYX_ERR(0, 63, __pyx_L3_error)
+    __pyx_v_aabbs_a = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[2], PyBUF_WRITABLE); if (unlikely(!__pyx_v_aabbs_a.memview)) __PYX_ERR(0, 63, __pyx_L3_error)
+    __pyx_v_aabbs_b = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[3], PyBUF_WRITABLE); if (unlikely(!__pyx_v_aabbs_b.memview)) __PYX_ERR(0, 63, __pyx_L3_error)
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("fast_any_intersection_c", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 106, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("fast_any_intersection_c", 1, 4, 4, __pyx_nargs); __PYX_ERR(0, 63, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -19192,11 +18521,13 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   __PYX_XCLEAR_MEMVIEW(&__pyx_v_tris_a_2d, 1);
   __PYX_XCLEAR_MEMVIEW(&__pyx_v_tris_b_2d, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_aabbs_a, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_aabbs_b, 1);
   __Pyx_AddTraceback("narrow_phase_c.fast_any_intersection_c", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_14narrow_phase_c_2fast_any_intersection_c(__pyx_self, __pyx_v_tris_a_2d, __pyx_v_tris_b_2d);
+  __pyx_r = __pyx_pf_14narrow_phase_c_fast_any_intersection_c(__pyx_self, __pyx_v_tris_a_2d, __pyx_v_tris_b_2d, __pyx_v_aabbs_a, __pyx_v_aabbs_b);
 
   /* function exit code */
   for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
@@ -19204,11 +18535,13 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   __PYX_XCLEAR_MEMVIEW(&__pyx_v_tris_a_2d, 1);
   __PYX_XCLEAR_MEMVIEW(&__pyx_v_tris_b_2d, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_aabbs_a, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_aabbs_b, 1);
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_14narrow_phase_c_2fast_any_intersection_c(CYTHON_UNUSED PyObject *__pyx_self, __Pyx_memviewslice __pyx_v_tris_a_2d, __Pyx_memviewslice __pyx_v_tris_b_2d) {
+static PyObject *__pyx_pf_14narrow_phase_c_fast_any_intersection_c(CYTHON_UNUSED PyObject *__pyx_self, __Pyx_memviewslice __pyx_v_tris_a_2d, __Pyx_memviewslice __pyx_v_tris_b_2d, __Pyx_memviewslice __pyx_v_aabbs_a, __Pyx_memviewslice __pyx_v_aabbs_b) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   int __pyx_t_1;
@@ -19218,10 +18551,12 @@ static PyObject *__pyx_pf_14narrow_phase_c_2fast_any_intersection_c(CYTHON_UNUSE
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("fast_any_intersection_c", 0);
   __Pyx_XDECREF(__pyx_r);
-  if (unlikely(!__pyx_v_tris_a_2d.memview)) { __Pyx_RaiseUnboundLocalError("tris_a_2d"); __PYX_ERR(0, 106, __pyx_L1_error) }
-  if (unlikely(!__pyx_v_tris_b_2d.memview)) { __Pyx_RaiseUnboundLocalError("tris_b_2d"); __PYX_ERR(0, 106, __pyx_L1_error) }
-  __pyx_t_1 = __pyx_f_14narrow_phase_c_fast_any_intersection_c(__pyx_v_tris_a_2d, __pyx_v_tris_b_2d, 1); if (unlikely(__pyx_t_1 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 106, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 106, __pyx_L1_error)
+  if (unlikely(!__pyx_v_tris_a_2d.memview)) { __Pyx_RaiseUnboundLocalError("tris_a_2d"); __PYX_ERR(0, 63, __pyx_L1_error) }
+  if (unlikely(!__pyx_v_tris_b_2d.memview)) { __Pyx_RaiseUnboundLocalError("tris_b_2d"); __PYX_ERR(0, 63, __pyx_L1_error) }
+  if (unlikely(!__pyx_v_aabbs_a.memview)) { __Pyx_RaiseUnboundLocalError("aabbs_a"); __PYX_ERR(0, 63, __pyx_L1_error) }
+  if (unlikely(!__pyx_v_aabbs_b.memview)) { __Pyx_RaiseUnboundLocalError("aabbs_b"); __PYX_ERR(0, 63, __pyx_L1_error) }
+  __pyx_t_1 = __pyx_f_14narrow_phase_c_fast_any_intersection_c(__pyx_v_tris_a_2d, __pyx_v_tris_b_2d, __pyx_v_aabbs_a, __pyx_v_aabbs_b, 1); if (unlikely(__pyx_t_1 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 63, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 63, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
@@ -19238,15 +18573,15 @@ static PyObject *__pyx_pf_14narrow_phase_c_2fast_any_intersection_c(CYTHON_UNUSE
   return __pyx_r;
 }
 
-/* "narrow_phase_c.pyx":151
- * # ---------------------------------------------------------
+/* "narrow_phase_c.pyx":99
  * 
- * cdef inline bint point_in_triangle(double px, double py, double[:, :] t):             # <<<<<<<<<<<<<<
- *     """Barycentric test to see if a vertex is inside a triangle."""
- *     cdef double d1 = (px - t[0][0]) * (t[1][1] - t[0][1]) - (py - t[0][1]) * (t[1][0] - t[0][0])
+ * 
+ * cdef inline bint point_in_triangle(double px, double py, double[:, :, ::1] t, int idx) nogil:             # <<<<<<<<<<<<<<
+ *     cdef double d1 = (px - t[idx, 0, 0]) * (t[idx, 1, 1] - t[idx, 0, 1]) - (py - t[idx, 0, 1]) * (t[idx, 1, 0] - t[idx, 0, 0])
+ *     cdef double d2 = (px - t[idx, 1, 0]) * (t[idx, 2, 1] - t[idx, 1, 1]) - (py - t[idx, 1, 1]) * (t[idx, 2, 0] - t[idx, 1, 0])
 */
 
-static CYTHON_INLINE int __pyx_f_14narrow_phase_c_point_in_triangle(double __pyx_v_px, double __pyx_v_py, __Pyx_memviewslice __pyx_v_t) {
+static CYTHON_INLINE int __pyx_f_14narrow_phase_c_point_in_triangle(double __pyx_v_px, double __pyx_v_py, __Pyx_memviewslice __pyx_v_t, int __pyx_v_idx) {
   double __pyx_v_d1;
   double __pyx_v_d2;
   double __pyx_v_d3;
@@ -19265,121 +18600,145 @@ static CYTHON_INLINE int __pyx_f_14narrow_phase_c_point_in_triangle(double __pyx
   Py_ssize_t __pyx_t_10;
   Py_ssize_t __pyx_t_11;
   Py_ssize_t __pyx_t_12;
-  int __pyx_t_13;
-  int __pyx_t_14;
+  Py_ssize_t __pyx_t_13;
+  Py_ssize_t __pyx_t_14;
+  Py_ssize_t __pyx_t_15;
+  Py_ssize_t __pyx_t_16;
+  Py_ssize_t __pyx_t_17;
+  Py_ssize_t __pyx_t_18;
+  int __pyx_t_19;
+  int __pyx_t_20;
 
-  /* "narrow_phase_c.pyx":153
- * cdef inline bint point_in_triangle(double px, double py, double[:, :] t):
- *     """Barycentric test to see if a vertex is inside a triangle."""
- *     cdef double d1 = (px - t[0][0]) * (t[1][1] - t[0][1]) - (py - t[0][1]) * (t[1][0] - t[0][0])             # <<<<<<<<<<<<<<
- *     cdef double d2 = (px - t[1][0]) * (t[2][1] - t[1][1]) - (py - t[1][1]) * (t[2][0] - t[1][0])
- *     cdef double d3 = (px - t[2][0]) * (t[0][1] - t[2][1]) - (py - t[2][1]) * (t[0][0] - t[2][0])
+  /* "narrow_phase_c.pyx":100
+ * 
+ * cdef inline bint point_in_triangle(double px, double py, double[:, :, ::1] t, int idx) nogil:
+ *     cdef double d1 = (px - t[idx, 0, 0]) * (t[idx, 1, 1] - t[idx, 0, 1]) - (py - t[idx, 0, 1]) * (t[idx, 1, 0] - t[idx, 0, 0])             # <<<<<<<<<<<<<<
+ *     cdef double d2 = (px - t[idx, 1, 0]) * (t[idx, 2, 1] - t[idx, 1, 1]) - (py - t[idx, 1, 1]) * (t[idx, 2, 0] - t[idx, 1, 0])
+ *     cdef double d3 = (px - t[idx, 2, 0]) * (t[idx, 0, 1] - t[idx, 2, 1]) - (py - t[idx, 2, 1]) * (t[idx, 0, 0] - t[idx, 2, 0])
 */
-  __pyx_t_1 = 0;
+  __pyx_t_1 = __pyx_v_idx;
   __pyx_t_2 = 0;
-  __pyx_t_3 = 1;
-  __pyx_t_4 = 1;
-  __pyx_t_5 = 0;
+  __pyx_t_3 = 0;
+  __pyx_t_4 = __pyx_v_idx;
+  __pyx_t_5 = 1;
   __pyx_t_6 = 1;
-  __pyx_t_7 = 0;
-  __pyx_t_8 = 1;
+  __pyx_t_7 = __pyx_v_idx;
+  __pyx_t_8 = 0;
   __pyx_t_9 = 1;
-  __pyx_t_10 = 0;
+  __pyx_t_10 = __pyx_v_idx;
   __pyx_t_11 = 0;
-  __pyx_t_12 = 0;
-  __pyx_v_d1 = (((__pyx_v_px - (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t.data + __pyx_t_1 * __pyx_v_t.strides[0]) ) + __pyx_t_2 * __pyx_v_t.strides[1]) )))) * ((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t.data + __pyx_t_3 * __pyx_v_t.strides[0]) ) + __pyx_t_4 * __pyx_v_t.strides[1]) ))) - (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t.data + __pyx_t_5 * __pyx_v_t.strides[0]) ) + __pyx_t_6 * __pyx_v_t.strides[1]) ))))) - ((__pyx_v_py - (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t.data + __pyx_t_7 * __pyx_v_t.strides[0]) ) + __pyx_t_8 * __pyx_v_t.strides[1]) )))) * ((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t.data + __pyx_t_9 * __pyx_v_t.strides[0]) ) + __pyx_t_10 * __pyx_v_t.strides[1]) ))) - (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t.data + __pyx_t_11 * __pyx_v_t.strides[0]) ) + __pyx_t_12 * __pyx_v_t.strides[1]) ))))));
+  __pyx_t_12 = 1;
+  __pyx_t_13 = __pyx_v_idx;
+  __pyx_t_14 = 1;
+  __pyx_t_15 = 0;
+  __pyx_t_16 = __pyx_v_idx;
+  __pyx_t_17 = 0;
+  __pyx_t_18 = 0;
+  __pyx_v_d1 = (((__pyx_v_px - (*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t.data + __pyx_t_1 * __pyx_v_t.strides[0]) ) + __pyx_t_2 * __pyx_v_t.strides[1]) )) + __pyx_t_3)) )))) * ((*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t.data + __pyx_t_4 * __pyx_v_t.strides[0]) ) + __pyx_t_5 * __pyx_v_t.strides[1]) )) + __pyx_t_6)) ))) - (*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t.data + __pyx_t_7 * __pyx_v_t.strides[0]) ) + __pyx_t_8 * __pyx_v_t.strides[1]) )) + __pyx_t_9)) ))))) - ((__pyx_v_py - (*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t.data + __pyx_t_10 * __pyx_v_t.strides[0]) ) + __pyx_t_11 * __pyx_v_t.strides[1]) )) + __pyx_t_12)) )))) * ((*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t.data + __pyx_t_13 * __pyx_v_t.strides[0]) ) + __pyx_t_14 * __pyx_v_t.strides[1]) )) + __pyx_t_15)) ))) - (*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t.data + __pyx_t_16 * __pyx_v_t.strides[0]) ) + __pyx_t_17 * __pyx_v_t.strides[1]) )) + __pyx_t_18)) ))))));
 
-  /* "narrow_phase_c.pyx":154
- *     """Barycentric test to see if a vertex is inside a triangle."""
- *     cdef double d1 = (px - t[0][0]) * (t[1][1] - t[0][1]) - (py - t[0][1]) * (t[1][0] - t[0][0])
- *     cdef double d2 = (px - t[1][0]) * (t[2][1] - t[1][1]) - (py - t[1][1]) * (t[2][0] - t[1][0])             # <<<<<<<<<<<<<<
- *     cdef double d3 = (px - t[2][0]) * (t[0][1] - t[2][1]) - (py - t[2][1]) * (t[0][0] - t[2][0])
+  /* "narrow_phase_c.pyx":101
+ * cdef inline bint point_in_triangle(double px, double py, double[:, :, ::1] t, int idx) nogil:
+ *     cdef double d1 = (px - t[idx, 0, 0]) * (t[idx, 1, 1] - t[idx, 0, 1]) - (py - t[idx, 0, 1]) * (t[idx, 1, 0] - t[idx, 0, 0])
+ *     cdef double d2 = (px - t[idx, 1, 0]) * (t[idx, 2, 1] - t[idx, 1, 1]) - (py - t[idx, 1, 1]) * (t[idx, 2, 0] - t[idx, 1, 0])             # <<<<<<<<<<<<<<
+ *     cdef double d3 = (px - t[idx, 2, 0]) * (t[idx, 0, 1] - t[idx, 2, 1]) - (py - t[idx, 2, 1]) * (t[idx, 0, 0] - t[idx, 2, 0])
  * 
 */
-  __pyx_t_12 = 1;
-  __pyx_t_11 = 0;
-  __pyx_t_10 = 2;
-  __pyx_t_9 = 1;
+  __pyx_t_18 = __pyx_v_idx;
+  __pyx_t_17 = 1;
+  __pyx_t_16 = 0;
+  __pyx_t_15 = __pyx_v_idx;
+  __pyx_t_14 = 2;
+  __pyx_t_13 = 1;
+  __pyx_t_12 = __pyx_v_idx;
+  __pyx_t_11 = 1;
+  __pyx_t_10 = 1;
+  __pyx_t_9 = __pyx_v_idx;
   __pyx_t_8 = 1;
   __pyx_t_7 = 1;
-  __pyx_t_6 = 1;
-  __pyx_t_5 = 1;
-  __pyx_t_4 = 2;
-  __pyx_t_3 = 0;
+  __pyx_t_6 = __pyx_v_idx;
+  __pyx_t_5 = 2;
+  __pyx_t_4 = 0;
+  __pyx_t_3 = __pyx_v_idx;
   __pyx_t_2 = 1;
   __pyx_t_1 = 0;
-  __pyx_v_d2 = (((__pyx_v_px - (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t.data + __pyx_t_12 * __pyx_v_t.strides[0]) ) + __pyx_t_11 * __pyx_v_t.strides[1]) )))) * ((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t.data + __pyx_t_10 * __pyx_v_t.strides[0]) ) + __pyx_t_9 * __pyx_v_t.strides[1]) ))) - (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t.data + __pyx_t_8 * __pyx_v_t.strides[0]) ) + __pyx_t_7 * __pyx_v_t.strides[1]) ))))) - ((__pyx_v_py - (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t.data + __pyx_t_6 * __pyx_v_t.strides[0]) ) + __pyx_t_5 * __pyx_v_t.strides[1]) )))) * ((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t.data + __pyx_t_4 * __pyx_v_t.strides[0]) ) + __pyx_t_3 * __pyx_v_t.strides[1]) ))) - (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t.data + __pyx_t_2 * __pyx_v_t.strides[0]) ) + __pyx_t_1 * __pyx_v_t.strides[1]) ))))));
+  __pyx_v_d2 = (((__pyx_v_px - (*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t.data + __pyx_t_18 * __pyx_v_t.strides[0]) ) + __pyx_t_17 * __pyx_v_t.strides[1]) )) + __pyx_t_16)) )))) * ((*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t.data + __pyx_t_15 * __pyx_v_t.strides[0]) ) + __pyx_t_14 * __pyx_v_t.strides[1]) )) + __pyx_t_13)) ))) - (*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t.data + __pyx_t_12 * __pyx_v_t.strides[0]) ) + __pyx_t_11 * __pyx_v_t.strides[1]) )) + __pyx_t_10)) ))))) - ((__pyx_v_py - (*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t.data + __pyx_t_9 * __pyx_v_t.strides[0]) ) + __pyx_t_8 * __pyx_v_t.strides[1]) )) + __pyx_t_7)) )))) * ((*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t.data + __pyx_t_6 * __pyx_v_t.strides[0]) ) + __pyx_t_5 * __pyx_v_t.strides[1]) )) + __pyx_t_4)) ))) - (*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t.data + __pyx_t_3 * __pyx_v_t.strides[0]) ) + __pyx_t_2 * __pyx_v_t.strides[1]) )) + __pyx_t_1)) ))))));
 
-  /* "narrow_phase_c.pyx":155
- *     cdef double d1 = (px - t[0][0]) * (t[1][1] - t[0][1]) - (py - t[0][1]) * (t[1][0] - t[0][0])
- *     cdef double d2 = (px - t[1][0]) * (t[2][1] - t[1][1]) - (py - t[1][1]) * (t[2][0] - t[1][0])
- *     cdef double d3 = (px - t[2][0]) * (t[0][1] - t[2][1]) - (py - t[2][1]) * (t[0][0] - t[2][0])             # <<<<<<<<<<<<<<
+  /* "narrow_phase_c.pyx":102
+ *     cdef double d1 = (px - t[idx, 0, 0]) * (t[idx, 1, 1] - t[idx, 0, 1]) - (py - t[idx, 0, 1]) * (t[idx, 1, 0] - t[idx, 0, 0])
+ *     cdef double d2 = (px - t[idx, 1, 0]) * (t[idx, 2, 1] - t[idx, 1, 1]) - (py - t[idx, 1, 1]) * (t[idx, 2, 0] - t[idx, 1, 0])
+ *     cdef double d3 = (px - t[idx, 2, 0]) * (t[idx, 0, 1] - t[idx, 2, 1]) - (py - t[idx, 2, 1]) * (t[idx, 0, 0] - t[idx, 2, 0])             # <<<<<<<<<<<<<<
  * 
- *     # 1e-7 tolerance absorbs CAD floating-point noise for perfectly flush edges
+ *     cdef bint has_neg = (d1 < -1e-7) or (d2 < -1e-7) or (d3 < -1e-7)
 */
-  __pyx_t_1 = 2;
-  __pyx_t_2 = 0;
+  __pyx_t_1 = __pyx_v_idx;
+  __pyx_t_2 = 2;
   __pyx_t_3 = 0;
-  __pyx_t_4 = 1;
-  __pyx_t_5 = 2;
+  __pyx_t_4 = __pyx_v_idx;
+  __pyx_t_5 = 0;
   __pyx_t_6 = 1;
-  __pyx_t_7 = 2;
-  __pyx_t_8 = 1;
-  __pyx_t_9 = 0;
-  __pyx_t_10 = 0;
+  __pyx_t_7 = __pyx_v_idx;
+  __pyx_t_8 = 2;
+  __pyx_t_9 = 1;
+  __pyx_t_10 = __pyx_v_idx;
   __pyx_t_11 = 2;
-  __pyx_t_12 = 0;
-  __pyx_v_d3 = (((__pyx_v_px - (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t.data + __pyx_t_1 * __pyx_v_t.strides[0]) ) + __pyx_t_2 * __pyx_v_t.strides[1]) )))) * ((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t.data + __pyx_t_3 * __pyx_v_t.strides[0]) ) + __pyx_t_4 * __pyx_v_t.strides[1]) ))) - (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t.data + __pyx_t_5 * __pyx_v_t.strides[0]) ) + __pyx_t_6 * __pyx_v_t.strides[1]) ))))) - ((__pyx_v_py - (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t.data + __pyx_t_7 * __pyx_v_t.strides[0]) ) + __pyx_t_8 * __pyx_v_t.strides[1]) )))) * ((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t.data + __pyx_t_9 * __pyx_v_t.strides[0]) ) + __pyx_t_10 * __pyx_v_t.strides[1]) ))) - (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t.data + __pyx_t_11 * __pyx_v_t.strides[0]) ) + __pyx_t_12 * __pyx_v_t.strides[1]) ))))));
+  __pyx_t_12 = 1;
+  __pyx_t_13 = __pyx_v_idx;
+  __pyx_t_14 = 0;
+  __pyx_t_15 = 0;
+  __pyx_t_16 = __pyx_v_idx;
+  __pyx_t_17 = 2;
+  __pyx_t_18 = 0;
+  __pyx_v_d3 = (((__pyx_v_px - (*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t.data + __pyx_t_1 * __pyx_v_t.strides[0]) ) + __pyx_t_2 * __pyx_v_t.strides[1]) )) + __pyx_t_3)) )))) * ((*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t.data + __pyx_t_4 * __pyx_v_t.strides[0]) ) + __pyx_t_5 * __pyx_v_t.strides[1]) )) + __pyx_t_6)) ))) - (*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t.data + __pyx_t_7 * __pyx_v_t.strides[0]) ) + __pyx_t_8 * __pyx_v_t.strides[1]) )) + __pyx_t_9)) ))))) - ((__pyx_v_py - (*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t.data + __pyx_t_10 * __pyx_v_t.strides[0]) ) + __pyx_t_11 * __pyx_v_t.strides[1]) )) + __pyx_t_12)) )))) * ((*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t.data + __pyx_t_13 * __pyx_v_t.strides[0]) ) + __pyx_t_14 * __pyx_v_t.strides[1]) )) + __pyx_t_15)) ))) - (*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_t.data + __pyx_t_16 * __pyx_v_t.strides[0]) ) + __pyx_t_17 * __pyx_v_t.strides[1]) )) + __pyx_t_18)) ))))));
 
-  /* "narrow_phase_c.pyx":158
+  /* "narrow_phase_c.pyx":104
+ *     cdef double d3 = (px - t[idx, 2, 0]) * (t[idx, 0, 1] - t[idx, 2, 1]) - (py - t[idx, 2, 1]) * (t[idx, 0, 0] - t[idx, 2, 0])
  * 
- *     # 1e-7 tolerance absorbs CAD floating-point noise for perfectly flush edges
  *     cdef bint has_neg = (d1 < -1e-7) or (d2 < -1e-7) or (d3 < -1e-7)             # <<<<<<<<<<<<<<
  *     cdef bint has_pos = (d1 > 1e-7)  or (d2 > 1e-7)  or (d3 > 1e-7)
  * 
 */
-  __pyx_t_14 = (__pyx_v_d1 < -1e-7);
-  if (!__pyx_t_14) {
+  __pyx_t_20 = (__pyx_v_d1 < -1e-7);
+  if (!__pyx_t_20) {
   } else {
-    __pyx_t_13 = __pyx_t_14;
+    __pyx_t_19 = __pyx_t_20;
     goto __pyx_L3_bool_binop_done;
   }
-  __pyx_t_14 = (__pyx_v_d2 < -1e-7);
-  if (!__pyx_t_14) {
+  __pyx_t_20 = (__pyx_v_d2 < -1e-7);
+  if (!__pyx_t_20) {
   } else {
-    __pyx_t_13 = __pyx_t_14;
+    __pyx_t_19 = __pyx_t_20;
     goto __pyx_L3_bool_binop_done;
   }
-  __pyx_t_14 = (__pyx_v_d3 < -1e-7);
-  __pyx_t_13 = __pyx_t_14;
+  __pyx_t_20 = (__pyx_v_d3 < -1e-7);
+  __pyx_t_19 = __pyx_t_20;
   __pyx_L3_bool_binop_done:;
-  __pyx_v_has_neg = __pyx_t_13;
+  __pyx_v_has_neg = __pyx_t_19;
 
-  /* "narrow_phase_c.pyx":159
- *     # 1e-7 tolerance absorbs CAD floating-point noise for perfectly flush edges
+  /* "narrow_phase_c.pyx":105
+ * 
  *     cdef bint has_neg = (d1 < -1e-7) or (d2 < -1e-7) or (d3 < -1e-7)
  *     cdef bint has_pos = (d1 > 1e-7)  or (d2 > 1e-7)  or (d3 > 1e-7)             # <<<<<<<<<<<<<<
  * 
  *     return not (has_neg and has_pos)
 */
-  __pyx_t_14 = (__pyx_v_d1 > 1e-7);
-  if (!__pyx_t_14) {
+  __pyx_t_20 = (__pyx_v_d1 > 1e-7);
+  if (!__pyx_t_20) {
   } else {
-    __pyx_t_13 = __pyx_t_14;
+    __pyx_t_19 = __pyx_t_20;
     goto __pyx_L6_bool_binop_done;
   }
-  __pyx_t_14 = (__pyx_v_d2 > 1e-7);
-  if (!__pyx_t_14) {
+  __pyx_t_20 = (__pyx_v_d2 > 1e-7);
+  if (!__pyx_t_20) {
   } else {
-    __pyx_t_13 = __pyx_t_14;
+    __pyx_t_19 = __pyx_t_20;
     goto __pyx_L6_bool_binop_done;
   }
-  __pyx_t_14 = (__pyx_v_d3 > 1e-7);
-  __pyx_t_13 = __pyx_t_14;
+  __pyx_t_20 = (__pyx_v_d3 > 1e-7);
+  __pyx_t_19 = __pyx_t_20;
   __pyx_L6_bool_binop_done:;
-  __pyx_v_has_pos = __pyx_t_13;
+  __pyx_v_has_pos = __pyx_t_19;
 
-  /* "narrow_phase_c.pyx":161
+  /* "narrow_phase_c.pyx":107
  *     cdef bint has_pos = (d1 > 1e-7)  or (d2 > 1e-7)  or (d3 > 1e-7)
  * 
  *     return not (has_neg and has_pos)             # <<<<<<<<<<<<<<
@@ -19388,20 +18747,20 @@ static CYTHON_INLINE int __pyx_f_14narrow_phase_c_point_in_triangle(double __pyx
 */
   if (__pyx_v_has_neg) {
   } else {
-    __pyx_t_13 = __pyx_v_has_neg;
+    __pyx_t_19 = __pyx_v_has_neg;
     goto __pyx_L9_bool_binop_done;
   }
-  __pyx_t_13 = __pyx_v_has_pos;
+  __pyx_t_19 = __pyx_v_has_pos;
   __pyx_L9_bool_binop_done:;
-  __pyx_r = (!__pyx_t_13);
+  __pyx_r = (!__pyx_t_19);
   goto __pyx_L0;
 
-  /* "narrow_phase_c.pyx":151
- * # ---------------------------------------------------------
+  /* "narrow_phase_c.pyx":99
  * 
- * cdef inline bint point_in_triangle(double px, double py, double[:, :] t):             # <<<<<<<<<<<<<<
- *     """Barycentric test to see if a vertex is inside a triangle."""
- *     cdef double d1 = (px - t[0][0]) * (t[1][1] - t[0][1]) - (py - t[0][1]) * (t[1][0] - t[0][0])
+ * 
+ * cdef inline bint point_in_triangle(double px, double py, double[:, :, ::1] t, int idx) nogil:             # <<<<<<<<<<<<<<
+ *     cdef double d1 = (px - t[idx, 0, 0]) * (t[idx, 1, 1] - t[idx, 0, 1]) - (py - t[idx, 0, 1]) * (t[idx, 1, 0] - t[idx, 0, 0])
+ *     cdef double d2 = (px - t[idx, 1, 0]) * (t[idx, 2, 1] - t[idx, 1, 1]) - (py - t[idx, 1, 1]) * (t[idx, 2, 0] - t[idx, 1, 0])
 */
 
   /* function exit code */
@@ -19409,12 +18768,12 @@ static CYTHON_INLINE int __pyx_f_14narrow_phase_c_point_in_triangle(double __pyx
   return __pyx_r;
 }
 
-/* "narrow_phase_c.pyx":163
+/* "narrow_phase_c.pyx":109
  *     return not (has_neg and has_pos)
  * 
  * cdef inline bint get_line_intersection(double p0_x, double p0_y, double p1_x, double p1_y,             # <<<<<<<<<<<<<<
  *                                double p2_x, double p2_y, double p3_x, double p3_y,
- *                                double* out_x, double* out_y):
+ *                                double* out_x, double* out_y) nogil:
 */
 
 static CYTHON_INLINE int __pyx_f_14narrow_phase_c_get_line_intersection(double __pyx_v_p0_x, double __pyx_v_p0_y, double __pyx_v_p1_x, double __pyx_v_p1_y, double __pyx_v_p2_x, double __pyx_v_p2_y, double __pyx_v_p3_x, double __pyx_v_p3_y, double *__pyx_v_out_x, double *__pyx_v_out_y) {
@@ -19429,17 +18788,17 @@ static CYTHON_INLINE int __pyx_f_14narrow_phase_c_get_line_intersection(double _
   int __pyx_t_1;
   int __pyx_t_2;
 
-  /* "narrow_phase_c.pyx":167
- *                                double* out_x, double* out_y):
- *     """Calculates exactly where two segment lines cross."""
+  /* "narrow_phase_c.pyx":112
+ *                                double p2_x, double p2_y, double p3_x, double p3_y,
+ *                                double* out_x, double* out_y) nogil:
  *     cdef double s1_x = p1_x - p0_x             # <<<<<<<<<<<<<<
  *     cdef double s1_y = p1_y - p0_y
  *     cdef double s2_x = p3_x - p2_x
 */
   __pyx_v_s1_x = (__pyx_v_p1_x - __pyx_v_p0_x);
 
-  /* "narrow_phase_c.pyx":168
- *     """Calculates exactly where two segment lines cross."""
+  /* "narrow_phase_c.pyx":113
+ *                                double* out_x, double* out_y) nogil:
  *     cdef double s1_x = p1_x - p0_x
  *     cdef double s1_y = p1_y - p0_y             # <<<<<<<<<<<<<<
  *     cdef double s2_x = p3_x - p2_x
@@ -19447,7 +18806,7 @@ static CYTHON_INLINE int __pyx_f_14narrow_phase_c_get_line_intersection(double _
 */
   __pyx_v_s1_y = (__pyx_v_p1_y - __pyx_v_p0_y);
 
-  /* "narrow_phase_c.pyx":169
+  /* "narrow_phase_c.pyx":114
  *     cdef double s1_x = p1_x - p0_x
  *     cdef double s1_y = p1_y - p0_y
  *     cdef double s2_x = p3_x - p2_x             # <<<<<<<<<<<<<<
@@ -19456,7 +18815,7 @@ static CYTHON_INLINE int __pyx_f_14narrow_phase_c_get_line_intersection(double _
 */
   __pyx_v_s2_x = (__pyx_v_p3_x - __pyx_v_p2_x);
 
-  /* "narrow_phase_c.pyx":170
+  /* "narrow_phase_c.pyx":115
  *     cdef double s1_y = p1_y - p0_y
  *     cdef double s2_x = p3_x - p2_x
  *     cdef double s2_y = p3_y - p2_y             # <<<<<<<<<<<<<<
@@ -19465,20 +18824,20 @@ static CYTHON_INLINE int __pyx_f_14narrow_phase_c_get_line_intersection(double _
 */
   __pyx_v_s2_y = (__pyx_v_p3_y - __pyx_v_p2_y);
 
-  /* "narrow_phase_c.pyx":172
+  /* "narrow_phase_c.pyx":117
  *     cdef double s2_y = p3_y - p2_y
  * 
  *     cdef double denom = -s2_x * s1_y + s1_x * s2_y             # <<<<<<<<<<<<<<
  *     if denom >= -1e-8 and denom <= 1e-8:
- *         return False # Parallel or collinear
+ *         return False
 */
   __pyx_v_denom = (((-__pyx_v_s2_x) * __pyx_v_s1_y) + (__pyx_v_s1_x * __pyx_v_s2_y));
 
-  /* "narrow_phase_c.pyx":173
+  /* "narrow_phase_c.pyx":118
  * 
  *     cdef double denom = -s2_x * s1_y + s1_x * s2_y
  *     if denom >= -1e-8 and denom <= 1e-8:             # <<<<<<<<<<<<<<
- *         return False # Parallel or collinear
+ *         return False
  * 
 */
   __pyx_t_2 = (__pyx_v_denom >= -1e-8);
@@ -19492,27 +18851,27 @@ static CYTHON_INLINE int __pyx_f_14narrow_phase_c_get_line_intersection(double _
   __pyx_L4_bool_binop_done:;
   if (__pyx_t_1) {
 
-    /* "narrow_phase_c.pyx":174
+    /* "narrow_phase_c.pyx":119
  *     cdef double denom = -s2_x * s1_y + s1_x * s2_y
  *     if denom >= -1e-8 and denom <= 1e-8:
- *         return False # Parallel or collinear             # <<<<<<<<<<<<<<
+ *         return False             # <<<<<<<<<<<<<<
  * 
  *     cdef double s = (-s1_y * (p0_x - p2_x) + s1_x * (p0_y - p2_y)) / denom
 */
     __pyx_r = 0;
     goto __pyx_L0;
 
-    /* "narrow_phase_c.pyx":173
+    /* "narrow_phase_c.pyx":118
  * 
  *     cdef double denom = -s2_x * s1_y + s1_x * s2_y
  *     if denom >= -1e-8 and denom <= 1e-8:             # <<<<<<<<<<<<<<
- *         return False # Parallel or collinear
+ *         return False
  * 
 */
   }
 
-  /* "narrow_phase_c.pyx":176
- *         return False # Parallel or collinear
+  /* "narrow_phase_c.pyx":121
+ *         return False
  * 
  *     cdef double s = (-s1_y * (p0_x - p2_x) + s1_x * (p0_y - p2_y)) / denom             # <<<<<<<<<<<<<<
  *     cdef double t = ( s2_x * (p0_y - p2_y) - s2_y * (p0_x - p2_x)) / denom
@@ -19520,18 +18879,18 @@ static CYTHON_INLINE int __pyx_f_14narrow_phase_c_get_line_intersection(double _
 */
   __pyx_v_s = ((((-__pyx_v_s1_y) * (__pyx_v_p0_x - __pyx_v_p2_x)) + (__pyx_v_s1_x * (__pyx_v_p0_y - __pyx_v_p2_y))) / __pyx_v_denom);
 
-  /* "narrow_phase_c.pyx":177
+  /* "narrow_phase_c.pyx":122
  * 
  *     cdef double s = (-s1_y * (p0_x - p2_x) + s1_x * (p0_y - p2_y)) / denom
  *     cdef double t = ( s2_x * (p0_y - p2_y) - s2_y * (p0_x - p2_x)) / denom             # <<<<<<<<<<<<<<
  * 
- *     # If the crossing point happens strictly within the length of both segments
+ *     if s >= 0 and s <= 1 and t >= 0 and t <= 1:
 */
   __pyx_v_t = (((__pyx_v_s2_x * (__pyx_v_p0_y - __pyx_v_p2_y)) - (__pyx_v_s2_y * (__pyx_v_p0_x - __pyx_v_p2_x))) / __pyx_v_denom);
 
-  /* "narrow_phase_c.pyx":180
+  /* "narrow_phase_c.pyx":124
+ *     cdef double t = ( s2_x * (p0_y - p2_y) - s2_y * (p0_x - p2_x)) / denom
  * 
- *     # If the crossing point happens strictly within the length of both segments
  *     if s >= 0 and s <= 1 and t >= 0 and t <= 1:             # <<<<<<<<<<<<<<
  *         out_x[0] = p0_x + (t * s1_x)
  *         out_y[0] = p0_y + (t * s1_y)
@@ -19559,8 +18918,8 @@ static CYTHON_INLINE int __pyx_f_14narrow_phase_c_get_line_intersection(double _
   __pyx_L7_bool_binop_done:;
   if (__pyx_t_1) {
 
-    /* "narrow_phase_c.pyx":181
- *     # If the crossing point happens strictly within the length of both segments
+    /* "narrow_phase_c.pyx":125
+ * 
  *     if s >= 0 and s <= 1 and t >= 0 and t <= 1:
  *         out_x[0] = p0_x + (t * s1_x)             # <<<<<<<<<<<<<<
  *         out_y[0] = p0_y + (t * s1_y)
@@ -19568,7 +18927,7 @@ static CYTHON_INLINE int __pyx_f_14narrow_phase_c_get_line_intersection(double _
 */
     (__pyx_v_out_x[0]) = (__pyx_v_p0_x + (__pyx_v_t * __pyx_v_s1_x));
 
-    /* "narrow_phase_c.pyx":182
+    /* "narrow_phase_c.pyx":126
  *     if s >= 0 and s <= 1 and t >= 0 and t <= 1:
  *         out_x[0] = p0_x + (t * s1_x)
  *         out_y[0] = p0_y + (t * s1_y)             # <<<<<<<<<<<<<<
@@ -19577,7 +18936,7 @@ static CYTHON_INLINE int __pyx_f_14narrow_phase_c_get_line_intersection(double _
 */
     (__pyx_v_out_y[0]) = (__pyx_v_p0_y + (__pyx_v_t * __pyx_v_s1_y));
 
-    /* "narrow_phase_c.pyx":183
+    /* "narrow_phase_c.pyx":127
  *         out_x[0] = p0_x + (t * s1_x)
  *         out_y[0] = p0_y + (t * s1_y)
  *         return True             # <<<<<<<<<<<<<<
@@ -19587,31 +18946,31 @@ static CYTHON_INLINE int __pyx_f_14narrow_phase_c_get_line_intersection(double _
     __pyx_r = 1;
     goto __pyx_L0;
 
-    /* "narrow_phase_c.pyx":180
+    /* "narrow_phase_c.pyx":124
+ *     cdef double t = ( s2_x * (p0_y - p2_y) - s2_y * (p0_x - p2_x)) / denom
  * 
- *     # If the crossing point happens strictly within the length of both segments
  *     if s >= 0 and s <= 1 and t >= 0 and t <= 1:             # <<<<<<<<<<<<<<
  *         out_x[0] = p0_x + (t * s1_x)
  *         out_y[0] = p0_y + (t * s1_y)
 */
   }
 
-  /* "narrow_phase_c.pyx":185
+  /* "narrow_phase_c.pyx":129
  *         return True
  * 
  *     return False             # <<<<<<<<<<<<<<
  * 
- * cpdef tuple evaluate_deep_narrow_phase_c(
+ * 
 */
   __pyx_r = 0;
   goto __pyx_L0;
 
-  /* "narrow_phase_c.pyx":163
+  /* "narrow_phase_c.pyx":109
  *     return not (has_neg and has_pos)
  * 
  * cdef inline bint get_line_intersection(double p0_x, double p0_y, double p1_x, double p1_y,             # <<<<<<<<<<<<<<
  *                                double p2_x, double p2_y, double p3_x, double p3_y,
- *                                double* out_x, double* out_y):
+ *                                double* out_x, double* out_y) nogil:
 */
 
   /* function exit code */
@@ -19619,32 +18978,42 @@ static CYTHON_INLINE int __pyx_f_14narrow_phase_c_get_line_intersection(double _
   return __pyx_r;
 }
 
-/* "narrow_phase_c.pyx":187
- *     return False
+/* "narrow_phase_c.pyx":132
  * 
- * cpdef tuple evaluate_deep_narrow_phase_c(             # <<<<<<<<<<<<<<
- *     double[:, :, :] tris_a_2d, double[:, :, :] tris_b_2d,
- *     double[:, :, :] tris_a_3d, double[:, :, :] tris_b_3d,
+ * 
+ * cpdef tuple evaluate_overlap_c(             # <<<<<<<<<<<<<<
+ *     double[:, :, ::1] tris_a_2d, double[:, :, ::1] tris_b_2d,
+ *     double[:, ::1] aabbs_a, double[:, ::1] aabbs_b,
 */
 
-static PyObject *__pyx_pw_14narrow_phase_c_5evaluate_deep_narrow_phase_c(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_14narrow_phase_c_3evaluate_overlap_c(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-static PyObject *__pyx_f_14narrow_phase_c_evaluate_deep_narrow_phase_c(__Pyx_memviewslice __pyx_v_tris_a_2d, __Pyx_memviewslice __pyx_v_tris_b_2d, __Pyx_memviewslice __pyx_v_tris_a_3d, __Pyx_memviewslice __pyx_v_tris_b_3d, __Pyx_memviewslice __pyx_v_normals_a, __Pyx_memviewslice __pyx_v_normals_b, PyObject *__pyx_v_intersecting_pairs, int __pyx_v_w_idx, int __pyx_v_u_idx, int __pyx_v_v_idx, double __pyx_v_w_tol, double __pyx_v_n_tol, int __pyx_v_use_MRT, double __pyx_v_mrt_tol, CYTHON_UNUSED int __pyx_skip_dispatch) {
-  int __pyx_v_max_pos;
-  int __pyx_v_max_neg;
-  int __pyx_v_pair_idx;
-  int __pyx_v_a_idx;
-  int __pyx_v_b_idx;
+static PyObject *__pyx_f_14narrow_phase_c_evaluate_overlap_c(__Pyx_memviewslice __pyx_v_tris_a_2d, __Pyx_memviewslice __pyx_v_tris_b_2d, __Pyx_memviewslice __pyx_v_aabbs_a, __Pyx_memviewslice __pyx_v_aabbs_b, __Pyx_memviewslice __pyx_v_tris_a_3d, __Pyx_memviewslice __pyx_v_tris_b_3d, __Pyx_memviewslice __pyx_v_normals_a, __Pyx_memviewslice __pyx_v_normals_b, int __pyx_v_w_idx, int __pyx_v_u_idx, int __pyx_v_v_idx, double __pyx_v_w_tol, double __pyx_v_n_tol, int __pyx_v_use_MRT, double __pyx_v_mrt_tol, int __pyx_v_abort_threshold, CYTHON_UNUSED int __pyx_skip_dispatch) {
+  int __pyx_v_num_a;
+  int __pyx_v_num_b;
   int __pyx_v_i;
   int __pyx_v_j;
   int __pyx_v_p;
+  int __pyx_v_k;
+  int __pyx_v_k1;
+  int __pyx_v_k2;
+  int __pyx_v_k1_next;
+  int __pyx_v_k2_next;
+  int __pyx_v_start_j;
+  int __pyx_v_max_pos;
+  int __pyx_v_max_neg;
   int __pyx_v_p_count;
   int __pyx_v_interference_type;
+  int __pyx_v_pair_count;
+  double __pyx_v_a_min_x;
+  double __pyx_v_a_max_x;
+  double __pyx_v_a_min_y;
+  double __pyx_v_a_max_y;
   double __pyx_v_overlap_pts[20][2];
   double __pyx_v_ix;
   double __pyx_v_iy;
@@ -19665,25 +19034,24 @@ static PyObject *__pyx_f_14narrow_phase_c_evaluate_deep_narrow_phase_c(__Pyx_mem
   double __pyx_v_d_b;
   double __pyx_v_proj_w_a;
   double __pyx_v_proj_w_b;
-  int __pyx_v_num_pairs;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
-  Py_ssize_t __pyx_t_1;
+  int __pyx_t_1;
   int __pyx_t_2;
   int __pyx_t_3;
   int __pyx_t_4;
-  PyObject *__pyx_t_5 = NULL;
-  int __pyx_t_6;
+  int __pyx_t_5;
+  Py_ssize_t __pyx_t_6;
   Py_ssize_t __pyx_t_7;
-  Py_ssize_t __pyx_t_8;
-  Py_ssize_t __pyx_t_9;
-  Py_ssize_t __pyx_t_10;
-  Py_ssize_t __pyx_t_11;
+  int __pyx_t_8;
+  int __pyx_t_9;
+  int __pyx_t_10;
+  int __pyx_t_11;
   Py_ssize_t __pyx_t_12;
-  __Pyx_memviewslice __pyx_t_13 = { 0, 0, { 0 }, { 0 }, { 0 } };
-  int __pyx_t_14;
-  int __pyx_t_15;
-  Py_ssize_t __pyx_t_16;
+  Py_ssize_t __pyx_t_13;
+  Py_ssize_t __pyx_t_14;
+  Py_ssize_t __pyx_t_15;
+  int __pyx_t_16;
   Py_ssize_t __pyx_t_17;
   Py_ssize_t __pyx_t_18;
   Py_ssize_t __pyx_t_19;
@@ -19701,1014 +19069,1310 @@ static PyObject *__pyx_f_14narrow_phase_c_evaluate_deep_narrow_phase_c(__Pyx_mem
   Py_ssize_t __pyx_t_31;
   Py_ssize_t __pyx_t_32;
   Py_ssize_t __pyx_t_33;
-  int __pyx_t_34;
-  double __pyx_t_35;
-  int __pyx_t_36;
+  Py_ssize_t __pyx_t_34;
+  int __pyx_t_35;
+  double __pyx_t_36;
   PyObject *__pyx_t_37 = NULL;
   PyObject *__pyx_t_38 = NULL;
+  PyObject *__pyx_t_39 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __Pyx_RefNannySetupContext("evaluate_deep_narrow_phase_c", 0);
+  __Pyx_RefNannySetupContext("evaluate_overlap_c", 0);
 
-  /* "narrow_phase_c.pyx":196
- *     bint use_MRT, double mrt_tol
+  /* "narrow_phase_c.pyx":142
+ *     int abort_threshold
  * ):
+ *     cdef int num_a = tris_a_2d.shape[0]             # <<<<<<<<<<<<<<
+ *     cdef int num_b = tris_b_2d.shape[0]
+ *     cdef int i, j, p, k, k1, k2, k1_next, k2_next
+*/
+  __pyx_v_num_a = (__pyx_v_tris_a_2d.shape[0]);
+
+  /* "narrow_phase_c.pyx":143
+ * ):
+ *     cdef int num_a = tris_a_2d.shape[0]
+ *     cdef int num_b = tris_b_2d.shape[0]             # <<<<<<<<<<<<<<
+ *     cdef int i, j, p, k, k1, k2, k1_next, k2_next
+ *     cdef int start_j = 0
+*/
+  __pyx_v_num_b = (__pyx_v_tris_b_2d.shape[0]);
+
+  /* "narrow_phase_c.pyx":145
+ *     cdef int num_b = tris_b_2d.shape[0]
+ *     cdef int i, j, p, k, k1, k2, k1_next, k2_next
+ *     cdef int start_j = 0             # <<<<<<<<<<<<<<
+ *     cdef int max_pos = 0
+ *     cdef int max_neg = 0
+*/
+  __pyx_v_start_j = 0;
+
+  /* "narrow_phase_c.pyx":146
+ *     cdef int i, j, p, k, k1, k2, k1_next, k2_next
+ *     cdef int start_j = 0
  *     cdef int max_pos = 0             # <<<<<<<<<<<<<<
  *     cdef int max_neg = 0
- *     cdef int pair_idx, a_idx, b_idx, i, j, p
+ *     cdef int p_count = 0
 */
   __pyx_v_max_pos = 0;
 
-  /* "narrow_phase_c.pyx":197
- * ):
+  /* "narrow_phase_c.pyx":147
+ *     cdef int start_j = 0
  *     cdef int max_pos = 0
  *     cdef int max_neg = 0             # <<<<<<<<<<<<<<
- *     cdef int pair_idx, a_idx, b_idx, i, j, p
- *     cdef int p_count
+ *     cdef int p_count = 0
+ *     cdef int interference_type
 */
   __pyx_v_max_neg = 0;
 
-  /* "narrow_phase_c.pyx":212
+  /* "narrow_phase_c.pyx":148
+ *     cdef int max_pos = 0
+ *     cdef int max_neg = 0
+ *     cdef int p_count = 0             # <<<<<<<<<<<<<<
+ *     cdef int interference_type
+ *     cdef int pair_count = 0
+*/
+  __pyx_v_p_count = 0;
+
+  /* "narrow_phase_c.pyx":150
+ *     cdef int p_count = 0
+ *     cdef int interference_type
+ *     cdef int pair_count = 0             # <<<<<<<<<<<<<<
+ * 
+ *     cdef double a_min_x, a_max_x, a_min_y, a_max_y
+*/
+  __pyx_v_pair_count = 0;
+
+  /* "narrow_phase_c.pyx":161
  *     cdef double proj_w_a, proj_w_b
  * 
- *     cdef int num_pairs = len(intersecting_pairs)             # <<<<<<<<<<<<<<
+ *     if num_a == 0 or num_b == 0:             # <<<<<<<<<<<<<<
+ *         return (0, 0)
  * 
- *     for pair_idx in range(num_pairs):
 */
-  if (unlikely(__pyx_v_intersecting_pairs == Py_None)) {
-    PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-    __PYX_ERR(0, 212, __pyx_L1_error)
+  __pyx_t_2 = (__pyx_v_num_a == 0);
+  if (!__pyx_t_2) {
+  } else {
+    __pyx_t_1 = __pyx_t_2;
+    goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_1 = __Pyx_PyList_GET_SIZE(__pyx_v_intersecting_pairs); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1))) __PYX_ERR(0, 212, __pyx_L1_error)
-  __pyx_v_num_pairs = __pyx_t_1;
+  __pyx_t_2 = (__pyx_v_num_b == 0);
+  __pyx_t_1 = __pyx_t_2;
+  __pyx_L4_bool_binop_done:;
+  if (__pyx_t_1) {
 
-  /* "narrow_phase_c.pyx":214
- *     cdef int num_pairs = len(intersecting_pairs)
+    /* "narrow_phase_c.pyx":162
  * 
- *     for pair_idx in range(num_pairs):             # <<<<<<<<<<<<<<
- *         a_idx = intersecting_pairs[pair_idx][0]
- *         b_idx = intersecting_pairs[pair_idx][1]
+ *     if num_a == 0 or num_b == 0:
+ *         return (0, 0)             # <<<<<<<<<<<<<<
+ * 
+ *     for i in range(num_a):
 */
-  __pyx_t_2 = __pyx_v_num_pairs;
-  __pyx_t_3 = __pyx_t_2;
-  for (__pyx_t_4 = 0; __pyx_t_4 < __pyx_t_3; __pyx_t_4+=1) {
-    __pyx_v_pair_idx = __pyx_t_4;
+    __Pyx_XDECREF(__pyx_r);
+    __Pyx_INCREF(__pyx_mstate_global->__pyx_tuple[1]);
+    __pyx_r = __pyx_mstate_global->__pyx_tuple[1];
+    goto __pyx_L0;
 
-    /* "narrow_phase_c.pyx":215
+    /* "narrow_phase_c.pyx":161
+ *     cdef double proj_w_a, proj_w_b
  * 
- *     for pair_idx in range(num_pairs):
- *         a_idx = intersecting_pairs[pair_idx][0]             # <<<<<<<<<<<<<<
- *         b_idx = intersecting_pairs[pair_idx][1]
+ *     if num_a == 0 or num_b == 0:             # <<<<<<<<<<<<<<
+ *         return (0, 0)
  * 
 */
-    if (unlikely(__pyx_v_intersecting_pairs == Py_None)) {
-      PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-      __PYX_ERR(0, 215, __pyx_L1_error)
+  }
+
+  /* "narrow_phase_c.pyx":164
+ *         return (0, 0)
+ * 
+ *     for i in range(num_a):             # <<<<<<<<<<<<<<
+ *         a_min_x = aabbs_a[i, 0]
+ *         a_min_y = aabbs_a[i, 1]
+*/
+  __pyx_t_3 = __pyx_v_num_a;
+  __pyx_t_4 = __pyx_t_3;
+  for (__pyx_t_5 = 0; __pyx_t_5 < __pyx_t_4; __pyx_t_5+=1) {
+    __pyx_v_i = __pyx_t_5;
+
+    /* "narrow_phase_c.pyx":165
+ * 
+ *     for i in range(num_a):
+ *         a_min_x = aabbs_a[i, 0]             # <<<<<<<<<<<<<<
+ *         a_min_y = aabbs_a[i, 1]
+ *         a_max_x = aabbs_a[i, 2]
+*/
+    __pyx_t_6 = __pyx_v_i;
+    __pyx_t_7 = 0;
+    __pyx_v_a_min_x = (*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_aabbs_a.data + __pyx_t_6 * __pyx_v_aabbs_a.strides[0]) )) + __pyx_t_7)) )));
+
+    /* "narrow_phase_c.pyx":166
+ *     for i in range(num_a):
+ *         a_min_x = aabbs_a[i, 0]
+ *         a_min_y = aabbs_a[i, 1]             # <<<<<<<<<<<<<<
+ *         a_max_x = aabbs_a[i, 2]
+ *         a_max_y = aabbs_a[i, 3]
+*/
+    __pyx_t_7 = __pyx_v_i;
+    __pyx_t_6 = 1;
+    __pyx_v_a_min_y = (*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_aabbs_a.data + __pyx_t_7 * __pyx_v_aabbs_a.strides[0]) )) + __pyx_t_6)) )));
+
+    /* "narrow_phase_c.pyx":167
+ *         a_min_x = aabbs_a[i, 0]
+ *         a_min_y = aabbs_a[i, 1]
+ *         a_max_x = aabbs_a[i, 2]             # <<<<<<<<<<<<<<
+ *         a_max_y = aabbs_a[i, 3]
+ * 
+*/
+    __pyx_t_6 = __pyx_v_i;
+    __pyx_t_7 = 2;
+    __pyx_v_a_max_x = (*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_aabbs_a.data + __pyx_t_6 * __pyx_v_aabbs_a.strides[0]) )) + __pyx_t_7)) )));
+
+    /* "narrow_phase_c.pyx":168
+ *         a_min_y = aabbs_a[i, 1]
+ *         a_max_x = aabbs_a[i, 2]
+ *         a_max_y = aabbs_a[i, 3]             # <<<<<<<<<<<<<<
+ * 
+ *         while start_j < num_b and aabbs_b[start_j, 2] < a_min_x:
+*/
+    __pyx_t_7 = __pyx_v_i;
+    __pyx_t_6 = 3;
+    __pyx_v_a_max_y = (*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_aabbs_a.data + __pyx_t_7 * __pyx_v_aabbs_a.strides[0]) )) + __pyx_t_6)) )));
+
+    /* "narrow_phase_c.pyx":170
+ *         a_max_y = aabbs_a[i, 3]
+ * 
+ *         while start_j < num_b and aabbs_b[start_j, 2] < a_min_x:             # <<<<<<<<<<<<<<
+ *             start_j += 1
+ * 
+*/
+    while (1) {
+      __pyx_t_2 = (__pyx_v_start_j < __pyx_v_num_b);
+      if (__pyx_t_2) {
+      } else {
+        __pyx_t_1 = __pyx_t_2;
+        goto __pyx_L10_bool_binop_done;
+      }
+      __pyx_t_6 = __pyx_v_start_j;
+      __pyx_t_7 = 2;
+      __pyx_t_2 = ((*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_aabbs_b.data + __pyx_t_6 * __pyx_v_aabbs_b.strides[0]) )) + __pyx_t_7)) ))) < __pyx_v_a_min_x);
+      __pyx_t_1 = __pyx_t_2;
+      __pyx_L10_bool_binop_done:;
+      if (!__pyx_t_1) break;
+
+      /* "narrow_phase_c.pyx":171
+ * 
+ *         while start_j < num_b and aabbs_b[start_j, 2] < a_min_x:
+ *             start_j += 1             # <<<<<<<<<<<<<<
+ * 
+ *         for j in range(start_j, num_b):
+*/
+      __pyx_v_start_j = (__pyx_v_start_j + 1);
     }
-    __pyx_t_5 = __Pyx_GetItemInt(__Pyx_PyList_GET_ITEM(__pyx_v_intersecting_pairs, __pyx_v_pair_idx), 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_SharedReference); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 215, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_6 = __Pyx_PyLong_As_int(__pyx_t_5); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 215, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __pyx_v_a_idx = __pyx_t_6;
 
-    /* "narrow_phase_c.pyx":216
- *     for pair_idx in range(num_pairs):
- *         a_idx = intersecting_pairs[pair_idx][0]
- *         b_idx = intersecting_pairs[pair_idx][1]             # <<<<<<<<<<<<<<
+    /* "narrow_phase_c.pyx":173
+ *             start_j += 1
  * 
- *         p_count = 0
+ *         for j in range(start_j, num_b):             # <<<<<<<<<<<<<<
+ *             if aabbs_b[j, 0] > a_max_x:
+ *                 break
 */
-    if (unlikely(__pyx_v_intersecting_pairs == Py_None)) {
-      PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-      __PYX_ERR(0, 216, __pyx_L1_error)
-    }
-    __pyx_t_5 = __Pyx_GetItemInt(__Pyx_PyList_GET_ITEM(__pyx_v_intersecting_pairs, __pyx_v_pair_idx), 1, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_SharedReference); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 216, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_6 = __Pyx_PyLong_As_int(__pyx_t_5); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 216, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __pyx_v_b_idx = __pyx_t_6;
+    __pyx_t_8 = __pyx_v_num_b;
+    __pyx_t_9 = __pyx_t_8;
+    for (__pyx_t_10 = __pyx_v_start_j; __pyx_t_10 < __pyx_t_9; __pyx_t_10+=1) {
+      __pyx_v_j = __pyx_t_10;
 
-    /* "narrow_phase_c.pyx":218
- *         b_idx = intersecting_pairs[pair_idx][1]
+      /* "narrow_phase_c.pyx":174
  * 
- *         p_count = 0             # <<<<<<<<<<<<<<
- * 
- *         # 1. Grab vertices of A inside B
-*/
-    __pyx_v_p_count = 0;
-
-    /* "narrow_phase_c.pyx":221
- * 
- *         # 1. Grab vertices of A inside B
- *         for i in range(3):             # <<<<<<<<<<<<<<
- *             if point_in_triangle(tris_a_2d[a_idx][i][0], tris_a_2d[a_idx][i][1], tris_b_2d[b_idx]):
- *                 overlap_pts[p_count][0] = tris_a_2d[a_idx][i][0]
-*/
-    for (__pyx_t_6 = 0; __pyx_t_6 < 3; __pyx_t_6+=1) {
-      __pyx_v_i = __pyx_t_6;
-
-      /* "narrow_phase_c.pyx":222
- *         # 1. Grab vertices of A inside B
- *         for i in range(3):
- *             if point_in_triangle(tris_a_2d[a_idx][i][0], tris_a_2d[a_idx][i][1], tris_b_2d[b_idx]):             # <<<<<<<<<<<<<<
- *                 overlap_pts[p_count][0] = tris_a_2d[a_idx][i][0]
- *                 overlap_pts[p_count][1] = tris_a_2d[a_idx][i][1]
-*/
-      __pyx_t_7 = __pyx_v_a_idx;
-      __pyx_t_8 = __pyx_v_i;
-      __pyx_t_9 = 0;
-      __pyx_t_10 = __pyx_v_a_idx;
-      __pyx_t_11 = __pyx_v_i;
-      __pyx_t_12 = 1;
-      __pyx_t_13.data = __pyx_v_tris_b_2d.data;
-      __pyx_t_13.memview = __pyx_v_tris_b_2d.memview;
-      __PYX_INC_MEMVIEW(&__pyx_t_13, 1);
-      {
-    Py_ssize_t __pyx_tmp_idx = __pyx_v_b_idx;
-    Py_ssize_t __pyx_tmp_stride = __pyx_v_tris_b_2d.strides[0];
-        __pyx_t_13.data += __pyx_tmp_idx * __pyx_tmp_stride;
-}
-
-__pyx_t_13.shape[0] = __pyx_v_tris_b_2d.shape[1];
-__pyx_t_13.strides[0] = __pyx_v_tris_b_2d.strides[1];
-    __pyx_t_13.suboffsets[0] = -1;
-
-__pyx_t_13.shape[1] = __pyx_v_tris_b_2d.shape[2];
-__pyx_t_13.strides[1] = __pyx_v_tris_b_2d.strides[2];
-    __pyx_t_13.suboffsets[1] = -1;
-
-__pyx_t_14 = __pyx_f_14narrow_phase_c_point_in_triangle((*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_2d.data + __pyx_t_7 * __pyx_v_tris_a_2d.strides[0]) ) + __pyx_t_8 * __pyx_v_tris_a_2d.strides[1]) ) + __pyx_t_9 * __pyx_v_tris_a_2d.strides[2]) ))), (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_2d.data + __pyx_t_10 * __pyx_v_tris_a_2d.strides[0]) ) + __pyx_t_11 * __pyx_v_tris_a_2d.strides[1]) ) + __pyx_t_12 * __pyx_v_tris_a_2d.strides[2]) ))), __pyx_t_13); if (unlikely(__pyx_t_14 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 222, __pyx_L1_error)
-      __PYX_XCLEAR_MEMVIEW(&__pyx_t_13, 1);
-      __pyx_t_13.memview = NULL; __pyx_t_13.data = NULL;
-      if (__pyx_t_14) {
-
-        /* "narrow_phase_c.pyx":223
- *         for i in range(3):
- *             if point_in_triangle(tris_a_2d[a_idx][i][0], tris_a_2d[a_idx][i][1], tris_b_2d[b_idx]):
- *                 overlap_pts[p_count][0] = tris_a_2d[a_idx][i][0]             # <<<<<<<<<<<<<<
- *                 overlap_pts[p_count][1] = tris_a_2d[a_idx][i][1]
- *                 p_count += 1
-*/
-        __pyx_t_12 = __pyx_v_a_idx;
-        __pyx_t_11 = __pyx_v_i;
-        __pyx_t_10 = 0;
-        ((__pyx_v_overlap_pts[__pyx_v_p_count])[0]) = (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_2d.data + __pyx_t_12 * __pyx_v_tris_a_2d.strides[0]) ) + __pyx_t_11 * __pyx_v_tris_a_2d.strides[1]) ) + __pyx_t_10 * __pyx_v_tris_a_2d.strides[2]) )));
-
-        /* "narrow_phase_c.pyx":224
- *             if point_in_triangle(tris_a_2d[a_idx][i][0], tris_a_2d[a_idx][i][1], tris_b_2d[b_idx]):
- *                 overlap_pts[p_count][0] = tris_a_2d[a_idx][i][0]
- *                 overlap_pts[p_count][1] = tris_a_2d[a_idx][i][1]             # <<<<<<<<<<<<<<
- *                 p_count += 1
+ *         for j in range(start_j, num_b):
+ *             if aabbs_b[j, 0] > a_max_x:             # <<<<<<<<<<<<<<
+ *                 break
  * 
 */
-        __pyx_t_10 = __pyx_v_a_idx;
-        __pyx_t_11 = __pyx_v_i;
-        __pyx_t_12 = 1;
-        ((__pyx_v_overlap_pts[__pyx_v_p_count])[1]) = (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_2d.data + __pyx_t_10 * __pyx_v_tris_a_2d.strides[0]) ) + __pyx_t_11 * __pyx_v_tris_a_2d.strides[1]) ) + __pyx_t_12 * __pyx_v_tris_a_2d.strides[2]) )));
+      __pyx_t_7 = __pyx_v_j;
+      __pyx_t_6 = 0;
+      __pyx_t_1 = ((*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_aabbs_b.data + __pyx_t_7 * __pyx_v_aabbs_b.strides[0]) )) + __pyx_t_6)) ))) > __pyx_v_a_max_x);
+      if (__pyx_t_1) {
 
-        /* "narrow_phase_c.pyx":225
- *                 overlap_pts[p_count][0] = tris_a_2d[a_idx][i][0]
- *                 overlap_pts[p_count][1] = tris_a_2d[a_idx][i][1]
- *                 p_count += 1             # <<<<<<<<<<<<<<
+        /* "narrow_phase_c.pyx":175
+ *         for j in range(start_j, num_b):
+ *             if aabbs_b[j, 0] > a_max_x:
+ *                 break             # <<<<<<<<<<<<<<
  * 
- *         # 2. Grab vertices of B inside A
+ *             if aabbs_b[j, 2] < a_min_x:
 */
-        __pyx_v_p_count = (__pyx_v_p_count + 1);
+        goto __pyx_L13_break;
+
+        /* "narrow_phase_c.pyx":174
+ * 
+ *         for j in range(start_j, num_b):
+ *             if aabbs_b[j, 0] > a_max_x:             # <<<<<<<<<<<<<<
+ *                 break
+ * 
+*/
+      }
+
+      /* "narrow_phase_c.pyx":177
+ *                 break
+ * 
+ *             if aabbs_b[j, 2] < a_min_x:             # <<<<<<<<<<<<<<
+ *                 continue
+ * 
+*/
+      __pyx_t_6 = __pyx_v_j;
+      __pyx_t_7 = 2;
+      __pyx_t_1 = ((*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_aabbs_b.data + __pyx_t_6 * __pyx_v_aabbs_b.strides[0]) )) + __pyx_t_7)) ))) < __pyx_v_a_min_x);
+      if (__pyx_t_1) {
+
+        /* "narrow_phase_c.pyx":178
+ * 
+ *             if aabbs_b[j, 2] < a_min_x:
+ *                 continue             # <<<<<<<<<<<<<<
+ * 
+ *             if aabbs_b[j, 1] > a_max_y or aabbs_b[j, 3] < a_min_y:
+*/
+        goto __pyx_L12_continue;
+
+        /* "narrow_phase_c.pyx":177
+ *                 break
+ * 
+ *             if aabbs_b[j, 2] < a_min_x:             # <<<<<<<<<<<<<<
+ *                 continue
+ * 
+*/
+      }
+
+      /* "narrow_phase_c.pyx":180
+ *                 continue
+ * 
+ *             if aabbs_b[j, 1] > a_max_y or aabbs_b[j, 3] < a_min_y:             # <<<<<<<<<<<<<<
+ *                 continue
+ * 
+*/
+      __pyx_t_7 = __pyx_v_j;
+      __pyx_t_6 = 1;
+      __pyx_t_2 = ((*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_aabbs_b.data + __pyx_t_7 * __pyx_v_aabbs_b.strides[0]) )) + __pyx_t_6)) ))) > __pyx_v_a_max_y);
+      if (!__pyx_t_2) {
+      } else {
+        __pyx_t_1 = __pyx_t_2;
+        goto __pyx_L17_bool_binop_done;
+      }
+      __pyx_t_6 = __pyx_v_j;
+      __pyx_t_7 = 3;
+      __pyx_t_2 = ((*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_aabbs_b.data + __pyx_t_6 * __pyx_v_aabbs_b.strides[0]) )) + __pyx_t_7)) ))) < __pyx_v_a_min_y);
+      __pyx_t_1 = __pyx_t_2;
+      __pyx_L17_bool_binop_done:;
+      if (__pyx_t_1) {
+
+        /* "narrow_phase_c.pyx":181
+ * 
+ *             if aabbs_b[j, 1] > a_max_y or aabbs_b[j, 3] < a_min_y:
+ *                 continue             # <<<<<<<<<<<<<<
+ * 
+ *             if check_2d_sat_overlap(tris_a_2d, i, tris_b_2d, j):
+*/
+        goto __pyx_L12_continue;
+
+        /* "narrow_phase_c.pyx":180
+ *                 continue
+ * 
+ *             if aabbs_b[j, 1] > a_max_y or aabbs_b[j, 3] < a_min_y:             # <<<<<<<<<<<<<<
+ *                 continue
+ * 
+*/
+      }
+
+      /* "narrow_phase_c.pyx":183
+ *                 continue
+ * 
+ *             if check_2d_sat_overlap(tris_a_2d, i, tris_b_2d, j):             # <<<<<<<<<<<<<<
+ *                 pair_count += 1
+ *                 if abort_threshold > 0 and pair_count > abort_threshold:
+*/
+      __pyx_t_1 = __pyx_f_14narrow_phase_c_check_2d_sat_overlap(__pyx_v_tris_a_2d, __pyx_v_i, __pyx_v_tris_b_2d, __pyx_v_j); if (unlikely(__pyx_t_1 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 183, __pyx_L1_error)
+      if (__pyx_t_1) {
+
+        /* "narrow_phase_c.pyx":184
+ * 
+ *             if check_2d_sat_overlap(tris_a_2d, i, tris_b_2d, j):
+ *                 pair_count += 1             # <<<<<<<<<<<<<<
+ *                 if abort_threshold > 0 and pair_count > abort_threshold:
+ *                     return (-999, -999)
+*/
+        __pyx_v_pair_count = (__pyx_v_pair_count + 1);
+
+        /* "narrow_phase_c.pyx":185
+ *             if check_2d_sat_overlap(tris_a_2d, i, tris_b_2d, j):
+ *                 pair_count += 1
+ *                 if abort_threshold > 0 and pair_count > abort_threshold:             # <<<<<<<<<<<<<<
+ *                     return (-999, -999)
+ * 
+*/
+        __pyx_t_2 = (__pyx_v_abort_threshold > 0);
+        if (__pyx_t_2) {
+        } else {
+          __pyx_t_1 = __pyx_t_2;
+          goto __pyx_L21_bool_binop_done;
+        }
+        __pyx_t_2 = (__pyx_v_pair_count > __pyx_v_abort_threshold);
+        __pyx_t_1 = __pyx_t_2;
+        __pyx_L21_bool_binop_done:;
+        if (__pyx_t_1) {
+
+          /* "narrow_phase_c.pyx":186
+ *                 pair_count += 1
+ *                 if abort_threshold > 0 and pair_count > abort_threshold:
+ *                     return (-999, -999)             # <<<<<<<<<<<<<<
+ * 
+ *                 p_count = 0
+*/
+          __Pyx_XDECREF(__pyx_r);
+          __Pyx_INCREF(__pyx_mstate_global->__pyx_tuple[2]);
+          __pyx_r = __pyx_mstate_global->__pyx_tuple[2];
+          goto __pyx_L0;
+
+          /* "narrow_phase_c.pyx":185
+ *             if check_2d_sat_overlap(tris_a_2d, i, tris_b_2d, j):
+ *                 pair_count += 1
+ *                 if abort_threshold > 0 and pair_count > abort_threshold:             # <<<<<<<<<<<<<<
+ *                     return (-999, -999)
+ * 
+*/
+        }
+
+        /* "narrow_phase_c.pyx":188
+ *                     return (-999, -999)
+ * 
+ *                 p_count = 0             # <<<<<<<<<<<<<<
+ *                 for k in range(3):
+ *                     if point_in_triangle(tris_a_2d[i, k, 0], tris_a_2d[i, k, 1], tris_b_2d, j):
+*/
+        __pyx_v_p_count = 0;
+
+        /* "narrow_phase_c.pyx":189
+ * 
+ *                 p_count = 0
+ *                 for k in range(3):             # <<<<<<<<<<<<<<
+ *                     if point_in_triangle(tris_a_2d[i, k, 0], tris_a_2d[i, k, 1], tris_b_2d, j):
+ *                         overlap_pts[p_count][0] = tris_a_2d[i, k, 0]
+*/
+        for (__pyx_t_11 = 0; __pyx_t_11 < 3; __pyx_t_11+=1) {
+          __pyx_v_k = __pyx_t_11;
+
+          /* "narrow_phase_c.pyx":190
+ *                 p_count = 0
+ *                 for k in range(3):
+ *                     if point_in_triangle(tris_a_2d[i, k, 0], tris_a_2d[i, k, 1], tris_b_2d, j):             # <<<<<<<<<<<<<<
+ *                         overlap_pts[p_count][0] = tris_a_2d[i, k, 0]
+ *                         overlap_pts[p_count][1] = tris_a_2d[i, k, 1]
+*/
+          __pyx_t_7 = __pyx_v_i;
+          __pyx_t_6 = __pyx_v_k;
+          __pyx_t_12 = 0;
+          __pyx_t_13 = __pyx_v_i;
+          __pyx_t_14 = __pyx_v_k;
+          __pyx_t_15 = 1;
+          __pyx_t_1 = __pyx_f_14narrow_phase_c_point_in_triangle((*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_2d.data + __pyx_t_7 * __pyx_v_tris_a_2d.strides[0]) ) + __pyx_t_6 * __pyx_v_tris_a_2d.strides[1]) )) + __pyx_t_12)) ))), (*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_2d.data + __pyx_t_13 * __pyx_v_tris_a_2d.strides[0]) ) + __pyx_t_14 * __pyx_v_tris_a_2d.strides[1]) )) + __pyx_t_15)) ))), __pyx_v_tris_b_2d, __pyx_v_j); if (unlikely(__pyx_t_1 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 190, __pyx_L1_error)
+          if (__pyx_t_1) {
+
+            /* "narrow_phase_c.pyx":191
+ *                 for k in range(3):
+ *                     if point_in_triangle(tris_a_2d[i, k, 0], tris_a_2d[i, k, 1], tris_b_2d, j):
+ *                         overlap_pts[p_count][0] = tris_a_2d[i, k, 0]             # <<<<<<<<<<<<<<
+ *                         overlap_pts[p_count][1] = tris_a_2d[i, k, 1]
+ *                         p_count += 1
+*/
+            __pyx_t_15 = __pyx_v_i;
+            __pyx_t_14 = __pyx_v_k;
+            __pyx_t_13 = 0;
+            ((__pyx_v_overlap_pts[__pyx_v_p_count])[0]) = (*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_2d.data + __pyx_t_15 * __pyx_v_tris_a_2d.strides[0]) ) + __pyx_t_14 * __pyx_v_tris_a_2d.strides[1]) )) + __pyx_t_13)) )));
+
+            /* "narrow_phase_c.pyx":192
+ *                     if point_in_triangle(tris_a_2d[i, k, 0], tris_a_2d[i, k, 1], tris_b_2d, j):
+ *                         overlap_pts[p_count][0] = tris_a_2d[i, k, 0]
+ *                         overlap_pts[p_count][1] = tris_a_2d[i, k, 1]             # <<<<<<<<<<<<<<
+ *                         p_count += 1
+ * 
+*/
+            __pyx_t_13 = __pyx_v_i;
+            __pyx_t_14 = __pyx_v_k;
+            __pyx_t_15 = 1;
+            ((__pyx_v_overlap_pts[__pyx_v_p_count])[1]) = (*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_2d.data + __pyx_t_13 * __pyx_v_tris_a_2d.strides[0]) ) + __pyx_t_14 * __pyx_v_tris_a_2d.strides[1]) )) + __pyx_t_15)) )));
+
+            /* "narrow_phase_c.pyx":193
+ *                         overlap_pts[p_count][0] = tris_a_2d[i, k, 0]
+ *                         overlap_pts[p_count][1] = tris_a_2d[i, k, 1]
+ *                         p_count += 1             # <<<<<<<<<<<<<<
+ * 
+ *                 for k in range(3):
+*/
+            __pyx_v_p_count = (__pyx_v_p_count + 1);
+
+            /* "narrow_phase_c.pyx":190
+ *                 p_count = 0
+ *                 for k in range(3):
+ *                     if point_in_triangle(tris_a_2d[i, k, 0], tris_a_2d[i, k, 1], tris_b_2d, j):             # <<<<<<<<<<<<<<
+ *                         overlap_pts[p_count][0] = tris_a_2d[i, k, 0]
+ *                         overlap_pts[p_count][1] = tris_a_2d[i, k, 1]
+*/
+          }
+        }
+
+        /* "narrow_phase_c.pyx":195
+ *                         p_count += 1
+ * 
+ *                 for k in range(3):             # <<<<<<<<<<<<<<
+ *                     if point_in_triangle(tris_b_2d[j, k, 0], tris_b_2d[j, k, 1], tris_a_2d, i):
+ *                         overlap_pts[p_count][0] = tris_b_2d[j, k, 0]
+*/
+        for (__pyx_t_11 = 0; __pyx_t_11 < 3; __pyx_t_11+=1) {
+          __pyx_v_k = __pyx_t_11;
+
+          /* "narrow_phase_c.pyx":196
+ * 
+ *                 for k in range(3):
+ *                     if point_in_triangle(tris_b_2d[j, k, 0], tris_b_2d[j, k, 1], tris_a_2d, i):             # <<<<<<<<<<<<<<
+ *                         overlap_pts[p_count][0] = tris_b_2d[j, k, 0]
+ *                         overlap_pts[p_count][1] = tris_b_2d[j, k, 1]
+*/
+          __pyx_t_15 = __pyx_v_j;
+          __pyx_t_14 = __pyx_v_k;
+          __pyx_t_13 = 0;
+          __pyx_t_12 = __pyx_v_j;
+          __pyx_t_6 = __pyx_v_k;
+          __pyx_t_7 = 1;
+          __pyx_t_1 = __pyx_f_14narrow_phase_c_point_in_triangle((*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_2d.data + __pyx_t_15 * __pyx_v_tris_b_2d.strides[0]) ) + __pyx_t_14 * __pyx_v_tris_b_2d.strides[1]) )) + __pyx_t_13)) ))), (*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_2d.data + __pyx_t_12 * __pyx_v_tris_b_2d.strides[0]) ) + __pyx_t_6 * __pyx_v_tris_b_2d.strides[1]) )) + __pyx_t_7)) ))), __pyx_v_tris_a_2d, __pyx_v_i); if (unlikely(__pyx_t_1 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 196, __pyx_L1_error)
+          if (__pyx_t_1) {
+
+            /* "narrow_phase_c.pyx":197
+ *                 for k in range(3):
+ *                     if point_in_triangle(tris_b_2d[j, k, 0], tris_b_2d[j, k, 1], tris_a_2d, i):
+ *                         overlap_pts[p_count][0] = tris_b_2d[j, k, 0]             # <<<<<<<<<<<<<<
+ *                         overlap_pts[p_count][1] = tris_b_2d[j, k, 1]
+ *                         p_count += 1
+*/
+            __pyx_t_7 = __pyx_v_j;
+            __pyx_t_6 = __pyx_v_k;
+            __pyx_t_12 = 0;
+            ((__pyx_v_overlap_pts[__pyx_v_p_count])[0]) = (*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_2d.data + __pyx_t_7 * __pyx_v_tris_b_2d.strides[0]) ) + __pyx_t_6 * __pyx_v_tris_b_2d.strides[1]) )) + __pyx_t_12)) )));
+
+            /* "narrow_phase_c.pyx":198
+ *                     if point_in_triangle(tris_b_2d[j, k, 0], tris_b_2d[j, k, 1], tris_a_2d, i):
+ *                         overlap_pts[p_count][0] = tris_b_2d[j, k, 0]
+ *                         overlap_pts[p_count][1] = tris_b_2d[j, k, 1]             # <<<<<<<<<<<<<<
+ *                         p_count += 1
+ * 
+*/
+            __pyx_t_12 = __pyx_v_j;
+            __pyx_t_6 = __pyx_v_k;
+            __pyx_t_7 = 1;
+            ((__pyx_v_overlap_pts[__pyx_v_p_count])[1]) = (*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_2d.data + __pyx_t_12 * __pyx_v_tris_b_2d.strides[0]) ) + __pyx_t_6 * __pyx_v_tris_b_2d.strides[1]) )) + __pyx_t_7)) )));
+
+            /* "narrow_phase_c.pyx":199
+ *                         overlap_pts[p_count][0] = tris_b_2d[j, k, 0]
+ *                         overlap_pts[p_count][1] = tris_b_2d[j, k, 1]
+ *                         p_count += 1             # <<<<<<<<<<<<<<
+ * 
+ *                 for k1 in range(3):
+*/
+            __pyx_v_p_count = (__pyx_v_p_count + 1);
+
+            /* "narrow_phase_c.pyx":196
+ * 
+ *                 for k in range(3):
+ *                     if point_in_triangle(tris_b_2d[j, k, 0], tris_b_2d[j, k, 1], tris_a_2d, i):             # <<<<<<<<<<<<<<
+ *                         overlap_pts[p_count][0] = tris_b_2d[j, k, 0]
+ *                         overlap_pts[p_count][1] = tris_b_2d[j, k, 1]
+*/
+          }
+        }
+
+        /* "narrow_phase_c.pyx":201
+ *                         p_count += 1
+ * 
+ *                 for k1 in range(3):             # <<<<<<<<<<<<<<
+ *                     k1_next = k1 + 1
+ *                     if k1_next == 3: k1_next = 0
+*/
+        for (__pyx_t_11 = 0; __pyx_t_11 < 3; __pyx_t_11+=1) {
+          __pyx_v_k1 = __pyx_t_11;
+
+          /* "narrow_phase_c.pyx":202
+ * 
+ *                 for k1 in range(3):
+ *                     k1_next = k1 + 1             # <<<<<<<<<<<<<<
+ *                     if k1_next == 3: k1_next = 0
+ *                     for k2 in range(3):
+*/
+          __pyx_v_k1_next = (__pyx_v_k1 + 1);
+
+          /* "narrow_phase_c.pyx":203
+ *                 for k1 in range(3):
+ *                     k1_next = k1 + 1
+ *                     if k1_next == 3: k1_next = 0             # <<<<<<<<<<<<<<
+ *                     for k2 in range(3):
+ *                         k2_next = k2 + 1
+*/
+          __pyx_t_1 = (__pyx_v_k1_next == 3);
+          if (__pyx_t_1) {
+            __pyx_v_k1_next = 0;
+          }
+
+          /* "narrow_phase_c.pyx":204
+ *                     k1_next = k1 + 1
+ *                     if k1_next == 3: k1_next = 0
+ *                     for k2 in range(3):             # <<<<<<<<<<<<<<
+ *                         k2_next = k2 + 1
+ *                         if k2_next == 3: k2_next = 0
+*/
+          for (__pyx_t_16 = 0; __pyx_t_16 < 3; __pyx_t_16+=1) {
+            __pyx_v_k2 = __pyx_t_16;
+
+            /* "narrow_phase_c.pyx":205
+ *                     if k1_next == 3: k1_next = 0
+ *                     for k2 in range(3):
+ *                         k2_next = k2 + 1             # <<<<<<<<<<<<<<
+ *                         if k2_next == 3: k2_next = 0
+ * 
+*/
+            __pyx_v_k2_next = (__pyx_v_k2 + 1);
+
+            /* "narrow_phase_c.pyx":206
+ *                     for k2 in range(3):
+ *                         k2_next = k2 + 1
+ *                         if k2_next == 3: k2_next = 0             # <<<<<<<<<<<<<<
+ * 
+ *                         if get_line_intersection(
+*/
+            __pyx_t_1 = (__pyx_v_k2_next == 3);
+            if (__pyx_t_1) {
+              __pyx_v_k2_next = 0;
+            }
+
+            /* "narrow_phase_c.pyx":209
+ * 
+ *                         if get_line_intersection(
+ *                             tris_a_2d[i, k1, 0], tris_a_2d[i, k1, 1], tris_a_2d[i, k1_next, 0], tris_a_2d[i, k1_next, 1],             # <<<<<<<<<<<<<<
+ *                             tris_b_2d[j, k2, 0], tris_b_2d[j, k2, 1], tris_b_2d[j, k2_next, 0], tris_b_2d[j, k2_next, 1],
+ *                             &ix, &iy
+*/
+            __pyx_t_7 = __pyx_v_i;
+            __pyx_t_6 = __pyx_v_k1;
+            __pyx_t_12 = 0;
+            __pyx_t_13 = __pyx_v_i;
+            __pyx_t_14 = __pyx_v_k1;
+            __pyx_t_15 = 1;
+            __pyx_t_17 = __pyx_v_i;
+            __pyx_t_18 = __pyx_v_k1_next;
+            __pyx_t_19 = 0;
+            __pyx_t_20 = __pyx_v_i;
+            __pyx_t_21 = __pyx_v_k1_next;
+            __pyx_t_22 = 1;
+
+            /* "narrow_phase_c.pyx":210
+ *                         if get_line_intersection(
+ *                             tris_a_2d[i, k1, 0], tris_a_2d[i, k1, 1], tris_a_2d[i, k1_next, 0], tris_a_2d[i, k1_next, 1],
+ *                             tris_b_2d[j, k2, 0], tris_b_2d[j, k2, 1], tris_b_2d[j, k2_next, 0], tris_b_2d[j, k2_next, 1],             # <<<<<<<<<<<<<<
+ *                             &ix, &iy
+ *                         ):
+*/
+            __pyx_t_23 = __pyx_v_j;
+            __pyx_t_24 = __pyx_v_k2;
+            __pyx_t_25 = 0;
+            __pyx_t_26 = __pyx_v_j;
+            __pyx_t_27 = __pyx_v_k2;
+            __pyx_t_28 = 1;
+            __pyx_t_29 = __pyx_v_j;
+            __pyx_t_30 = __pyx_v_k2_next;
+            __pyx_t_31 = 0;
+            __pyx_t_32 = __pyx_v_j;
+            __pyx_t_33 = __pyx_v_k2_next;
+            __pyx_t_34 = 1;
+
+            /* "narrow_phase_c.pyx":208
+ *                         if k2_next == 3: k2_next = 0
+ * 
+ *                         if get_line_intersection(             # <<<<<<<<<<<<<<
+ *                             tris_a_2d[i, k1, 0], tris_a_2d[i, k1, 1], tris_a_2d[i, k1_next, 0], tris_a_2d[i, k1_next, 1],
+ *                             tris_b_2d[j, k2, 0], tris_b_2d[j, k2, 1], tris_b_2d[j, k2_next, 0], tris_b_2d[j, k2_next, 1],
+*/
+            __pyx_t_1 = __pyx_f_14narrow_phase_c_get_line_intersection((*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_2d.data + __pyx_t_7 * __pyx_v_tris_a_2d.strides[0]) ) + __pyx_t_6 * __pyx_v_tris_a_2d.strides[1]) )) + __pyx_t_12)) ))), (*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_2d.data + __pyx_t_13 * __pyx_v_tris_a_2d.strides[0]) ) + __pyx_t_14 * __pyx_v_tris_a_2d.strides[1]) )) + __pyx_t_15)) ))), (*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_2d.data + __pyx_t_17 * __pyx_v_tris_a_2d.strides[0]) ) + __pyx_t_18 * __pyx_v_tris_a_2d.strides[1]) )) + __pyx_t_19)) ))), (*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_2d.data + __pyx_t_20 * __pyx_v_tris_a_2d.strides[0]) ) + __pyx_t_21 * __pyx_v_tris_a_2d.strides[1]) )) + __pyx_t_22)) ))), (*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_2d.data + __pyx_t_23 * __pyx_v_tris_b_2d.strides[0]) ) + __pyx_t_24 * __pyx_v_tris_b_2d.strides[1]) )) + __pyx_t_25)) ))), (*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_2d.data + __pyx_t_26 * __pyx_v_tris_b_2d.strides[0]) ) + __pyx_t_27 * __pyx_v_tris_b_2d.strides[1]) )) + __pyx_t_28)) ))), (*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_2d.data + __pyx_t_29 * __pyx_v_tris_b_2d.strides[0]) ) + __pyx_t_30 * __pyx_v_tris_b_2d.strides[1]) )) + __pyx_t_31)) ))), (*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_2d.data + __pyx_t_32 * __pyx_v_tris_b_2d.strides[0]) ) + __pyx_t_33 * __pyx_v_tris_b_2d.strides[1]) )) + __pyx_t_34)) ))), (&__pyx_v_ix), (&__pyx_v_iy)); if (unlikely(__pyx_t_1 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 208, __pyx_L1_error)
+            if (__pyx_t_1) {
+
+              /* "narrow_phase_c.pyx":213
+ *                             &ix, &iy
+ *                         ):
+ *                             overlap_pts[p_count][0] = ix             # <<<<<<<<<<<<<<
+ *                             overlap_pts[p_count][1] = iy
+ *                             p_count += 1
+*/
+              ((__pyx_v_overlap_pts[__pyx_v_p_count])[0]) = __pyx_v_ix;
+
+              /* "narrow_phase_c.pyx":214
+ *                         ):
+ *                             overlap_pts[p_count][0] = ix
+ *                             overlap_pts[p_count][1] = iy             # <<<<<<<<<<<<<<
+ *                             p_count += 1
+ *                             if p_count == 20: break
+*/
+              ((__pyx_v_overlap_pts[__pyx_v_p_count])[1]) = __pyx_v_iy;
+
+              /* "narrow_phase_c.pyx":215
+ *                             overlap_pts[p_count][0] = ix
+ *                             overlap_pts[p_count][1] = iy
+ *                             p_count += 1             # <<<<<<<<<<<<<<
+ *                             if p_count == 20: break
+ *                     if p_count == 20: break
+*/
+              __pyx_v_p_count = (__pyx_v_p_count + 1);
+
+              /* "narrow_phase_c.pyx":216
+ *                             overlap_pts[p_count][1] = iy
+ *                             p_count += 1
+ *                             if p_count == 20: break             # <<<<<<<<<<<<<<
+ *                     if p_count == 20: break
+ * 
+*/
+              __pyx_t_1 = (__pyx_v_p_count == 20);
+              if (__pyx_t_1) {
+                goto __pyx_L33_break;
+              }
+
+              /* "narrow_phase_c.pyx":208
+ *                         if k2_next == 3: k2_next = 0
+ * 
+ *                         if get_line_intersection(             # <<<<<<<<<<<<<<
+ *                             tris_a_2d[i, k1, 0], tris_a_2d[i, k1, 1], tris_a_2d[i, k1_next, 0], tris_a_2d[i, k1_next, 1],
+ *                             tris_b_2d[j, k2, 0], tris_b_2d[j, k2, 1], tris_b_2d[j, k2_next, 0], tris_b_2d[j, k2_next, 1],
+*/
+            }
+          }
+          __pyx_L33_break:;
+
+          /* "narrow_phase_c.pyx":217
+ *                             p_count += 1
+ *                             if p_count == 20: break
+ *                     if p_count == 20: break             # <<<<<<<<<<<<<<
+ * 
+ *                 if p_count == 0: continue
+*/
+          __pyx_t_1 = (__pyx_v_p_count == 20);
+          if (__pyx_t_1) {
+            goto __pyx_L30_break;
+          }
+        }
+        __pyx_L30_break:;
+
+        /* "narrow_phase_c.pyx":219
+ *                     if p_count == 20: break
+ * 
+ *                 if p_count == 0: continue             # <<<<<<<<<<<<<<
+ * 
+ *                 min_u_overlap = overlap_pts[0][0]
+*/
+        __pyx_t_1 = (__pyx_v_p_count == 0);
+        if (__pyx_t_1) {
+          goto __pyx_L12_continue;
+        }
+
+        /* "narrow_phase_c.pyx":221
+ *                 if p_count == 0: continue
+ * 
+ *                 min_u_overlap = overlap_pts[0][0]             # <<<<<<<<<<<<<<
+ *                 max_u_overlap = overlap_pts[0][0]
+ *                 min_v_overlap = overlap_pts[0][1]
+*/
+        __pyx_v_min_u_overlap = ((__pyx_v_overlap_pts[0])[0]);
 
         /* "narrow_phase_c.pyx":222
- *         # 1. Grab vertices of A inside B
- *         for i in range(3):
- *             if point_in_triangle(tris_a_2d[a_idx][i][0], tris_a_2d[a_idx][i][1], tris_b_2d[b_idx]):             # <<<<<<<<<<<<<<
- *                 overlap_pts[p_count][0] = tris_a_2d[a_idx][i][0]
- *                 overlap_pts[p_count][1] = tris_a_2d[a_idx][i][1]
-*/
-      }
-    }
-
-    /* "narrow_phase_c.pyx":228
  * 
- *         # 2. Grab vertices of B inside A
- *         for i in range(3):             # <<<<<<<<<<<<<<
- *             if point_in_triangle(tris_b_2d[b_idx][i][0], tris_b_2d[b_idx][i][1], tris_a_2d[a_idx]):
- *                 overlap_pts[p_count][0] = tris_b_2d[b_idx][i][0]
+ *                 min_u_overlap = overlap_pts[0][0]
+ *                 max_u_overlap = overlap_pts[0][0]             # <<<<<<<<<<<<<<
+ *                 min_v_overlap = overlap_pts[0][1]
+ *                 max_v_overlap = overlap_pts[0][1]
 */
-    for (__pyx_t_6 = 0; __pyx_t_6 < 3; __pyx_t_6+=1) {
-      __pyx_v_i = __pyx_t_6;
+        __pyx_v_max_u_overlap = ((__pyx_v_overlap_pts[0])[0]);
 
-      /* "narrow_phase_c.pyx":229
- *         # 2. Grab vertices of B inside A
- *         for i in range(3):
- *             if point_in_triangle(tris_b_2d[b_idx][i][0], tris_b_2d[b_idx][i][1], tris_a_2d[a_idx]):             # <<<<<<<<<<<<<<
- *                 overlap_pts[p_count][0] = tris_b_2d[b_idx][i][0]
- *                 overlap_pts[p_count][1] = tris_b_2d[b_idx][i][1]
-*/
-      __pyx_t_12 = __pyx_v_b_idx;
-      __pyx_t_11 = __pyx_v_i;
-      __pyx_t_10 = 0;
-      __pyx_t_9 = __pyx_v_b_idx;
-      __pyx_t_8 = __pyx_v_i;
-      __pyx_t_7 = 1;
-      __pyx_t_13.data = __pyx_v_tris_a_2d.data;
-      __pyx_t_13.memview = __pyx_v_tris_a_2d.memview;
-      __PYX_INC_MEMVIEW(&__pyx_t_13, 1);
-      {
-    Py_ssize_t __pyx_tmp_idx = __pyx_v_a_idx;
-    Py_ssize_t __pyx_tmp_stride = __pyx_v_tris_a_2d.strides[0];
-        __pyx_t_13.data += __pyx_tmp_idx * __pyx_tmp_stride;
-}
-
-__pyx_t_13.shape[0] = __pyx_v_tris_a_2d.shape[1];
-__pyx_t_13.strides[0] = __pyx_v_tris_a_2d.strides[1];
-    __pyx_t_13.suboffsets[0] = -1;
-
-__pyx_t_13.shape[1] = __pyx_v_tris_a_2d.shape[2];
-__pyx_t_13.strides[1] = __pyx_v_tris_a_2d.strides[2];
-    __pyx_t_13.suboffsets[1] = -1;
-
-__pyx_t_14 = __pyx_f_14narrow_phase_c_point_in_triangle((*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_2d.data + __pyx_t_12 * __pyx_v_tris_b_2d.strides[0]) ) + __pyx_t_11 * __pyx_v_tris_b_2d.strides[1]) ) + __pyx_t_10 * __pyx_v_tris_b_2d.strides[2]) ))), (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_2d.data + __pyx_t_9 * __pyx_v_tris_b_2d.strides[0]) ) + __pyx_t_8 * __pyx_v_tris_b_2d.strides[1]) ) + __pyx_t_7 * __pyx_v_tris_b_2d.strides[2]) ))), __pyx_t_13); if (unlikely(__pyx_t_14 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 229, __pyx_L1_error)
-      __PYX_XCLEAR_MEMVIEW(&__pyx_t_13, 1);
-      __pyx_t_13.memview = NULL; __pyx_t_13.data = NULL;
-      if (__pyx_t_14) {
-
-        /* "narrow_phase_c.pyx":230
- *         for i in range(3):
- *             if point_in_triangle(tris_b_2d[b_idx][i][0], tris_b_2d[b_idx][i][1], tris_a_2d[a_idx]):
- *                 overlap_pts[p_count][0] = tris_b_2d[b_idx][i][0]             # <<<<<<<<<<<<<<
- *                 overlap_pts[p_count][1] = tris_b_2d[b_idx][i][1]
- *                 p_count += 1
-*/
-        __pyx_t_7 = __pyx_v_b_idx;
-        __pyx_t_8 = __pyx_v_i;
-        __pyx_t_9 = 0;
-        ((__pyx_v_overlap_pts[__pyx_v_p_count])[0]) = (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_2d.data + __pyx_t_7 * __pyx_v_tris_b_2d.strides[0]) ) + __pyx_t_8 * __pyx_v_tris_b_2d.strides[1]) ) + __pyx_t_9 * __pyx_v_tris_b_2d.strides[2]) )));
-
-        /* "narrow_phase_c.pyx":231
- *             if point_in_triangle(tris_b_2d[b_idx][i][0], tris_b_2d[b_idx][i][1], tris_a_2d[a_idx]):
- *                 overlap_pts[p_count][0] = tris_b_2d[b_idx][i][0]
- *                 overlap_pts[p_count][1] = tris_b_2d[b_idx][i][1]             # <<<<<<<<<<<<<<
- *                 p_count += 1
+        /* "narrow_phase_c.pyx":223
+ *                 min_u_overlap = overlap_pts[0][0]
+ *                 max_u_overlap = overlap_pts[0][0]
+ *                 min_v_overlap = overlap_pts[0][1]             # <<<<<<<<<<<<<<
+ *                 max_v_overlap = overlap_pts[0][1]
  * 
 */
-        __pyx_t_9 = __pyx_v_b_idx;
-        __pyx_t_8 = __pyx_v_i;
-        __pyx_t_7 = 1;
-        ((__pyx_v_overlap_pts[__pyx_v_p_count])[1]) = (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_2d.data + __pyx_t_9 * __pyx_v_tris_b_2d.strides[0]) ) + __pyx_t_8 * __pyx_v_tris_b_2d.strides[1]) ) + __pyx_t_7 * __pyx_v_tris_b_2d.strides[2]) )));
+        __pyx_v_min_v_overlap = ((__pyx_v_overlap_pts[0])[1]);
+
+        /* "narrow_phase_c.pyx":224
+ *                 max_u_overlap = overlap_pts[0][0]
+ *                 min_v_overlap = overlap_pts[0][1]
+ *                 max_v_overlap = overlap_pts[0][1]             # <<<<<<<<<<<<<<
+ * 
+ *                 for p in range(1, p_count):
+*/
+        __pyx_v_max_v_overlap = ((__pyx_v_overlap_pts[0])[1]);
+
+        /* "narrow_phase_c.pyx":226
+ *                 max_v_overlap = overlap_pts[0][1]
+ * 
+ *                 for p in range(1, p_count):             # <<<<<<<<<<<<<<
+ *                     if overlap_pts[p][0] < min_u_overlap: min_u_overlap = overlap_pts[p][0]
+ *                     if overlap_pts[p][0] > max_u_overlap: max_u_overlap = overlap_pts[p][0]
+*/
+        __pyx_t_11 = __pyx_v_p_count;
+        __pyx_t_16 = __pyx_t_11;
+        for (__pyx_t_35 = 1; __pyx_t_35 < __pyx_t_16; __pyx_t_35+=1) {
+          __pyx_v_p = __pyx_t_35;
+
+          /* "narrow_phase_c.pyx":227
+ * 
+ *                 for p in range(1, p_count):
+ *                     if overlap_pts[p][0] < min_u_overlap: min_u_overlap = overlap_pts[p][0]             # <<<<<<<<<<<<<<
+ *                     if overlap_pts[p][0] > max_u_overlap: max_u_overlap = overlap_pts[p][0]
+ *                     if overlap_pts[p][1] < min_v_overlap: min_v_overlap = overlap_pts[p][1]
+*/
+          __pyx_t_1 = (((__pyx_v_overlap_pts[__pyx_v_p])[0]) < __pyx_v_min_u_overlap);
+          if (__pyx_t_1) {
+            __pyx_v_min_u_overlap = ((__pyx_v_overlap_pts[__pyx_v_p])[0]);
+          }
+
+          /* "narrow_phase_c.pyx":228
+ *                 for p in range(1, p_count):
+ *                     if overlap_pts[p][0] < min_u_overlap: min_u_overlap = overlap_pts[p][0]
+ *                     if overlap_pts[p][0] > max_u_overlap: max_u_overlap = overlap_pts[p][0]             # <<<<<<<<<<<<<<
+ *                     if overlap_pts[p][1] < min_v_overlap: min_v_overlap = overlap_pts[p][1]
+ *                     if overlap_pts[p][1] > max_v_overlap: max_v_overlap = overlap_pts[p][1]
+*/
+          __pyx_t_1 = (((__pyx_v_overlap_pts[__pyx_v_p])[0]) > __pyx_v_max_u_overlap);
+          if (__pyx_t_1) {
+            __pyx_v_max_u_overlap = ((__pyx_v_overlap_pts[__pyx_v_p])[0]);
+          }
+
+          /* "narrow_phase_c.pyx":229
+ *                     if overlap_pts[p][0] < min_u_overlap: min_u_overlap = overlap_pts[p][0]
+ *                     if overlap_pts[p][0] > max_u_overlap: max_u_overlap = overlap_pts[p][0]
+ *                     if overlap_pts[p][1] < min_v_overlap: min_v_overlap = overlap_pts[p][1]             # <<<<<<<<<<<<<<
+ *                     if overlap_pts[p][1] > max_v_overlap: max_v_overlap = overlap_pts[p][1]
+ * 
+*/
+          __pyx_t_1 = (((__pyx_v_overlap_pts[__pyx_v_p])[1]) < __pyx_v_min_v_overlap);
+          if (__pyx_t_1) {
+            __pyx_v_min_v_overlap = ((__pyx_v_overlap_pts[__pyx_v_p])[1]);
+          }
+
+          /* "narrow_phase_c.pyx":230
+ *                     if overlap_pts[p][0] > max_u_overlap: max_u_overlap = overlap_pts[p][0]
+ *                     if overlap_pts[p][1] < min_v_overlap: min_v_overlap = overlap_pts[p][1]
+ *                     if overlap_pts[p][1] > max_v_overlap: max_v_overlap = overlap_pts[p][1]             # <<<<<<<<<<<<<<
+ * 
+ *                 overlap_dist_u = max_u_overlap - min_u_overlap
+*/
+          __pyx_t_1 = (((__pyx_v_overlap_pts[__pyx_v_p])[1]) > __pyx_v_max_v_overlap);
+          if (__pyx_t_1) {
+            __pyx_v_max_v_overlap = ((__pyx_v_overlap_pts[__pyx_v_p])[1]);
+          }
+        }
 
         /* "narrow_phase_c.pyx":232
- *                 overlap_pts[p_count][0] = tris_b_2d[b_idx][i][0]
- *                 overlap_pts[p_count][1] = tris_b_2d[b_idx][i][1]
- *                 p_count += 1             # <<<<<<<<<<<<<<
+ *                     if overlap_pts[p][1] > max_v_overlap: max_v_overlap = overlap_pts[p][1]
  * 
- *         # 3. Grab precise Edge Intersections
+ *                 overlap_dist_u = max_u_overlap - min_u_overlap             # <<<<<<<<<<<<<<
+ *                 overlap_dist_v = max_v_overlap - min_v_overlap
+ *                 overlap_distance = overlap_dist_u if overlap_dist_u < overlap_dist_v else overlap_dist_v
 */
-        __pyx_v_p_count = (__pyx_v_p_count + 1);
+        __pyx_v_overlap_dist_u = (__pyx_v_max_u_overlap - __pyx_v_min_u_overlap);
 
-        /* "narrow_phase_c.pyx":229
- *         # 2. Grab vertices of B inside A
- *         for i in range(3):
- *             if point_in_triangle(tris_b_2d[b_idx][i][0], tris_b_2d[b_idx][i][1], tris_a_2d[a_idx]):             # <<<<<<<<<<<<<<
- *                 overlap_pts[p_count][0] = tris_b_2d[b_idx][i][0]
- *                 overlap_pts[p_count][1] = tris_b_2d[b_idx][i][1]
-*/
-      }
-    }
-
-    /* "narrow_phase_c.pyx":235
+        /* "narrow_phase_c.pyx":233
  * 
- *         # 3. Grab precise Edge Intersections
- *         for i in range(3):             # <<<<<<<<<<<<<<
- *             for j in range(3):
- *                 if get_line_intersection(
+ *                 overlap_dist_u = max_u_overlap - min_u_overlap
+ *                 overlap_dist_v = max_v_overlap - min_v_overlap             # <<<<<<<<<<<<<<
+ *                 overlap_distance = overlap_dist_u if overlap_dist_u < overlap_dist_v else overlap_dist_v
+ * 
 */
-    for (__pyx_t_6 = 0; __pyx_t_6 < 3; __pyx_t_6+=1) {
-      __pyx_v_i = __pyx_t_6;
+        __pyx_v_overlap_dist_v = (__pyx_v_max_v_overlap - __pyx_v_min_v_overlap);
 
-      /* "narrow_phase_c.pyx":236
- *         # 3. Grab precise Edge Intersections
- *         for i in range(3):
- *             for j in range(3):             # <<<<<<<<<<<<<<
- *                 if get_line_intersection(
- *                     tris_a_2d[a_idx][i][0], tris_a_2d[a_idx][i][1], tris_a_2d[a_idx][(i+1)%3][0], tris_a_2d[a_idx][(i+1)%3][1],
+        /* "narrow_phase_c.pyx":234
+ *                 overlap_dist_u = max_u_overlap - min_u_overlap
+ *                 overlap_dist_v = max_v_overlap - min_v_overlap
+ *                 overlap_distance = overlap_dist_u if overlap_dist_u < overlap_dist_v else overlap_dist_v             # <<<<<<<<<<<<<<
+ * 
+ *                 interference_type = 2
 */
-      for (__pyx_t_15 = 0; __pyx_t_15 < 3; __pyx_t_15+=1) {
-        __pyx_v_j = __pyx_t_15;
+        __pyx_t_1 = (__pyx_v_overlap_dist_u < __pyx_v_overlap_dist_v);
+        if (__pyx_t_1) {
+          __pyx_t_36 = __pyx_v_overlap_dist_u;
+        } else {
+          __pyx_t_36 = __pyx_v_overlap_dist_v;
+        }
+        __pyx_v_overlap_distance = __pyx_t_36;
 
-        /* "narrow_phase_c.pyx":238
- *             for j in range(3):
- *                 if get_line_intersection(
- *                     tris_a_2d[a_idx][i][0], tris_a_2d[a_idx][i][1], tris_a_2d[a_idx][(i+1)%3][0], tris_a_2d[a_idx][(i+1)%3][1],             # <<<<<<<<<<<<<<
- *                     tris_b_2d[b_idx][j][0], tris_b_2d[b_idx][j][1], tris_b_2d[b_idx][(j+1)%3][0], tris_b_2d[b_idx][(j+1)%3][1],
- *                     &ix, &iy
+        /* "narrow_phase_c.pyx":236
+ *                 overlap_distance = overlap_dist_u if overlap_dist_u < overlap_dist_v else overlap_dist_v
+ * 
+ *                 interference_type = 2             # <<<<<<<<<<<<<<
+ *                 if use_MRT and overlap_distance < mrt_tol:
+ *                     interference_type = 1
 */
-        __pyx_t_7 = __pyx_v_a_idx;
-        __pyx_t_8 = __pyx_v_i;
-        __pyx_t_9 = 0;
-        __pyx_t_10 = __pyx_v_a_idx;
-        __pyx_t_11 = __pyx_v_i;
-        __pyx_t_12 = 1;
-        __pyx_t_16 = __pyx_v_a_idx;
-        __pyx_t_17 = ((__pyx_v_i + 1) % 3);
-        __pyx_t_18 = 0;
-        __pyx_t_19 = __pyx_v_a_idx;
-        __pyx_t_20 = ((__pyx_v_i + 1) % 3);
-        __pyx_t_21 = 1;
-
-        /* "narrow_phase_c.pyx":239
- *                 if get_line_intersection(
- *                     tris_a_2d[a_idx][i][0], tris_a_2d[a_idx][i][1], tris_a_2d[a_idx][(i+1)%3][0], tris_a_2d[a_idx][(i+1)%3][1],
- *                     tris_b_2d[b_idx][j][0], tris_b_2d[b_idx][j][1], tris_b_2d[b_idx][(j+1)%3][0], tris_b_2d[b_idx][(j+1)%3][1],             # <<<<<<<<<<<<<<
- *                     &ix, &iy
- *                 ):
-*/
-        __pyx_t_22 = __pyx_v_b_idx;
-        __pyx_t_23 = __pyx_v_j;
-        __pyx_t_24 = 0;
-        __pyx_t_25 = __pyx_v_b_idx;
-        __pyx_t_26 = __pyx_v_j;
-        __pyx_t_27 = 1;
-        __pyx_t_28 = __pyx_v_b_idx;
-        __pyx_t_29 = ((__pyx_v_j + 1) % 3);
-        __pyx_t_30 = 0;
-        __pyx_t_31 = __pyx_v_b_idx;
-        __pyx_t_32 = ((__pyx_v_j + 1) % 3);
-        __pyx_t_33 = 1;
+        __pyx_v_interference_type = 2;
 
         /* "narrow_phase_c.pyx":237
- *         for i in range(3):
- *             for j in range(3):
- *                 if get_line_intersection(             # <<<<<<<<<<<<<<
- *                     tris_a_2d[a_idx][i][0], tris_a_2d[a_idx][i][1], tris_a_2d[a_idx][(i+1)%3][0], tris_a_2d[a_idx][(i+1)%3][1],
- *                     tris_b_2d[b_idx][j][0], tris_b_2d[b_idx][j][1], tris_b_2d[b_idx][(j+1)%3][0], tris_b_2d[b_idx][(j+1)%3][1],
-*/
-        __pyx_t_14 = __pyx_f_14narrow_phase_c_get_line_intersection((*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_2d.data + __pyx_t_7 * __pyx_v_tris_a_2d.strides[0]) ) + __pyx_t_8 * __pyx_v_tris_a_2d.strides[1]) ) + __pyx_t_9 * __pyx_v_tris_a_2d.strides[2]) ))), (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_2d.data + __pyx_t_10 * __pyx_v_tris_a_2d.strides[0]) ) + __pyx_t_11 * __pyx_v_tris_a_2d.strides[1]) ) + __pyx_t_12 * __pyx_v_tris_a_2d.strides[2]) ))), (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_2d.data + __pyx_t_16 * __pyx_v_tris_a_2d.strides[0]) ) + __pyx_t_17 * __pyx_v_tris_a_2d.strides[1]) ) + __pyx_t_18 * __pyx_v_tris_a_2d.strides[2]) ))), (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_2d.data + __pyx_t_19 * __pyx_v_tris_a_2d.strides[0]) ) + __pyx_t_20 * __pyx_v_tris_a_2d.strides[1]) ) + __pyx_t_21 * __pyx_v_tris_a_2d.strides[2]) ))), (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_2d.data + __pyx_t_22 * __pyx_v_tris_b_2d.strides[0]) ) + __pyx_t_23 * __pyx_v_tris_b_2d.strides[1]) ) + __pyx_t_24 * __pyx_v_tris_b_2d.strides[2]) ))), (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_2d.data + __pyx_t_25 * __pyx_v_tris_b_2d.strides[0]) ) + __pyx_t_26 * __pyx_v_tris_b_2d.strides[1]) ) + __pyx_t_27 * __pyx_v_tris_b_2d.strides[2]) ))), (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_2d.data + __pyx_t_28 * __pyx_v_tris_b_2d.strides[0]) ) + __pyx_t_29 * __pyx_v_tris_b_2d.strides[1]) ) + __pyx_t_30 * __pyx_v_tris_b_2d.strides[2]) ))), (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_2d.data + __pyx_t_31 * __pyx_v_tris_b_2d.strides[0]) ) + __pyx_t_32 * __pyx_v_tris_b_2d.strides[1]) ) + __pyx_t_33 * __pyx_v_tris_b_2d.strides[2]) ))), (&__pyx_v_ix), (&__pyx_v_iy)); if (unlikely(__pyx_t_14 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 237, __pyx_L1_error)
-        if (__pyx_t_14) {
-
-          /* "narrow_phase_c.pyx":242
- *                     &ix, &iy
- *                 ):
- *                     overlap_pts[p_count][0] = ix             # <<<<<<<<<<<<<<
- *                     overlap_pts[p_count][1] = iy
- *                     p_count += 1
-*/
-          ((__pyx_v_overlap_pts[__pyx_v_p_count])[0]) = __pyx_v_ix;
-
-          /* "narrow_phase_c.pyx":243
- *                 ):
- *                     overlap_pts[p_count][0] = ix
- *                     overlap_pts[p_count][1] = iy             # <<<<<<<<<<<<<<
- *                     p_count += 1
- *                     if p_count == 20: break
-*/
-          ((__pyx_v_overlap_pts[__pyx_v_p_count])[1]) = __pyx_v_iy;
-
-          /* "narrow_phase_c.pyx":244
- *                     overlap_pts[p_count][0] = ix
- *                     overlap_pts[p_count][1] = iy
- *                     p_count += 1             # <<<<<<<<<<<<<<
- *                     if p_count == 20: break
- *             if p_count == 20: break
-*/
-          __pyx_v_p_count = (__pyx_v_p_count + 1);
-
-          /* "narrow_phase_c.pyx":245
- *                     overlap_pts[p_count][1] = iy
- *                     p_count += 1
- *                     if p_count == 20: break             # <<<<<<<<<<<<<<
- *             if p_count == 20: break
+ * 
+ *                 interference_type = 2
+ *                 if use_MRT and overlap_distance < mrt_tol:             # <<<<<<<<<<<<<<
+ *                     interference_type = 1
  * 
 */
-          __pyx_t_14 = (__pyx_v_p_count == 20);
-          if (__pyx_t_14) {
-            goto __pyx_L14_break;
-          }
+        if (__pyx_v_use_MRT) {
+        } else {
+          __pyx_t_1 = __pyx_v_use_MRT;
+          goto __pyx_L46_bool_binop_done;
+        }
+        __pyx_t_2 = (__pyx_v_overlap_distance < __pyx_v_mrt_tol);
+        __pyx_t_1 = __pyx_t_2;
+        __pyx_L46_bool_binop_done:;
+        if (__pyx_t_1) {
+
+          /* "narrow_phase_c.pyx":238
+ *                 interference_type = 2
+ *                 if use_MRT and overlap_distance < mrt_tol:
+ *                     interference_type = 1             # <<<<<<<<<<<<<<
+ * 
+ *                 nu_a = normals_a[i, u_idx]
+*/
+          __pyx_v_interference_type = 1;
 
           /* "narrow_phase_c.pyx":237
- *         for i in range(3):
- *             for j in range(3):
- *                 if get_line_intersection(             # <<<<<<<<<<<<<<
- *                     tris_a_2d[a_idx][i][0], tris_a_2d[a_idx][i][1], tris_a_2d[a_idx][(i+1)%3][0], tris_a_2d[a_idx][(i+1)%3][1],
- *                     tris_b_2d[b_idx][j][0], tris_b_2d[b_idx][j][1], tris_b_2d[b_idx][(j+1)%3][0], tris_b_2d[b_idx][(j+1)%3][1],
+ * 
+ *                 interference_type = 2
+ *                 if use_MRT and overlap_distance < mrt_tol:             # <<<<<<<<<<<<<<
+ *                     interference_type = 1
+ * 
 */
         }
-      }
-      __pyx_L14_break:;
 
-      /* "narrow_phase_c.pyx":246
- *                     p_count += 1
- *                     if p_count == 20: break
- *             if p_count == 20: break             # <<<<<<<<<<<<<<
+        /* "narrow_phase_c.pyx":240
+ *                     interference_type = 1
  * 
- *         if p_count == 0: continue
+ *                 nu_a = normals_a[i, u_idx]             # <<<<<<<<<<<<<<
+ *                 nv_a = normals_a[i, v_idx]
+ *                 nw_a = normals_a[i, w_idx]
 */
-      __pyx_t_14 = (__pyx_v_p_count == 20);
-      if (__pyx_t_14) {
-        goto __pyx_L12_break;
-      }
-    }
-    __pyx_L12_break:;
+        __pyx_t_34 = __pyx_v_i;
+        __pyx_t_33 = __pyx_v_u_idx;
+        __pyx_v_nu_a = (*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_normals_a.data + __pyx_t_34 * __pyx_v_normals_a.strides[0]) )) + __pyx_t_33)) )));
 
-    /* "narrow_phase_c.pyx":248
- *             if p_count == 20: break
+        /* "narrow_phase_c.pyx":241
  * 
- *         if p_count == 0: continue             # <<<<<<<<<<<<<<
- * 
- *         # ---> NATIVE C MRT OVERLAP DISTANCE CALCULATION <---
+ *                 nu_a = normals_a[i, u_idx]
+ *                 nv_a = normals_a[i, v_idx]             # <<<<<<<<<<<<<<
+ *                 nw_a = normals_a[i, w_idx]
+ *                 d_a = -(nu_a * tris_a_3d[i, 0, u_idx] + nv_a * tris_a_3d[i, 0, v_idx] + nw_a * tris_a_3d[i, 0, w_idx])
 */
-    __pyx_t_14 = (__pyx_v_p_count == 0);
-    if (__pyx_t_14) {
-      goto __pyx_L3_continue;
-    }
+        __pyx_t_33 = __pyx_v_i;
+        __pyx_t_34 = __pyx_v_v_idx;
+        __pyx_v_nv_a = (*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_normals_a.data + __pyx_t_33 * __pyx_v_normals_a.strides[0]) )) + __pyx_t_34)) )));
 
-    /* "narrow_phase_c.pyx":251
- * 
- *         # ---> NATIVE C MRT OVERLAP DISTANCE CALCULATION <---
- *         min_u_overlap = overlap_pts[0][0]             # <<<<<<<<<<<<<<
- *         max_u_overlap = overlap_pts[0][0]
- *         min_v_overlap = overlap_pts[0][1]
-*/
-    __pyx_v_min_u_overlap = ((__pyx_v_overlap_pts[0])[0]);
-
-    /* "narrow_phase_c.pyx":252
- *         # ---> NATIVE C MRT OVERLAP DISTANCE CALCULATION <---
- *         min_u_overlap = overlap_pts[0][0]
- *         max_u_overlap = overlap_pts[0][0]             # <<<<<<<<<<<<<<
- *         min_v_overlap = overlap_pts[0][1]
- *         max_v_overlap = overlap_pts[0][1]
-*/
-    __pyx_v_max_u_overlap = ((__pyx_v_overlap_pts[0])[0]);
-
-    /* "narrow_phase_c.pyx":253
- *         min_u_overlap = overlap_pts[0][0]
- *         max_u_overlap = overlap_pts[0][0]
- *         min_v_overlap = overlap_pts[0][1]             # <<<<<<<<<<<<<<
- *         max_v_overlap = overlap_pts[0][1]
+        /* "narrow_phase_c.pyx":242
+ *                 nu_a = normals_a[i, u_idx]
+ *                 nv_a = normals_a[i, v_idx]
+ *                 nw_a = normals_a[i, w_idx]             # <<<<<<<<<<<<<<
+ *                 d_a = -(nu_a * tris_a_3d[i, 0, u_idx] + nv_a * tris_a_3d[i, 0, v_idx] + nw_a * tris_a_3d[i, 0, w_idx])
  * 
 */
-    __pyx_v_min_v_overlap = ((__pyx_v_overlap_pts[0])[1]);
+        __pyx_t_34 = __pyx_v_i;
+        __pyx_t_33 = __pyx_v_w_idx;
+        __pyx_v_nw_a = (*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_normals_a.data + __pyx_t_34 * __pyx_v_normals_a.strides[0]) )) + __pyx_t_33)) )));
 
-    /* "narrow_phase_c.pyx":254
- *         max_u_overlap = overlap_pts[0][0]
- *         min_v_overlap = overlap_pts[0][1]
- *         max_v_overlap = overlap_pts[0][1]             # <<<<<<<<<<<<<<
+        /* "narrow_phase_c.pyx":243
+ *                 nv_a = normals_a[i, v_idx]
+ *                 nw_a = normals_a[i, w_idx]
+ *                 d_a = -(nu_a * tris_a_3d[i, 0, u_idx] + nv_a * tris_a_3d[i, 0, v_idx] + nw_a * tris_a_3d[i, 0, w_idx])             # <<<<<<<<<<<<<<
  * 
- *         for p in range(1, p_count):
+ *                 nu_b = normals_b[j, u_idx]
 */
-    __pyx_v_max_v_overlap = ((__pyx_v_overlap_pts[0])[1]);
+        __pyx_t_33 = __pyx_v_i;
+        __pyx_t_34 = 0;
+        __pyx_t_32 = __pyx_v_u_idx;
+        __pyx_t_31 = __pyx_v_i;
+        __pyx_t_30 = 0;
+        __pyx_t_29 = __pyx_v_v_idx;
+        __pyx_t_28 = __pyx_v_i;
+        __pyx_t_27 = 0;
+        __pyx_t_26 = __pyx_v_w_idx;
+        __pyx_v_d_a = (-(((__pyx_v_nu_a * (*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_3d.data + __pyx_t_33 * __pyx_v_tris_a_3d.strides[0]) ) + __pyx_t_34 * __pyx_v_tris_a_3d.strides[1]) )) + __pyx_t_32)) )))) + (__pyx_v_nv_a * (*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_3d.data + __pyx_t_31 * __pyx_v_tris_a_3d.strides[0]) ) + __pyx_t_30 * __pyx_v_tris_a_3d.strides[1]) )) + __pyx_t_29)) ))))) + (__pyx_v_nw_a * (*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_3d.data + __pyx_t_28 * __pyx_v_tris_a_3d.strides[0]) ) + __pyx_t_27 * __pyx_v_tris_a_3d.strides[1]) )) + __pyx_t_26)) ))))));
 
-    /* "narrow_phase_c.pyx":256
- *         max_v_overlap = overlap_pts[0][1]
+        /* "narrow_phase_c.pyx":245
+ *                 d_a = -(nu_a * tris_a_3d[i, 0, u_idx] + nv_a * tris_a_3d[i, 0, v_idx] + nw_a * tris_a_3d[i, 0, w_idx])
  * 
- *         for p in range(1, p_count):             # <<<<<<<<<<<<<<
- *             if overlap_pts[p][0] < min_u_overlap: min_u_overlap = overlap_pts[p][0]
- *             if overlap_pts[p][0] > max_u_overlap: max_u_overlap = overlap_pts[p][0]
+ *                 nu_b = normals_b[j, u_idx]             # <<<<<<<<<<<<<<
+ *                 nv_b = normals_b[j, v_idx]
+ *                 nw_b = normals_b[j, w_idx]
 */
-    __pyx_t_6 = __pyx_v_p_count;
-    __pyx_t_15 = __pyx_t_6;
-    for (__pyx_t_34 = 1; __pyx_t_34 < __pyx_t_15; __pyx_t_34+=1) {
-      __pyx_v_p = __pyx_t_34;
+        __pyx_t_26 = __pyx_v_j;
+        __pyx_t_27 = __pyx_v_u_idx;
+        __pyx_v_nu_b = (*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_normals_b.data + __pyx_t_26 * __pyx_v_normals_b.strides[0]) )) + __pyx_t_27)) )));
 
-      /* "narrow_phase_c.pyx":257
+        /* "narrow_phase_c.pyx":246
  * 
- *         for p in range(1, p_count):
- *             if overlap_pts[p][0] < min_u_overlap: min_u_overlap = overlap_pts[p][0]             # <<<<<<<<<<<<<<
- *             if overlap_pts[p][0] > max_u_overlap: max_u_overlap = overlap_pts[p][0]
- *             if overlap_pts[p][1] < min_v_overlap: min_v_overlap = overlap_pts[p][1]
+ *                 nu_b = normals_b[j, u_idx]
+ *                 nv_b = normals_b[j, v_idx]             # <<<<<<<<<<<<<<
+ *                 nw_b = normals_b[j, w_idx]
+ *                 d_b = -(nu_b * tris_b_3d[j, 0, u_idx] + nv_b * tris_b_3d[j, 0, v_idx] + nw_b * tris_b_3d[j, 0, w_idx])
 */
-      __pyx_t_14 = (((__pyx_v_overlap_pts[__pyx_v_p])[0]) < __pyx_v_min_u_overlap);
-      if (__pyx_t_14) {
-        __pyx_v_min_u_overlap = ((__pyx_v_overlap_pts[__pyx_v_p])[0]);
-      }
+        __pyx_t_27 = __pyx_v_j;
+        __pyx_t_26 = __pyx_v_v_idx;
+        __pyx_v_nv_b = (*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_normals_b.data + __pyx_t_27 * __pyx_v_normals_b.strides[0]) )) + __pyx_t_26)) )));
 
-      /* "narrow_phase_c.pyx":258
- *         for p in range(1, p_count):
- *             if overlap_pts[p][0] < min_u_overlap: min_u_overlap = overlap_pts[p][0]
- *             if overlap_pts[p][0] > max_u_overlap: max_u_overlap = overlap_pts[p][0]             # <<<<<<<<<<<<<<
- *             if overlap_pts[p][1] < min_v_overlap: min_v_overlap = overlap_pts[p][1]
- *             if overlap_pts[p][1] > max_v_overlap: max_v_overlap = overlap_pts[p][1]
-*/
-      __pyx_t_14 = (((__pyx_v_overlap_pts[__pyx_v_p])[0]) > __pyx_v_max_u_overlap);
-      if (__pyx_t_14) {
-        __pyx_v_max_u_overlap = ((__pyx_v_overlap_pts[__pyx_v_p])[0]);
-      }
-
-      /* "narrow_phase_c.pyx":259
- *             if overlap_pts[p][0] < min_u_overlap: min_u_overlap = overlap_pts[p][0]
- *             if overlap_pts[p][0] > max_u_overlap: max_u_overlap = overlap_pts[p][0]
- *             if overlap_pts[p][1] < min_v_overlap: min_v_overlap = overlap_pts[p][1]             # <<<<<<<<<<<<<<
- *             if overlap_pts[p][1] > max_v_overlap: max_v_overlap = overlap_pts[p][1]
+        /* "narrow_phase_c.pyx":247
+ *                 nu_b = normals_b[j, u_idx]
+ *                 nv_b = normals_b[j, v_idx]
+ *                 nw_b = normals_b[j, w_idx]             # <<<<<<<<<<<<<<
+ *                 d_b = -(nu_b * tris_b_3d[j, 0, u_idx] + nv_b * tris_b_3d[j, 0, v_idx] + nw_b * tris_b_3d[j, 0, w_idx])
  * 
 */
-      __pyx_t_14 = (((__pyx_v_overlap_pts[__pyx_v_p])[1]) < __pyx_v_min_v_overlap);
-      if (__pyx_t_14) {
-        __pyx_v_min_v_overlap = ((__pyx_v_overlap_pts[__pyx_v_p])[1]);
-      }
+        __pyx_t_26 = __pyx_v_j;
+        __pyx_t_27 = __pyx_v_w_idx;
+        __pyx_v_nw_b = (*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_normals_b.data + __pyx_t_26 * __pyx_v_normals_b.strides[0]) )) + __pyx_t_27)) )));
 
-      /* "narrow_phase_c.pyx":260
- *             if overlap_pts[p][0] > max_u_overlap: max_u_overlap = overlap_pts[p][0]
- *             if overlap_pts[p][1] < min_v_overlap: min_v_overlap = overlap_pts[p][1]
- *             if overlap_pts[p][1] > max_v_overlap: max_v_overlap = overlap_pts[p][1]             # <<<<<<<<<<<<<<
+        /* "narrow_phase_c.pyx":248
+ *                 nv_b = normals_b[j, v_idx]
+ *                 nw_b = normals_b[j, w_idx]
+ *                 d_b = -(nu_b * tris_b_3d[j, 0, u_idx] + nv_b * tris_b_3d[j, 0, v_idx] + nw_b * tris_b_3d[j, 0, w_idx])             # <<<<<<<<<<<<<<
  * 
- *         overlap_dist_u = max_u_overlap - min_u_overlap
+ *                 for p in range(p_count):
 */
-      __pyx_t_14 = (((__pyx_v_overlap_pts[__pyx_v_p])[1]) > __pyx_v_max_v_overlap);
-      if (__pyx_t_14) {
-        __pyx_v_max_v_overlap = ((__pyx_v_overlap_pts[__pyx_v_p])[1]);
-      }
-    }
+        __pyx_t_27 = __pyx_v_j;
+        __pyx_t_26 = 0;
+        __pyx_t_28 = __pyx_v_u_idx;
+        __pyx_t_29 = __pyx_v_j;
+        __pyx_t_30 = 0;
+        __pyx_t_31 = __pyx_v_v_idx;
+        __pyx_t_32 = __pyx_v_j;
+        __pyx_t_34 = 0;
+        __pyx_t_33 = __pyx_v_w_idx;
+        __pyx_v_d_b = (-(((__pyx_v_nu_b * (*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_3d.data + __pyx_t_27 * __pyx_v_tris_b_3d.strides[0]) ) + __pyx_t_26 * __pyx_v_tris_b_3d.strides[1]) )) + __pyx_t_28)) )))) + (__pyx_v_nv_b * (*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_3d.data + __pyx_t_29 * __pyx_v_tris_b_3d.strides[0]) ) + __pyx_t_30 * __pyx_v_tris_b_3d.strides[1]) )) + __pyx_t_31)) ))))) + (__pyx_v_nw_b * (*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_3d.data + __pyx_t_32 * __pyx_v_tris_b_3d.strides[0]) ) + __pyx_t_34 * __pyx_v_tris_b_3d.strides[1]) )) + __pyx_t_33)) ))))));
 
-    /* "narrow_phase_c.pyx":262
- *             if overlap_pts[p][1] > max_v_overlap: max_v_overlap = overlap_pts[p][1]
+        /* "narrow_phase_c.pyx":250
+ *                 d_b = -(nu_b * tris_b_3d[j, 0, u_idx] + nv_b * tris_b_3d[j, 0, v_idx] + nw_b * tris_b_3d[j, 0, w_idx])
  * 
- *         overlap_dist_u = max_u_overlap - min_u_overlap             # <<<<<<<<<<<<<<
- *         overlap_dist_v = max_v_overlap - min_v_overlap
- *         overlap_distance = overlap_dist_u if overlap_dist_u < overlap_dist_v else overlap_dist_v
+ *                 for p in range(p_count):             # <<<<<<<<<<<<<<
+ *                     if nw_a > -1e-6 and nw_a < 1e-6:
+ *                         proj_w_a = tris_a_3d[i, 0, w_idx]
 */
-    __pyx_v_overlap_dist_u = (__pyx_v_max_u_overlap - __pyx_v_min_u_overlap);
+        __pyx_t_11 = __pyx_v_p_count;
+        __pyx_t_16 = __pyx_t_11;
+        for (__pyx_t_35 = 0; __pyx_t_35 < __pyx_t_16; __pyx_t_35+=1) {
+          __pyx_v_p = __pyx_t_35;
 
-    /* "narrow_phase_c.pyx":263
+          /* "narrow_phase_c.pyx":251
  * 
- *         overlap_dist_u = max_u_overlap - min_u_overlap
- *         overlap_dist_v = max_v_overlap - min_v_overlap             # <<<<<<<<<<<<<<
- *         overlap_distance = overlap_dist_u if overlap_dist_u < overlap_dist_v else overlap_dist_v
- * 
+ *                 for p in range(p_count):
+ *                     if nw_a > -1e-6 and nw_a < 1e-6:             # <<<<<<<<<<<<<<
+ *                         proj_w_a = tris_a_3d[i, 0, w_idx]
+ *                     else:
 */
-    __pyx_v_overlap_dist_v = (__pyx_v_max_v_overlap - __pyx_v_min_v_overlap);
+          __pyx_t_2 = (__pyx_v_nw_a > -1e-6);
+          if (__pyx_t_2) {
+          } else {
+            __pyx_t_1 = __pyx_t_2;
+            goto __pyx_L51_bool_binop_done;
+          }
+          __pyx_t_2 = (__pyx_v_nw_a < 1e-6);
+          __pyx_t_1 = __pyx_t_2;
+          __pyx_L51_bool_binop_done:;
+          if (__pyx_t_1) {
 
-    /* "narrow_phase_c.pyx":264
- *         overlap_dist_u = max_u_overlap - min_u_overlap
- *         overlap_dist_v = max_v_overlap - min_v_overlap
- *         overlap_distance = overlap_dist_u if overlap_dist_u < overlap_dist_v else overlap_dist_v             # <<<<<<<<<<<<<<
- * 
- *         interference_type = 2
+            /* "narrow_phase_c.pyx":252
+ *                 for p in range(p_count):
+ *                     if nw_a > -1e-6 and nw_a < 1e-6:
+ *                         proj_w_a = tris_a_3d[i, 0, w_idx]             # <<<<<<<<<<<<<<
+ *                     else:
+ *                         proj_w_a = -(nu_a * overlap_pts[p][0] + nv_a * overlap_pts[p][1] + d_a) / nw_a
 */
-    __pyx_t_14 = (__pyx_v_overlap_dist_u < __pyx_v_overlap_dist_v);
-    if (__pyx_t_14) {
-      __pyx_t_35 = __pyx_v_overlap_dist_u;
-    } else {
-      __pyx_t_35 = __pyx_v_overlap_dist_v;
-    }
-    __pyx_v_overlap_distance = __pyx_t_35;
+            __pyx_t_33 = __pyx_v_i;
+            __pyx_t_34 = 0;
+            __pyx_t_32 = __pyx_v_w_idx;
+            __pyx_v_proj_w_a = (*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_3d.data + __pyx_t_33 * __pyx_v_tris_a_3d.strides[0]) ) + __pyx_t_34 * __pyx_v_tris_a_3d.strides[1]) )) + __pyx_t_32)) )));
 
-    /* "narrow_phase_c.pyx":266
- *         overlap_distance = overlap_dist_u if overlap_dist_u < overlap_dist_v else overlap_dist_v
+            /* "narrow_phase_c.pyx":251
  * 
- *         interference_type = 2             # <<<<<<<<<<<<<<
- *         if use_MRT and overlap_distance < mrt_tol:
- *             interference_type = 1
+ *                 for p in range(p_count):
+ *                     if nw_a > -1e-6 and nw_a < 1e-6:             # <<<<<<<<<<<<<<
+ *                         proj_w_a = tris_a_3d[i, 0, w_idx]
+ *                     else:
 */
-    __pyx_v_interference_type = 2;
-
-    /* "narrow_phase_c.pyx":267
- * 
- *         interference_type = 2
- *         if use_MRT and overlap_distance < mrt_tol:             # <<<<<<<<<<<<<<
- *             interference_type = 1
- *         # -----------------------------------------------------
-*/
-    if (__pyx_v_use_MRT) {
-    } else {
-      __pyx_t_14 = __pyx_v_use_MRT;
-      goto __pyx_L26_bool_binop_done;
-    }
-    __pyx_t_36 = (__pyx_v_overlap_distance < __pyx_v_mrt_tol);
-    __pyx_t_14 = __pyx_t_36;
-    __pyx_L26_bool_binop_done:;
-    if (__pyx_t_14) {
-
-      /* "narrow_phase_c.pyx":268
- *         interference_type = 2
- *         if use_MRT and overlap_distance < mrt_tol:
- *             interference_type = 1             # <<<<<<<<<<<<<<
- *         # -----------------------------------------------------
- * 
-*/
-      __pyx_v_interference_type = 1;
-
-      /* "narrow_phase_c.pyx":267
- * 
- *         interference_type = 2
- *         if use_MRT and overlap_distance < mrt_tol:             # <<<<<<<<<<<<<<
- *             interference_type = 1
- *         # -----------------------------------------------------
-*/
-    }
-
-    /* "narrow_phase_c.pyx":272
- * 
- *         # 4. Run the depth math!
- *         nu_a = normals_a[a_idx][u_idx]             # <<<<<<<<<<<<<<
- *         nv_a = normals_a[a_idx][v_idx]
- *         nw_a = normals_a[a_idx][w_idx]
-*/
-    __pyx_t_33 = __pyx_v_a_idx;
-    __pyx_t_32 = __pyx_v_u_idx;
-    __pyx_v_nu_a = (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_normals_a.data + __pyx_t_33 * __pyx_v_normals_a.strides[0]) ) + __pyx_t_32 * __pyx_v_normals_a.strides[1]) )));
-
-    /* "narrow_phase_c.pyx":273
- *         # 4. Run the depth math!
- *         nu_a = normals_a[a_idx][u_idx]
- *         nv_a = normals_a[a_idx][v_idx]             # <<<<<<<<<<<<<<
- *         nw_a = normals_a[a_idx][w_idx]
- *         d_a = -(nu_a * tris_a_3d[a_idx][0][u_idx] + nv_a * tris_a_3d[a_idx][0][v_idx] + nw_a * tris_a_3d[a_idx][0][w_idx])
-*/
-    __pyx_t_32 = __pyx_v_a_idx;
-    __pyx_t_33 = __pyx_v_v_idx;
-    __pyx_v_nv_a = (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_normals_a.data + __pyx_t_32 * __pyx_v_normals_a.strides[0]) ) + __pyx_t_33 * __pyx_v_normals_a.strides[1]) )));
-
-    /* "narrow_phase_c.pyx":274
- *         nu_a = normals_a[a_idx][u_idx]
- *         nv_a = normals_a[a_idx][v_idx]
- *         nw_a = normals_a[a_idx][w_idx]             # <<<<<<<<<<<<<<
- *         d_a = -(nu_a * tris_a_3d[a_idx][0][u_idx] + nv_a * tris_a_3d[a_idx][0][v_idx] + nw_a * tris_a_3d[a_idx][0][w_idx])
- * 
-*/
-    __pyx_t_33 = __pyx_v_a_idx;
-    __pyx_t_32 = __pyx_v_w_idx;
-    __pyx_v_nw_a = (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_normals_a.data + __pyx_t_33 * __pyx_v_normals_a.strides[0]) ) + __pyx_t_32 * __pyx_v_normals_a.strides[1]) )));
-
-    /* "narrow_phase_c.pyx":275
- *         nv_a = normals_a[a_idx][v_idx]
- *         nw_a = normals_a[a_idx][w_idx]
- *         d_a = -(nu_a * tris_a_3d[a_idx][0][u_idx] + nv_a * tris_a_3d[a_idx][0][v_idx] + nw_a * tris_a_3d[a_idx][0][w_idx])             # <<<<<<<<<<<<<<
- * 
- *         nu_b = normals_b[b_idx][u_idx]
-*/
-    __pyx_t_32 = __pyx_v_a_idx;
-    __pyx_t_33 = 0;
-    __pyx_t_31 = __pyx_v_u_idx;
-    __pyx_t_30 = __pyx_v_a_idx;
-    __pyx_t_29 = 0;
-    __pyx_t_28 = __pyx_v_v_idx;
-    __pyx_t_27 = __pyx_v_a_idx;
-    __pyx_t_26 = 0;
-    __pyx_t_25 = __pyx_v_w_idx;
-    __pyx_v_d_a = (-(((__pyx_v_nu_a * (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_3d.data + __pyx_t_32 * __pyx_v_tris_a_3d.strides[0]) ) + __pyx_t_33 * __pyx_v_tris_a_3d.strides[1]) ) + __pyx_t_31 * __pyx_v_tris_a_3d.strides[2]) )))) + (__pyx_v_nv_a * (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_3d.data + __pyx_t_30 * __pyx_v_tris_a_3d.strides[0]) ) + __pyx_t_29 * __pyx_v_tris_a_3d.strides[1]) ) + __pyx_t_28 * __pyx_v_tris_a_3d.strides[2]) ))))) + (__pyx_v_nw_a * (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_3d.data + __pyx_t_27 * __pyx_v_tris_a_3d.strides[0]) ) + __pyx_t_26 * __pyx_v_tris_a_3d.strides[1]) ) + __pyx_t_25 * __pyx_v_tris_a_3d.strides[2]) ))))));
-
-    /* "narrow_phase_c.pyx":277
- *         d_a = -(nu_a * tris_a_3d[a_idx][0][u_idx] + nv_a * tris_a_3d[a_idx][0][v_idx] + nw_a * tris_a_3d[a_idx][0][w_idx])
- * 
- *         nu_b = normals_b[b_idx][u_idx]             # <<<<<<<<<<<<<<
- *         nv_b = normals_b[b_idx][v_idx]
- *         nw_b = normals_b[b_idx][w_idx]
-*/
-    __pyx_t_25 = __pyx_v_b_idx;
-    __pyx_t_26 = __pyx_v_u_idx;
-    __pyx_v_nu_b = (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_normals_b.data + __pyx_t_25 * __pyx_v_normals_b.strides[0]) ) + __pyx_t_26 * __pyx_v_normals_b.strides[1]) )));
-
-    /* "narrow_phase_c.pyx":278
- * 
- *         nu_b = normals_b[b_idx][u_idx]
- *         nv_b = normals_b[b_idx][v_idx]             # <<<<<<<<<<<<<<
- *         nw_b = normals_b[b_idx][w_idx]
- *         d_b = -(nu_b * tris_b_3d[b_idx][0][u_idx] + nv_b * tris_b_3d[b_idx][0][v_idx] + nw_b * tris_b_3d[b_idx][0][w_idx])
-*/
-    __pyx_t_26 = __pyx_v_b_idx;
-    __pyx_t_25 = __pyx_v_v_idx;
-    __pyx_v_nv_b = (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_normals_b.data + __pyx_t_26 * __pyx_v_normals_b.strides[0]) ) + __pyx_t_25 * __pyx_v_normals_b.strides[1]) )));
-
-    /* "narrow_phase_c.pyx":279
- *         nu_b = normals_b[b_idx][u_idx]
- *         nv_b = normals_b[b_idx][v_idx]
- *         nw_b = normals_b[b_idx][w_idx]             # <<<<<<<<<<<<<<
- *         d_b = -(nu_b * tris_b_3d[b_idx][0][u_idx] + nv_b * tris_b_3d[b_idx][0][v_idx] + nw_b * tris_b_3d[b_idx][0][w_idx])
- * 
-*/
-    __pyx_t_25 = __pyx_v_b_idx;
-    __pyx_t_26 = __pyx_v_w_idx;
-    __pyx_v_nw_b = (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_normals_b.data + __pyx_t_25 * __pyx_v_normals_b.strides[0]) ) + __pyx_t_26 * __pyx_v_normals_b.strides[1]) )));
-
-    /* "narrow_phase_c.pyx":280
- *         nv_b = normals_b[b_idx][v_idx]
- *         nw_b = normals_b[b_idx][w_idx]
- *         d_b = -(nu_b * tris_b_3d[b_idx][0][u_idx] + nv_b * tris_b_3d[b_idx][0][v_idx] + nw_b * tris_b_3d[b_idx][0][w_idx])             # <<<<<<<<<<<<<<
- * 
- *         for p in range(p_count):
-*/
-    __pyx_t_26 = __pyx_v_b_idx;
-    __pyx_t_25 = 0;
-    __pyx_t_27 = __pyx_v_u_idx;
-    __pyx_t_28 = __pyx_v_b_idx;
-    __pyx_t_29 = 0;
-    __pyx_t_30 = __pyx_v_v_idx;
-    __pyx_t_31 = __pyx_v_b_idx;
-    __pyx_t_33 = 0;
-    __pyx_t_32 = __pyx_v_w_idx;
-    __pyx_v_d_b = (-(((__pyx_v_nu_b * (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_3d.data + __pyx_t_26 * __pyx_v_tris_b_3d.strides[0]) ) + __pyx_t_25 * __pyx_v_tris_b_3d.strides[1]) ) + __pyx_t_27 * __pyx_v_tris_b_3d.strides[2]) )))) + (__pyx_v_nv_b * (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_3d.data + __pyx_t_28 * __pyx_v_tris_b_3d.strides[0]) ) + __pyx_t_29 * __pyx_v_tris_b_3d.strides[1]) ) + __pyx_t_30 * __pyx_v_tris_b_3d.strides[2]) ))))) + (__pyx_v_nw_b * (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_3d.data + __pyx_t_31 * __pyx_v_tris_b_3d.strides[0]) ) + __pyx_t_33 * __pyx_v_tris_b_3d.strides[1]) ) + __pyx_t_32 * __pyx_v_tris_b_3d.strides[2]) ))))));
-
-    /* "narrow_phase_c.pyx":282
- *         d_b = -(nu_b * tris_b_3d[b_idx][0][u_idx] + nv_b * tris_b_3d[b_idx][0][v_idx] + nw_b * tris_b_3d[b_idx][0][w_idx])
- * 
- *         for p in range(p_count):             # <<<<<<<<<<<<<<
- *             if nw_a > -1e-6 and nw_a < 1e-6:
- *                 proj_w_a = tris_a_3d[a_idx][0][w_idx]
-*/
-    __pyx_t_6 = __pyx_v_p_count;
-    __pyx_t_15 = __pyx_t_6;
-    for (__pyx_t_34 = 0; __pyx_t_34 < __pyx_t_15; __pyx_t_34+=1) {
-      __pyx_v_p = __pyx_t_34;
-
-      /* "narrow_phase_c.pyx":283
- * 
- *         for p in range(p_count):
- *             if nw_a > -1e-6 and nw_a < 1e-6:             # <<<<<<<<<<<<<<
- *                 proj_w_a = tris_a_3d[a_idx][0][w_idx]
- *             else:
-*/
-      __pyx_t_36 = (__pyx_v_nw_a > -1e-6);
-      if (__pyx_t_36) {
-      } else {
-        __pyx_t_14 = __pyx_t_36;
-        goto __pyx_L31_bool_binop_done;
-      }
-      __pyx_t_36 = (__pyx_v_nw_a < 1e-6);
-      __pyx_t_14 = __pyx_t_36;
-      __pyx_L31_bool_binop_done:;
-      if (__pyx_t_14) {
-
-        /* "narrow_phase_c.pyx":284
- *         for p in range(p_count):
- *             if nw_a > -1e-6 and nw_a < 1e-6:
- *                 proj_w_a = tris_a_3d[a_idx][0][w_idx]             # <<<<<<<<<<<<<<
- *             else:
- *                 proj_w_a = -(nu_a * overlap_pts[p][0] + nv_a * overlap_pts[p][1] + d_a) / nw_a
-*/
-        __pyx_t_32 = __pyx_v_a_idx;
-        __pyx_t_33 = 0;
-        __pyx_t_31 = __pyx_v_w_idx;
-        __pyx_v_proj_w_a = (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_a_3d.data + __pyx_t_32 * __pyx_v_tris_a_3d.strides[0]) ) + __pyx_t_33 * __pyx_v_tris_a_3d.strides[1]) ) + __pyx_t_31 * __pyx_v_tris_a_3d.strides[2]) )));
-
-        /* "narrow_phase_c.pyx":283
- * 
- *         for p in range(p_count):
- *             if nw_a > -1e-6 and nw_a < 1e-6:             # <<<<<<<<<<<<<<
- *                 proj_w_a = tris_a_3d[a_idx][0][w_idx]
- *             else:
-*/
-        goto __pyx_L30;
-      }
-
-      /* "narrow_phase_c.pyx":286
- *                 proj_w_a = tris_a_3d[a_idx][0][w_idx]
- *             else:
- *                 proj_w_a = -(nu_a * overlap_pts[p][0] + nv_a * overlap_pts[p][1] + d_a) / nw_a             # <<<<<<<<<<<<<<
- * 
- *             if nw_b > -1e-6 and nw_b < 1e-6:
-*/
-      /*else*/ {
-        __pyx_v_proj_w_a = ((-(((__pyx_v_nu_a * ((__pyx_v_overlap_pts[__pyx_v_p])[0])) + (__pyx_v_nv_a * ((__pyx_v_overlap_pts[__pyx_v_p])[1]))) + __pyx_v_d_a)) / __pyx_v_nw_a);
-      }
-      __pyx_L30:;
-
-      /* "narrow_phase_c.pyx":288
- *                 proj_w_a = -(nu_a * overlap_pts[p][0] + nv_a * overlap_pts[p][1] + d_a) / nw_a
- * 
- *             if nw_b > -1e-6 and nw_b < 1e-6:             # <<<<<<<<<<<<<<
- *                 proj_w_b = tris_b_3d[b_idx][0][w_idx]
- *             else:
-*/
-      __pyx_t_36 = (__pyx_v_nw_b > -1e-6);
-      if (__pyx_t_36) {
-      } else {
-        __pyx_t_14 = __pyx_t_36;
-        goto __pyx_L34_bool_binop_done;
-      }
-      __pyx_t_36 = (__pyx_v_nw_b < 1e-6);
-      __pyx_t_14 = __pyx_t_36;
-      __pyx_L34_bool_binop_done:;
-      if (__pyx_t_14) {
-
-        /* "narrow_phase_c.pyx":289
- * 
- *             if nw_b > -1e-6 and nw_b < 1e-6:
- *                 proj_w_b = tris_b_3d[b_idx][0][w_idx]             # <<<<<<<<<<<<<<
- *             else:
- *                 proj_w_b = -(nu_b * overlap_pts[p][0] + nv_b * overlap_pts[p][1] + d_b) / nw_b
-*/
-        __pyx_t_31 = __pyx_v_b_idx;
-        __pyx_t_33 = 0;
-        __pyx_t_32 = __pyx_v_w_idx;
-        __pyx_v_proj_w_b = (*((double *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_3d.data + __pyx_t_31 * __pyx_v_tris_b_3d.strides[0]) ) + __pyx_t_33 * __pyx_v_tris_b_3d.strides[1]) ) + __pyx_t_32 * __pyx_v_tris_b_3d.strides[2]) )));
-
-        /* "narrow_phase_c.pyx":288
- *                 proj_w_a = -(nu_a * overlap_pts[p][0] + nv_a * overlap_pts[p][1] + d_a) / nw_a
- * 
- *             if nw_b > -1e-6 and nw_b < 1e-6:             # <<<<<<<<<<<<<<
- *                 proj_w_b = tris_b_3d[b_idx][0][w_idx]
- *             else:
-*/
-        goto __pyx_L33;
-      }
-
-      /* "narrow_phase_c.pyx":291
- *                 proj_w_b = tris_b_3d[b_idx][0][w_idx]
- *             else:
- *                 proj_w_b = -(nu_b * overlap_pts[p][0] + nv_b * overlap_pts[p][1] + d_b) / nw_b             # <<<<<<<<<<<<<<
- * 
- *             if nw_a > n_tol and nw_b < -n_tol:
-*/
-      /*else*/ {
-        __pyx_v_proj_w_b = ((-(((__pyx_v_nu_b * ((__pyx_v_overlap_pts[__pyx_v_p])[0])) + (__pyx_v_nv_b * ((__pyx_v_overlap_pts[__pyx_v_p])[1]))) + __pyx_v_d_b)) / __pyx_v_nw_b);
-      }
-      __pyx_L33:;
-
-      /* "narrow_phase_c.pyx":293
- *                 proj_w_b = -(nu_b * overlap_pts[p][0] + nv_b * overlap_pts[p][1] + d_b) / nw_b
- * 
- *             if nw_a > n_tol and nw_b < -n_tol:             # <<<<<<<<<<<<<<
- *                 if proj_w_a <= proj_w_b + w_tol:
- *                     if interference_type > max_pos: max_pos = interference_type
-*/
-      __pyx_t_36 = (__pyx_v_nw_a > __pyx_v_n_tol);
-      if (__pyx_t_36) {
-      } else {
-        __pyx_t_14 = __pyx_t_36;
-        goto __pyx_L37_bool_binop_done;
-      }
-      __pyx_t_36 = (__pyx_v_nw_b < (-__pyx_v_n_tol));
-      __pyx_t_14 = __pyx_t_36;
-      __pyx_L37_bool_binop_done:;
-      if (__pyx_t_14) {
-
-        /* "narrow_phase_c.pyx":294
- * 
- *             if nw_a > n_tol and nw_b < -n_tol:
- *                 if proj_w_a <= proj_w_b + w_tol:             # <<<<<<<<<<<<<<
- *                     if interference_type > max_pos: max_pos = interference_type
- * 
-*/
-        __pyx_t_14 = (__pyx_v_proj_w_a <= (__pyx_v_proj_w_b + __pyx_v_w_tol));
-        if (__pyx_t_14) {
-
-          /* "narrow_phase_c.pyx":295
- *             if nw_a > n_tol and nw_b < -n_tol:
- *                 if proj_w_a <= proj_w_b + w_tol:
- *                     if interference_type > max_pos: max_pos = interference_type             # <<<<<<<<<<<<<<
- * 
- *             elif nw_a < -n_tol and nw_b > n_tol:
-*/
-          __pyx_t_14 = (__pyx_v_interference_type > __pyx_v_max_pos);
-          if (__pyx_t_14) {
-            __pyx_v_max_pos = __pyx_v_interference_type;
+            goto __pyx_L50;
           }
 
-          /* "narrow_phase_c.pyx":294
+          /* "narrow_phase_c.pyx":254
+ *                         proj_w_a = tris_a_3d[i, 0, w_idx]
+ *                     else:
+ *                         proj_w_a = -(nu_a * overlap_pts[p][0] + nv_a * overlap_pts[p][1] + d_a) / nw_a             # <<<<<<<<<<<<<<
  * 
- *             if nw_a > n_tol and nw_b < -n_tol:
- *                 if proj_w_a <= proj_w_b + w_tol:             # <<<<<<<<<<<<<<
- *                     if interference_type > max_pos: max_pos = interference_type
- * 
+ *                     if nw_b > -1e-6 and nw_b < 1e-6:
 */
-        }
+          /*else*/ {
+            __pyx_v_proj_w_a = ((-(((__pyx_v_nu_a * ((__pyx_v_overlap_pts[__pyx_v_p])[0])) + (__pyx_v_nv_a * ((__pyx_v_overlap_pts[__pyx_v_p])[1]))) + __pyx_v_d_a)) / __pyx_v_nw_a);
+          }
+          __pyx_L50:;
 
-        /* "narrow_phase_c.pyx":293
- *                 proj_w_b = -(nu_b * overlap_pts[p][0] + nv_b * overlap_pts[p][1] + d_b) / nw_b
+          /* "narrow_phase_c.pyx":256
+ *                         proj_w_a = -(nu_a * overlap_pts[p][0] + nv_a * overlap_pts[p][1] + d_a) / nw_a
  * 
- *             if nw_a > n_tol and nw_b < -n_tol:             # <<<<<<<<<<<<<<
- *                 if proj_w_a <= proj_w_b + w_tol:
- *                     if interference_type > max_pos: max_pos = interference_type
+ *                     if nw_b > -1e-6 and nw_b < 1e-6:             # <<<<<<<<<<<<<<
+ *                         proj_w_b = tris_b_3d[j, 0, w_idx]
+ *                     else:
 */
-        goto __pyx_L36;
-      }
+          __pyx_t_2 = (__pyx_v_nw_b > -1e-6);
+          if (__pyx_t_2) {
+          } else {
+            __pyx_t_1 = __pyx_t_2;
+            goto __pyx_L54_bool_binop_done;
+          }
+          __pyx_t_2 = (__pyx_v_nw_b < 1e-6);
+          __pyx_t_1 = __pyx_t_2;
+          __pyx_L54_bool_binop_done:;
+          if (__pyx_t_1) {
 
-      /* "narrow_phase_c.pyx":297
- *                     if interference_type > max_pos: max_pos = interference_type
+            /* "narrow_phase_c.pyx":257
  * 
- *             elif nw_a < -n_tol and nw_b > n_tol:             # <<<<<<<<<<<<<<
- *                 if proj_w_a >= proj_w_b - w_tol:
- *                     if interference_type > max_neg: max_neg = interference_type
+ *                     if nw_b > -1e-6 and nw_b < 1e-6:
+ *                         proj_w_b = tris_b_3d[j, 0, w_idx]             # <<<<<<<<<<<<<<
+ *                     else:
+ *                         proj_w_b = -(nu_b * overlap_pts[p][0] + nv_b * overlap_pts[p][1] + d_b) / nw_b
 */
-      __pyx_t_36 = (__pyx_v_nw_a < (-__pyx_v_n_tol));
-      if (__pyx_t_36) {
-      } else {
-        __pyx_t_14 = __pyx_t_36;
-        goto __pyx_L41_bool_binop_done;
-      }
-      __pyx_t_36 = (__pyx_v_nw_b > __pyx_v_n_tol);
-      __pyx_t_14 = __pyx_t_36;
-      __pyx_L41_bool_binop_done:;
-      if (__pyx_t_14) {
+            __pyx_t_32 = __pyx_v_j;
+            __pyx_t_34 = 0;
+            __pyx_t_33 = __pyx_v_w_idx;
+            __pyx_v_proj_w_b = (*((double *) ( /* dim=2 */ ((char *) (((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_tris_b_3d.data + __pyx_t_32 * __pyx_v_tris_b_3d.strides[0]) ) + __pyx_t_34 * __pyx_v_tris_b_3d.strides[1]) )) + __pyx_t_33)) )));
 
-        /* "narrow_phase_c.pyx":298
+            /* "narrow_phase_c.pyx":256
+ *                         proj_w_a = -(nu_a * overlap_pts[p][0] + nv_a * overlap_pts[p][1] + d_a) / nw_a
  * 
- *             elif nw_a < -n_tol and nw_b > n_tol:
- *                 if proj_w_a >= proj_w_b - w_tol:             # <<<<<<<<<<<<<<
- *                     if interference_type > max_neg: max_neg = interference_type
- * 
+ *                     if nw_b > -1e-6 and nw_b < 1e-6:             # <<<<<<<<<<<<<<
+ *                         proj_w_b = tris_b_3d[j, 0, w_idx]
+ *                     else:
 */
-        __pyx_t_14 = (__pyx_v_proj_w_a >= (__pyx_v_proj_w_b - __pyx_v_w_tol));
-        if (__pyx_t_14) {
-
-          /* "narrow_phase_c.pyx":299
- *             elif nw_a < -n_tol and nw_b > n_tol:
- *                 if proj_w_a >= proj_w_b - w_tol:
- *                     if interference_type > max_neg: max_neg = interference_type             # <<<<<<<<<<<<<<
- * 
- *             if max_pos == 2 and max_neg == 2:
-*/
-          __pyx_t_14 = (__pyx_v_interference_type > __pyx_v_max_neg);
-          if (__pyx_t_14) {
-            __pyx_v_max_neg = __pyx_v_interference_type;
+            goto __pyx_L53;
           }
 
-          /* "narrow_phase_c.pyx":298
+          /* "narrow_phase_c.pyx":259
+ *                         proj_w_b = tris_b_3d[j, 0, w_idx]
+ *                     else:
+ *                         proj_w_b = -(nu_b * overlap_pts[p][0] + nv_b * overlap_pts[p][1] + d_b) / nw_b             # <<<<<<<<<<<<<<
  * 
- *             elif nw_a < -n_tol and nw_b > n_tol:
- *                 if proj_w_a >= proj_w_b - w_tol:             # <<<<<<<<<<<<<<
- *                     if interference_type > max_neg: max_neg = interference_type
+ *                     if nw_a > n_tol and nw_b < -n_tol:
+*/
+          /*else*/ {
+            __pyx_v_proj_w_b = ((-(((__pyx_v_nu_b * ((__pyx_v_overlap_pts[__pyx_v_p])[0])) + (__pyx_v_nv_b * ((__pyx_v_overlap_pts[__pyx_v_p])[1]))) + __pyx_v_d_b)) / __pyx_v_nw_b);
+          }
+          __pyx_L53:;
+
+          /* "narrow_phase_c.pyx":261
+ *                         proj_w_b = -(nu_b * overlap_pts[p][0] + nv_b * overlap_pts[p][1] + d_b) / nw_b
+ * 
+ *                     if nw_a > n_tol and nw_b < -n_tol:             # <<<<<<<<<<<<<<
+ *                         if proj_w_a <= proj_w_b + w_tol:
+ *                             if interference_type > max_pos: max_pos = interference_type
+*/
+          __pyx_t_2 = (__pyx_v_nw_a > __pyx_v_n_tol);
+          if (__pyx_t_2) {
+          } else {
+            __pyx_t_1 = __pyx_t_2;
+            goto __pyx_L57_bool_binop_done;
+          }
+          __pyx_t_2 = (__pyx_v_nw_b < (-__pyx_v_n_tol));
+          __pyx_t_1 = __pyx_t_2;
+          __pyx_L57_bool_binop_done:;
+          if (__pyx_t_1) {
+
+            /* "narrow_phase_c.pyx":262
+ * 
+ *                     if nw_a > n_tol and nw_b < -n_tol:
+ *                         if proj_w_a <= proj_w_b + w_tol:             # <<<<<<<<<<<<<<
+ *                             if interference_type > max_pos: max_pos = interference_type
  * 
 */
-        }
+            __pyx_t_1 = (__pyx_v_proj_w_a <= (__pyx_v_proj_w_b + __pyx_v_w_tol));
+            if (__pyx_t_1) {
 
-        /* "narrow_phase_c.pyx":297
- *                     if interference_type > max_pos: max_pos = interference_type
+              /* "narrow_phase_c.pyx":263
+ *                     if nw_a > n_tol and nw_b < -n_tol:
+ *                         if proj_w_a <= proj_w_b + w_tol:
+ *                             if interference_type > max_pos: max_pos = interference_type             # <<<<<<<<<<<<<<
  * 
- *             elif nw_a < -n_tol and nw_b > n_tol:             # <<<<<<<<<<<<<<
- *                 if proj_w_a >= proj_w_b - w_tol:
- *                     if interference_type > max_neg: max_neg = interference_type
+ *                     elif nw_a < -n_tol and nw_b > n_tol:
 */
-      }
-      __pyx_L36:;
+              __pyx_t_1 = (__pyx_v_interference_type > __pyx_v_max_pos);
+              if (__pyx_t_1) {
+                __pyx_v_max_pos = __pyx_v_interference_type;
+              }
 
-      /* "narrow_phase_c.pyx":301
- *                     if interference_type > max_neg: max_neg = interference_type
+              /* "narrow_phase_c.pyx":262
  * 
- *             if max_pos == 2 and max_neg == 2:             # <<<<<<<<<<<<<<
- *                 return (2, 2)
+ *                     if nw_a > n_tol and nw_b < -n_tol:
+ *                         if proj_w_a <= proj_w_b + w_tol:             # <<<<<<<<<<<<<<
+ *                             if interference_type > max_pos: max_pos = interference_type
  * 
 */
-      __pyx_t_36 = (__pyx_v_max_pos == 2);
-      if (__pyx_t_36) {
-      } else {
-        __pyx_t_14 = __pyx_t_36;
-        goto __pyx_L46_bool_binop_done;
-      }
-      __pyx_t_36 = (__pyx_v_max_neg == 2);
-      __pyx_t_14 = __pyx_t_36;
-      __pyx_L46_bool_binop_done:;
-      if (__pyx_t_14) {
+            }
 
-        /* "narrow_phase_c.pyx":302
+            /* "narrow_phase_c.pyx":261
+ *                         proj_w_b = -(nu_b * overlap_pts[p][0] + nv_b * overlap_pts[p][1] + d_b) / nw_b
  * 
- *             if max_pos == 2 and max_neg == 2:
- *                 return (2, 2)             # <<<<<<<<<<<<<<
+ *                     if nw_a > n_tol and nw_b < -n_tol:             # <<<<<<<<<<<<<<
+ *                         if proj_w_a <= proj_w_b + w_tol:
+ *                             if interference_type > max_pos: max_pos = interference_type
+*/
+            goto __pyx_L56;
+          }
+
+          /* "narrow_phase_c.pyx":265
+ *                             if interference_type > max_pos: max_pos = interference_type
+ * 
+ *                     elif nw_a < -n_tol and nw_b > n_tol:             # <<<<<<<<<<<<<<
+ *                         if proj_w_a >= proj_w_b - w_tol:
+ *                             if interference_type > max_neg: max_neg = interference_type
+*/
+          __pyx_t_2 = (__pyx_v_nw_a < (-__pyx_v_n_tol));
+          if (__pyx_t_2) {
+          } else {
+            __pyx_t_1 = __pyx_t_2;
+            goto __pyx_L61_bool_binop_done;
+          }
+          __pyx_t_2 = (__pyx_v_nw_b > __pyx_v_n_tol);
+          __pyx_t_1 = __pyx_t_2;
+          __pyx_L61_bool_binop_done:;
+          if (__pyx_t_1) {
+
+            /* "narrow_phase_c.pyx":266
+ * 
+ *                     elif nw_a < -n_tol and nw_b > n_tol:
+ *                         if proj_w_a >= proj_w_b - w_tol:             # <<<<<<<<<<<<<<
+ *                             if interference_type > max_neg: max_neg = interference_type
+ * 
+*/
+            __pyx_t_1 = (__pyx_v_proj_w_a >= (__pyx_v_proj_w_b - __pyx_v_w_tol));
+            if (__pyx_t_1) {
+
+              /* "narrow_phase_c.pyx":267
+ *                     elif nw_a < -n_tol and nw_b > n_tol:
+ *                         if proj_w_a >= proj_w_b - w_tol:
+ *                             if interference_type > max_neg: max_neg = interference_type             # <<<<<<<<<<<<<<
+ * 
+ *                     if max_pos == 2 and max_neg == 2:
+*/
+              __pyx_t_1 = (__pyx_v_interference_type > __pyx_v_max_neg);
+              if (__pyx_t_1) {
+                __pyx_v_max_neg = __pyx_v_interference_type;
+              }
+
+              /* "narrow_phase_c.pyx":266
+ * 
+ *                     elif nw_a < -n_tol and nw_b > n_tol:
+ *                         if proj_w_a >= proj_w_b - w_tol:             # <<<<<<<<<<<<<<
+ *                             if interference_type > max_neg: max_neg = interference_type
+ * 
+*/
+            }
+
+            /* "narrow_phase_c.pyx":265
+ *                             if interference_type > max_pos: max_pos = interference_type
+ * 
+ *                     elif nw_a < -n_tol and nw_b > n_tol:             # <<<<<<<<<<<<<<
+ *                         if proj_w_a >= proj_w_b - w_tol:
+ *                             if interference_type > max_neg: max_neg = interference_type
+*/
+          }
+          __pyx_L56:;
+
+          /* "narrow_phase_c.pyx":269
+ *                             if interference_type > max_neg: max_neg = interference_type
+ * 
+ *                     if max_pos == 2 and max_neg == 2:             # <<<<<<<<<<<<<<
+ *                         return (2, 2)
+ * 
+*/
+          __pyx_t_2 = (__pyx_v_max_pos == 2);
+          if (__pyx_t_2) {
+          } else {
+            __pyx_t_1 = __pyx_t_2;
+            goto __pyx_L66_bool_binop_done;
+          }
+          __pyx_t_2 = (__pyx_v_max_neg == 2);
+          __pyx_t_1 = __pyx_t_2;
+          __pyx_L66_bool_binop_done:;
+          if (__pyx_t_1) {
+
+            /* "narrow_phase_c.pyx":270
+ * 
+ *                     if max_pos == 2 and max_neg == 2:
+ *                         return (2, 2)             # <<<<<<<<<<<<<<
  * 
  *     return (max_pos, max_neg)
 */
-        __Pyx_XDECREF(__pyx_r);
-        __Pyx_INCREF(__pyx_mstate_global->__pyx_tuple[1]);
-        __pyx_r = __pyx_mstate_global->__pyx_tuple[1];
-        goto __pyx_L0;
+            __Pyx_XDECREF(__pyx_r);
+            __Pyx_INCREF(__pyx_mstate_global->__pyx_tuple[3]);
+            __pyx_r = __pyx_mstate_global->__pyx_tuple[3];
+            goto __pyx_L0;
 
-        /* "narrow_phase_c.pyx":301
- *                     if interference_type > max_neg: max_neg = interference_type
+            /* "narrow_phase_c.pyx":269
+ *                             if interference_type > max_neg: max_neg = interference_type
  * 
- *             if max_pos == 2 and max_neg == 2:             # <<<<<<<<<<<<<<
- *                 return (2, 2)
+ *                     if max_pos == 2 and max_neg == 2:             # <<<<<<<<<<<<<<
+ *                         return (2, 2)
  * 
 */
+          }
+        }
+
+        /* "narrow_phase_c.pyx":183
+ *                 continue
+ * 
+ *             if check_2d_sat_overlap(tris_a_2d, i, tris_b_2d, j):             # <<<<<<<<<<<<<<
+ *                 pair_count += 1
+ *                 if abort_threshold > 0 and pair_count > abort_threshold:
+*/
       }
+      __pyx_L12_continue:;
     }
-    __pyx_L3_continue:;
+    __pyx_L13_break:;
   }
 
-  /* "narrow_phase_c.pyx":304
- *                 return (2, 2)
+  /* "narrow_phase_c.pyx":272
+ *                         return (2, 2)
  * 
  *     return (max_pos, max_neg)             # <<<<<<<<<<<<<<
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_max_pos); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 304, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_37 = __Pyx_PyLong_From_int(__pyx_v_max_neg); if (unlikely(!__pyx_t_37)) __PYX_ERR(0, 304, __pyx_L1_error)
+  __pyx_t_37 = __Pyx_PyLong_From_int(__pyx_v_max_pos); if (unlikely(!__pyx_t_37)) __PYX_ERR(0, 272, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_37);
-  __pyx_t_38 = PyTuple_New(2); if (unlikely(!__pyx_t_38)) __PYX_ERR(0, 304, __pyx_L1_error)
+  __pyx_t_38 = __Pyx_PyLong_From_int(__pyx_v_max_neg); if (unlikely(!__pyx_t_38)) __PYX_ERR(0, 272, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_38);
-  __Pyx_GIVEREF(__pyx_t_5);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_38, 0, __pyx_t_5) != (0)) __PYX_ERR(0, 304, __pyx_L1_error);
+  __pyx_t_39 = PyTuple_New(2); if (unlikely(!__pyx_t_39)) __PYX_ERR(0, 272, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_39);
   __Pyx_GIVEREF(__pyx_t_37);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_38, 1, __pyx_t_37) != (0)) __PYX_ERR(0, 304, __pyx_L1_error);
-  __pyx_t_5 = 0;
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_39, 0, __pyx_t_37) != (0)) __PYX_ERR(0, 272, __pyx_L1_error);
+  __Pyx_GIVEREF(__pyx_t_38);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_39, 1, __pyx_t_38) != (0)) __PYX_ERR(0, 272, __pyx_L1_error);
   __pyx_t_37 = 0;
-  __pyx_r = ((PyObject*)__pyx_t_38);
   __pyx_t_38 = 0;
+  __pyx_r = ((PyObject*)__pyx_t_39);
+  __pyx_t_39 = 0;
   goto __pyx_L0;
 
-  /* "narrow_phase_c.pyx":187
- *     return False
+  /* "narrow_phase_c.pyx":132
  * 
- * cpdef tuple evaluate_deep_narrow_phase_c(             # <<<<<<<<<<<<<<
- *     double[:, :, :] tris_a_2d, double[:, :, :] tris_b_2d,
- *     double[:, :, :] tris_a_3d, double[:, :, :] tris_b_3d,
+ * 
+ * cpdef tuple evaluate_overlap_c(             # <<<<<<<<<<<<<<
+ *     double[:, :, ::1] tris_a_2d, double[:, :, ::1] tris_b_2d,
+ *     double[:, ::1] aabbs_a, double[:, ::1] aabbs_b,
 */
 
   /* function exit code */
   __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_5);
-  __PYX_XCLEAR_MEMVIEW(&__pyx_t_13, 1);
   __Pyx_XDECREF(__pyx_t_37);
   __Pyx_XDECREF(__pyx_t_38);
-  __Pyx_AddTraceback("narrow_phase_c.evaluate_deep_narrow_phase_c", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_XDECREF(__pyx_t_39);
+  __Pyx_AddTraceback("narrow_phase_c.evaluate_overlap_c", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = 0;
   __pyx_L0:;
   __Pyx_XGIVEREF(__pyx_r);
@@ -20717,15 +20381,15 @@ __pyx_t_14 = __pyx_f_14narrow_phase_c_point_in_triangle((*((double *) ( /* dim=2
 }
 
 /* Python wrapper */
-static PyObject *__pyx_pw_14narrow_phase_c_5evaluate_deep_narrow_phase_c(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_14narrow_phase_c_3evaluate_overlap_c(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-static PyMethodDef __pyx_mdef_14narrow_phase_c_5evaluate_deep_narrow_phase_c = {"evaluate_deep_narrow_phase_c", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_14narrow_phase_c_5evaluate_deep_narrow_phase_c, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_14narrow_phase_c_5evaluate_deep_narrow_phase_c(PyObject *__pyx_self, 
+static PyMethodDef __pyx_mdef_14narrow_phase_c_3evaluate_overlap_c = {"evaluate_overlap_c", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_14narrow_phase_c_3evaluate_overlap_c, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_14narrow_phase_c_3evaluate_overlap_c(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -20734,11 +20398,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 ) {
   __Pyx_memviewslice __pyx_v_tris_a_2d = { 0, 0, { 0 }, { 0 }, { 0 } };
   __Pyx_memviewslice __pyx_v_tris_b_2d = { 0, 0, { 0 }, { 0 }, { 0 } };
+  __Pyx_memviewslice __pyx_v_aabbs_a = { 0, 0, { 0 }, { 0 }, { 0 } };
+  __Pyx_memviewslice __pyx_v_aabbs_b = { 0, 0, { 0 }, { 0 }, { 0 } };
   __Pyx_memviewslice __pyx_v_tris_a_3d = { 0, 0, { 0 }, { 0 }, { 0 } };
   __Pyx_memviewslice __pyx_v_tris_b_3d = { 0, 0, { 0 }, { 0 }, { 0 } };
   __Pyx_memviewslice __pyx_v_normals_a = { 0, 0, { 0 }, { 0 }, { 0 } };
   __Pyx_memviewslice __pyx_v_normals_b = { 0, 0, { 0 }, { 0 }, { 0 } };
-  PyObject *__pyx_v_intersecting_pairs = 0;
   int __pyx_v_w_idx;
   int __pyx_v_u_idx;
   int __pyx_v_v_idx;
@@ -20746,17 +20411,18 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   double __pyx_v_n_tol;
   int __pyx_v_use_MRT;
   double __pyx_v_mrt_tol;
+  int __pyx_v_abort_threshold;
   #if !CYTHON_METH_FASTCALL
   CYTHON_UNUSED Py_ssize_t __pyx_nargs;
   #endif
   CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
-  PyObject* values[14] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+  PyObject* values[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   PyObject *__pyx_r = 0;
   __Pyx_RefNannyDeclarations
-  __Pyx_RefNannySetupContext("evaluate_deep_narrow_phase_c (wrapper)", 0);
+  __Pyx_RefNannySetupContext("evaluate_overlap_c (wrapper)", 0);
   #if !CYTHON_METH_FASTCALL
   #if CYTHON_ASSUME_SAFE_SIZE
   __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
@@ -20766,125 +20432,139 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   #endif
   __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
   {
-    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_tris_a_2d,&__pyx_mstate_global->__pyx_n_u_tris_b_2d,&__pyx_mstate_global->__pyx_n_u_tris_a_3d,&__pyx_mstate_global->__pyx_n_u_tris_b_3d,&__pyx_mstate_global->__pyx_n_u_normals_a,&__pyx_mstate_global->__pyx_n_u_normals_b,&__pyx_mstate_global->__pyx_n_u_intersecting_pairs,&__pyx_mstate_global->__pyx_n_u_w_idx,&__pyx_mstate_global->__pyx_n_u_u_idx,&__pyx_mstate_global->__pyx_n_u_v_idx,&__pyx_mstate_global->__pyx_n_u_w_tol,&__pyx_mstate_global->__pyx_n_u_n_tol,&__pyx_mstate_global->__pyx_n_u_use_MRT,&__pyx_mstate_global->__pyx_n_u_mrt_tol,0};
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_tris_a_2d,&__pyx_mstate_global->__pyx_n_u_tris_b_2d,&__pyx_mstate_global->__pyx_n_u_aabbs_a,&__pyx_mstate_global->__pyx_n_u_aabbs_b,&__pyx_mstate_global->__pyx_n_u_tris_a_3d,&__pyx_mstate_global->__pyx_n_u_tris_b_3d,&__pyx_mstate_global->__pyx_n_u_normals_a,&__pyx_mstate_global->__pyx_n_u_normals_b,&__pyx_mstate_global->__pyx_n_u_w_idx,&__pyx_mstate_global->__pyx_n_u_u_idx,&__pyx_mstate_global->__pyx_n_u_v_idx,&__pyx_mstate_global->__pyx_n_u_w_tol,&__pyx_mstate_global->__pyx_n_u_n_tol,&__pyx_mstate_global->__pyx_n_u_use_MRT,&__pyx_mstate_global->__pyx_n_u_mrt_tol,&__pyx_mstate_global->__pyx_n_u_abort_threshold,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 187, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 132, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
+        case 16:
+        values[15] = __Pyx_ArgRef_FASTCALL(__pyx_args, 15);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[15])) __PYX_ERR(0, 132, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case 15:
+        values[14] = __Pyx_ArgRef_FASTCALL(__pyx_args, 14);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[14])) __PYX_ERR(0, 132, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
         case 14:
         values[13] = __Pyx_ArgRef_FASTCALL(__pyx_args, 13);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[13])) __PYX_ERR(0, 187, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[13])) __PYX_ERR(0, 132, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case 13:
         values[12] = __Pyx_ArgRef_FASTCALL(__pyx_args, 12);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[12])) __PYX_ERR(0, 187, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[12])) __PYX_ERR(0, 132, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case 12:
         values[11] = __Pyx_ArgRef_FASTCALL(__pyx_args, 11);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[11])) __PYX_ERR(0, 187, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[11])) __PYX_ERR(0, 132, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case 11:
         values[10] = __Pyx_ArgRef_FASTCALL(__pyx_args, 10);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[10])) __PYX_ERR(0, 187, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[10])) __PYX_ERR(0, 132, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case 10:
         values[9] = __Pyx_ArgRef_FASTCALL(__pyx_args, 9);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[9])) __PYX_ERR(0, 187, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[9])) __PYX_ERR(0, 132, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  9:
         values[8] = __Pyx_ArgRef_FASTCALL(__pyx_args, 8);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[8])) __PYX_ERR(0, 187, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[8])) __PYX_ERR(0, 132, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  8:
         values[7] = __Pyx_ArgRef_FASTCALL(__pyx_args, 7);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 187, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 132, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  7:
         values[6] = __Pyx_ArgRef_FASTCALL(__pyx_args, 6);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 187, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 132, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  6:
         values[5] = __Pyx_ArgRef_FASTCALL(__pyx_args, 5);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 187, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 132, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  5:
         values[4] = __Pyx_ArgRef_FASTCALL(__pyx_args, 4);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 187, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 132, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 187, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 132, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 187, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 132, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 187, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 132, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 187, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 132, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "evaluate_deep_narrow_phase_c", 0) < (0)) __PYX_ERR(0, 187, __pyx_L3_error)
-      for (Py_ssize_t i = __pyx_nargs; i < 14; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("evaluate_deep_narrow_phase_c", 1, 14, 14, i); __PYX_ERR(0, 187, __pyx_L3_error) }
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "evaluate_overlap_c", 0) < (0)) __PYX_ERR(0, 132, __pyx_L3_error)
+      for (Py_ssize_t i = __pyx_nargs; i < 16; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("evaluate_overlap_c", 1, 16, 16, i); __PYX_ERR(0, 132, __pyx_L3_error) }
       }
-    } else if (unlikely(__pyx_nargs != 14)) {
+    } else if (unlikely(__pyx_nargs != 16)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 187, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 132, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 187, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 132, __pyx_L3_error)
       values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 187, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 132, __pyx_L3_error)
       values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 187, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 132, __pyx_L3_error)
       values[4] = __Pyx_ArgRef_FASTCALL(__pyx_args, 4);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 187, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 132, __pyx_L3_error)
       values[5] = __Pyx_ArgRef_FASTCALL(__pyx_args, 5);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 187, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 132, __pyx_L3_error)
       values[6] = __Pyx_ArgRef_FASTCALL(__pyx_args, 6);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 187, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 132, __pyx_L3_error)
       values[7] = __Pyx_ArgRef_FASTCALL(__pyx_args, 7);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 187, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 132, __pyx_L3_error)
       values[8] = __Pyx_ArgRef_FASTCALL(__pyx_args, 8);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[8])) __PYX_ERR(0, 187, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[8])) __PYX_ERR(0, 132, __pyx_L3_error)
       values[9] = __Pyx_ArgRef_FASTCALL(__pyx_args, 9);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[9])) __PYX_ERR(0, 187, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[9])) __PYX_ERR(0, 132, __pyx_L3_error)
       values[10] = __Pyx_ArgRef_FASTCALL(__pyx_args, 10);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[10])) __PYX_ERR(0, 187, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[10])) __PYX_ERR(0, 132, __pyx_L3_error)
       values[11] = __Pyx_ArgRef_FASTCALL(__pyx_args, 11);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[11])) __PYX_ERR(0, 187, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[11])) __PYX_ERR(0, 132, __pyx_L3_error)
       values[12] = __Pyx_ArgRef_FASTCALL(__pyx_args, 12);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[12])) __PYX_ERR(0, 187, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[12])) __PYX_ERR(0, 132, __pyx_L3_error)
       values[13] = __Pyx_ArgRef_FASTCALL(__pyx_args, 13);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[13])) __PYX_ERR(0, 187, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[13])) __PYX_ERR(0, 132, __pyx_L3_error)
+      values[14] = __Pyx_ArgRef_FASTCALL(__pyx_args, 14);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[14])) __PYX_ERR(0, 132, __pyx_L3_error)
+      values[15] = __Pyx_ArgRef_FASTCALL(__pyx_args, 15);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[15])) __PYX_ERR(0, 132, __pyx_L3_error)
     }
-    __pyx_v_tris_a_2d = __Pyx_PyObject_to_MemoryviewSlice_dsdsds_double(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_tris_a_2d.memview)) __PYX_ERR(0, 188, __pyx_L3_error)
-    __pyx_v_tris_b_2d = __Pyx_PyObject_to_MemoryviewSlice_dsdsds_double(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_tris_b_2d.memview)) __PYX_ERR(0, 188, __pyx_L3_error)
-    __pyx_v_tris_a_3d = __Pyx_PyObject_to_MemoryviewSlice_dsdsds_double(values[2], PyBUF_WRITABLE); if (unlikely(!__pyx_v_tris_a_3d.memview)) __PYX_ERR(0, 189, __pyx_L3_error)
-    __pyx_v_tris_b_3d = __Pyx_PyObject_to_MemoryviewSlice_dsdsds_double(values[3], PyBUF_WRITABLE); if (unlikely(!__pyx_v_tris_b_3d.memview)) __PYX_ERR(0, 189, __pyx_L3_error)
-    __pyx_v_normals_a = __Pyx_PyObject_to_MemoryviewSlice_dsds_double(values[4], PyBUF_WRITABLE); if (unlikely(!__pyx_v_normals_a.memview)) __PYX_ERR(0, 190, __pyx_L3_error)
-    __pyx_v_normals_b = __Pyx_PyObject_to_MemoryviewSlice_dsds_double(values[5], PyBUF_WRITABLE); if (unlikely(!__pyx_v_normals_b.memview)) __PYX_ERR(0, 190, __pyx_L3_error)
-    __pyx_v_intersecting_pairs = ((PyObject*)values[6]);
-    __pyx_v_w_idx = __Pyx_PyLong_As_int(values[7]); if (unlikely((__pyx_v_w_idx == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 192, __pyx_L3_error)
-    __pyx_v_u_idx = __Pyx_PyLong_As_int(values[8]); if (unlikely((__pyx_v_u_idx == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 192, __pyx_L3_error)
-    __pyx_v_v_idx = __Pyx_PyLong_As_int(values[9]); if (unlikely((__pyx_v_v_idx == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 192, __pyx_L3_error)
-    __pyx_v_w_tol = __Pyx_PyFloat_AsDouble(values[10]); if (unlikely((__pyx_v_w_tol == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 193, __pyx_L3_error)
-    __pyx_v_n_tol = __Pyx_PyFloat_AsDouble(values[11]); if (unlikely((__pyx_v_n_tol == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 193, __pyx_L3_error)
-    __pyx_v_use_MRT = __Pyx_PyObject_IsTrue(values[12]); if (unlikely((__pyx_v_use_MRT == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 194, __pyx_L3_error)
-    __pyx_v_mrt_tol = __Pyx_PyFloat_AsDouble(values[13]); if (unlikely((__pyx_v_mrt_tol == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 194, __pyx_L3_error)
+    __pyx_v_tris_a_2d = __Pyx_PyObject_to_MemoryviewSlice_d_d_dc_double(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_tris_a_2d.memview)) __PYX_ERR(0, 133, __pyx_L3_error)
+    __pyx_v_tris_b_2d = __Pyx_PyObject_to_MemoryviewSlice_d_d_dc_double(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_tris_b_2d.memview)) __PYX_ERR(0, 133, __pyx_L3_error)
+    __pyx_v_aabbs_a = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[2], PyBUF_WRITABLE); if (unlikely(!__pyx_v_aabbs_a.memview)) __PYX_ERR(0, 134, __pyx_L3_error)
+    __pyx_v_aabbs_b = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[3], PyBUF_WRITABLE); if (unlikely(!__pyx_v_aabbs_b.memview)) __PYX_ERR(0, 134, __pyx_L3_error)
+    __pyx_v_tris_a_3d = __Pyx_PyObject_to_MemoryviewSlice_d_d_dc_double(values[4], PyBUF_WRITABLE); if (unlikely(!__pyx_v_tris_a_3d.memview)) __PYX_ERR(0, 135, __pyx_L3_error)
+    __pyx_v_tris_b_3d = __Pyx_PyObject_to_MemoryviewSlice_d_d_dc_double(values[5], PyBUF_WRITABLE); if (unlikely(!__pyx_v_tris_b_3d.memview)) __PYX_ERR(0, 135, __pyx_L3_error)
+    __pyx_v_normals_a = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[6], PyBUF_WRITABLE); if (unlikely(!__pyx_v_normals_a.memview)) __PYX_ERR(0, 136, __pyx_L3_error)
+    __pyx_v_normals_b = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[7], PyBUF_WRITABLE); if (unlikely(!__pyx_v_normals_b.memview)) __PYX_ERR(0, 136, __pyx_L3_error)
+    __pyx_v_w_idx = __Pyx_PyLong_As_int(values[8]); if (unlikely((__pyx_v_w_idx == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 137, __pyx_L3_error)
+    __pyx_v_u_idx = __Pyx_PyLong_As_int(values[9]); if (unlikely((__pyx_v_u_idx == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 137, __pyx_L3_error)
+    __pyx_v_v_idx = __Pyx_PyLong_As_int(values[10]); if (unlikely((__pyx_v_v_idx == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 137, __pyx_L3_error)
+    __pyx_v_w_tol = __Pyx_PyFloat_AsDouble(values[11]); if (unlikely((__pyx_v_w_tol == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 138, __pyx_L3_error)
+    __pyx_v_n_tol = __Pyx_PyFloat_AsDouble(values[12]); if (unlikely((__pyx_v_n_tol == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 138, __pyx_L3_error)
+    __pyx_v_use_MRT = __Pyx_PyObject_IsTrue(values[13]); if (unlikely((__pyx_v_use_MRT == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 139, __pyx_L3_error)
+    __pyx_v_mrt_tol = __Pyx_PyFloat_AsDouble(values[14]); if (unlikely((__pyx_v_mrt_tol == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 139, __pyx_L3_error)
+    __pyx_v_abort_threshold = __Pyx_PyLong_As_int(values[15]); if (unlikely((__pyx_v_abort_threshold == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 140, __pyx_L3_error)
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("evaluate_deep_narrow_phase_c", 1, 14, 14, __pyx_nargs); __PYX_ERR(0, 187, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("evaluate_overlap_c", 1, 16, 16, __pyx_nargs); __PYX_ERR(0, 132, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -20893,32 +20573,26 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   __PYX_XCLEAR_MEMVIEW(&__pyx_v_tris_a_2d, 1);
   __PYX_XCLEAR_MEMVIEW(&__pyx_v_tris_b_2d, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_aabbs_a, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_aabbs_b, 1);
   __PYX_XCLEAR_MEMVIEW(&__pyx_v_tris_a_3d, 1);
   __PYX_XCLEAR_MEMVIEW(&__pyx_v_tris_b_3d, 1);
   __PYX_XCLEAR_MEMVIEW(&__pyx_v_normals_a, 1);
   __PYX_XCLEAR_MEMVIEW(&__pyx_v_normals_b, 1);
-  __Pyx_AddTraceback("narrow_phase_c.evaluate_deep_narrow_phase_c", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("narrow_phase_c.evaluate_overlap_c", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_intersecting_pairs), (&PyList_Type), 1, "intersecting_pairs", 1))) __PYX_ERR(0, 191, __pyx_L1_error)
-  __pyx_r = __pyx_pf_14narrow_phase_c_4evaluate_deep_narrow_phase_c(__pyx_self, __pyx_v_tris_a_2d, __pyx_v_tris_b_2d, __pyx_v_tris_a_3d, __pyx_v_tris_b_3d, __pyx_v_normals_a, __pyx_v_normals_b, __pyx_v_intersecting_pairs, __pyx_v_w_idx, __pyx_v_u_idx, __pyx_v_v_idx, __pyx_v_w_tol, __pyx_v_n_tol, __pyx_v_use_MRT, __pyx_v_mrt_tol);
+  __pyx_r = __pyx_pf_14narrow_phase_c_2evaluate_overlap_c(__pyx_self, __pyx_v_tris_a_2d, __pyx_v_tris_b_2d, __pyx_v_aabbs_a, __pyx_v_aabbs_b, __pyx_v_tris_a_3d, __pyx_v_tris_b_3d, __pyx_v_normals_a, __pyx_v_normals_b, __pyx_v_w_idx, __pyx_v_u_idx, __pyx_v_v_idx, __pyx_v_w_tol, __pyx_v_n_tol, __pyx_v_use_MRT, __pyx_v_mrt_tol, __pyx_v_abort_threshold);
 
   /* function exit code */
-  goto __pyx_L0;
-  __pyx_L1_error:;
-  __pyx_r = NULL;
   for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
     Py_XDECREF(values[__pyx_temp]);
   }
-  goto __pyx_L7_cleaned_up;
-  __pyx_L0:;
-  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
-    Py_XDECREF(values[__pyx_temp]);
-  }
-  __pyx_L7_cleaned_up:;
   __PYX_XCLEAR_MEMVIEW(&__pyx_v_tris_a_2d, 1);
   __PYX_XCLEAR_MEMVIEW(&__pyx_v_tris_b_2d, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_aabbs_a, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_aabbs_b, 1);
   __PYX_XCLEAR_MEMVIEW(&__pyx_v_tris_a_3d, 1);
   __PYX_XCLEAR_MEMVIEW(&__pyx_v_tris_b_3d, 1);
   __PYX_XCLEAR_MEMVIEW(&__pyx_v_normals_a, 1);
@@ -20927,22 +20601,24 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_14narrow_phase_c_4evaluate_deep_narrow_phase_c(CYTHON_UNUSED PyObject *__pyx_self, __Pyx_memviewslice __pyx_v_tris_a_2d, __Pyx_memviewslice __pyx_v_tris_b_2d, __Pyx_memviewslice __pyx_v_tris_a_3d, __Pyx_memviewslice __pyx_v_tris_b_3d, __Pyx_memviewslice __pyx_v_normals_a, __Pyx_memviewslice __pyx_v_normals_b, PyObject *__pyx_v_intersecting_pairs, int __pyx_v_w_idx, int __pyx_v_u_idx, int __pyx_v_v_idx, double __pyx_v_w_tol, double __pyx_v_n_tol, int __pyx_v_use_MRT, double __pyx_v_mrt_tol) {
+static PyObject *__pyx_pf_14narrow_phase_c_2evaluate_overlap_c(CYTHON_UNUSED PyObject *__pyx_self, __Pyx_memviewslice __pyx_v_tris_a_2d, __Pyx_memviewslice __pyx_v_tris_b_2d, __Pyx_memviewslice __pyx_v_aabbs_a, __Pyx_memviewslice __pyx_v_aabbs_b, __Pyx_memviewslice __pyx_v_tris_a_3d, __Pyx_memviewslice __pyx_v_tris_b_3d, __Pyx_memviewslice __pyx_v_normals_a, __Pyx_memviewslice __pyx_v_normals_b, int __pyx_v_w_idx, int __pyx_v_u_idx, int __pyx_v_v_idx, double __pyx_v_w_tol, double __pyx_v_n_tol, int __pyx_v_use_MRT, double __pyx_v_mrt_tol, int __pyx_v_abort_threshold) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __Pyx_RefNannySetupContext("evaluate_deep_narrow_phase_c", 0);
+  __Pyx_RefNannySetupContext("evaluate_overlap_c", 0);
   __Pyx_XDECREF(__pyx_r);
-  if (unlikely(!__pyx_v_tris_a_2d.memview)) { __Pyx_RaiseUnboundLocalError("tris_a_2d"); __PYX_ERR(0, 187, __pyx_L1_error) }
-  if (unlikely(!__pyx_v_tris_b_2d.memview)) { __Pyx_RaiseUnboundLocalError("tris_b_2d"); __PYX_ERR(0, 187, __pyx_L1_error) }
-  if (unlikely(!__pyx_v_tris_a_3d.memview)) { __Pyx_RaiseUnboundLocalError("tris_a_3d"); __PYX_ERR(0, 187, __pyx_L1_error) }
-  if (unlikely(!__pyx_v_tris_b_3d.memview)) { __Pyx_RaiseUnboundLocalError("tris_b_3d"); __PYX_ERR(0, 187, __pyx_L1_error) }
-  if (unlikely(!__pyx_v_normals_a.memview)) { __Pyx_RaiseUnboundLocalError("normals_a"); __PYX_ERR(0, 187, __pyx_L1_error) }
-  if (unlikely(!__pyx_v_normals_b.memview)) { __Pyx_RaiseUnboundLocalError("normals_b"); __PYX_ERR(0, 187, __pyx_L1_error) }
-  __pyx_t_1 = __pyx_f_14narrow_phase_c_evaluate_deep_narrow_phase_c(__pyx_v_tris_a_2d, __pyx_v_tris_b_2d, __pyx_v_tris_a_3d, __pyx_v_tris_b_3d, __pyx_v_normals_a, __pyx_v_normals_b, __pyx_v_intersecting_pairs, __pyx_v_w_idx, __pyx_v_u_idx, __pyx_v_v_idx, __pyx_v_w_tol, __pyx_v_n_tol, __pyx_v_use_MRT, __pyx_v_mrt_tol, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 187, __pyx_L1_error)
+  if (unlikely(!__pyx_v_tris_a_2d.memview)) { __Pyx_RaiseUnboundLocalError("tris_a_2d"); __PYX_ERR(0, 132, __pyx_L1_error) }
+  if (unlikely(!__pyx_v_tris_b_2d.memview)) { __Pyx_RaiseUnboundLocalError("tris_b_2d"); __PYX_ERR(0, 132, __pyx_L1_error) }
+  if (unlikely(!__pyx_v_aabbs_a.memview)) { __Pyx_RaiseUnboundLocalError("aabbs_a"); __PYX_ERR(0, 132, __pyx_L1_error) }
+  if (unlikely(!__pyx_v_aabbs_b.memview)) { __Pyx_RaiseUnboundLocalError("aabbs_b"); __PYX_ERR(0, 132, __pyx_L1_error) }
+  if (unlikely(!__pyx_v_tris_a_3d.memview)) { __Pyx_RaiseUnboundLocalError("tris_a_3d"); __PYX_ERR(0, 132, __pyx_L1_error) }
+  if (unlikely(!__pyx_v_tris_b_3d.memview)) { __Pyx_RaiseUnboundLocalError("tris_b_3d"); __PYX_ERR(0, 132, __pyx_L1_error) }
+  if (unlikely(!__pyx_v_normals_a.memview)) { __Pyx_RaiseUnboundLocalError("normals_a"); __PYX_ERR(0, 132, __pyx_L1_error) }
+  if (unlikely(!__pyx_v_normals_b.memview)) { __Pyx_RaiseUnboundLocalError("normals_b"); __PYX_ERR(0, 132, __pyx_L1_error) }
+  __pyx_t_1 = __pyx_f_14narrow_phase_c_evaluate_overlap_c(__pyx_v_tris_a_2d, __pyx_v_tris_b_2d, __pyx_v_aabbs_a, __pyx_v_aabbs_b, __pyx_v_tris_a_3d, __pyx_v_tris_b_3d, __pyx_v_normals_a, __pyx_v_normals_b, __pyx_v_w_idx, __pyx_v_u_idx, __pyx_v_v_idx, __pyx_v_w_tol, __pyx_v_n_tol, __pyx_v_use_MRT, __pyx_v_mrt_tol, __pyx_v_abort_threshold, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 132, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -20951,7 +20627,7 @@ static PyObject *__pyx_pf_14narrow_phase_c_4evaluate_deep_narrow_phase_c(CYTHON_
   /* function exit code */
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_1);
-  __Pyx_AddTraceback("narrow_phase_c.evaluate_deep_narrow_phase_c", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("narrow_phase_c.evaluate_overlap_c", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
   __Pyx_XGIVEREF(__pyx_r);
@@ -22954,7 +22630,7 @@ __Pyx_RefNannySetupContext("PyInit_narrow_phase_c", 0);
  * 
  * import numpy as np             # <<<<<<<<<<<<<<
  * cimport numpy as cnp
- * 
+ * from libc.stdlib cimport malloc, free
 */
   __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_numpy, 0, 0, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 6, __pyx_L1_error)
   __pyx_t_4 = __pyx_t_1;
@@ -22962,49 +22638,34 @@ __Pyx_RefNannySetupContext("PyInit_narrow_phase_c", 0);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_np, __pyx_t_4) < (0)) __PYX_ERR(0, 6, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "narrow_phase_c.pyx":62
+  /* "narrow_phase_c.pyx":63
  *     return True
  * 
- * cpdef list get_intersecting_pairs_c(double[:, :, :] tris_a_2d, double[:, :, :] tris_b_2d):             # <<<<<<<<<<<<<<
- *     """
- *     Takes two arrays of 2D triangles, runs AABB and SAT checks in C,
+ * cpdef bint fast_any_intersection_c(double[:, :, ::1] tris_a_2d, double[:, :, ::1] tris_b_2d, double[:, ::1] aabbs_a, double[:, ::1] aabbs_b):             # <<<<<<<<<<<<<<
+ *     cdef int num_a = tris_a_2d.shape[0]
+ *     cdef int num_b = tris_b_2d.shape[0]
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_14narrow_phase_c_1get_intersecting_pairs_c, 0, __pyx_mstate_global->__pyx_n_u_get_intersecting_pairs_c, NULL, __pyx_mstate_global->__pyx_n_u_narrow_phase_c, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 62, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_14narrow_phase_c_1fast_any_intersection_c, 0, __pyx_mstate_global->__pyx_n_u_fast_any_intersection_c, NULL, __pyx_mstate_global->__pyx_n_u_narrow_phase_c, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 63, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_get_intersecting_pairs_c, __pyx_t_4) < (0)) __PYX_ERR(0, 62, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_fast_any_intersection_c, __pyx_t_4) < (0)) __PYX_ERR(0, 63, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "narrow_phase_c.pyx":106
+  /* "narrow_phase_c.pyx":132
  * 
  * 
- * cpdef bint fast_any_intersection_c(double[:, :, :] tris_a_2d, double[:, :, :] tris_b_2d):             # <<<<<<<<<<<<<<
- *     """
- *     Early-exit SAT overlap check.
+ * cpdef tuple evaluate_overlap_c(             # <<<<<<<<<<<<<<
+ *     double[:, :, ::1] tris_a_2d, double[:, :, ::1] tris_b_2d,
+ *     double[:, ::1] aabbs_a, double[:, ::1] aabbs_b,
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_14narrow_phase_c_3fast_any_intersection_c, 0, __pyx_mstate_global->__pyx_n_u_fast_any_intersection_c, NULL, __pyx_mstate_global->__pyx_n_u_narrow_phase_c, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 106, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_14narrow_phase_c_3evaluate_overlap_c, 0, __pyx_mstate_global->__pyx_n_u_evaluate_overlap_c, NULL, __pyx_mstate_global->__pyx_n_u_narrow_phase_c, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 132, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_fast_any_intersection_c, __pyx_t_4) < (0)) __PYX_ERR(0, 106, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-
-  /* "narrow_phase_c.pyx":187
- *     return False
- * 
- * cpdef tuple evaluate_deep_narrow_phase_c(             # <<<<<<<<<<<<<<
- *     double[:, :, :] tris_a_2d, double[:, :, :] tris_b_2d,
- *     double[:, :, :] tris_a_3d, double[:, :, :] tris_b_3d,
-*/
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_14narrow_phase_c_5evaluate_deep_narrow_phase_c, 0, __pyx_mstate_global->__pyx_n_u_evaluate_deep_narrow_phase_c, NULL, __pyx_mstate_global->__pyx_n_u_narrow_phase_c, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[2])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 187, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
-  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
-  #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_evaluate_deep_narrow_phase_c, __pyx_t_4) < (0)) __PYX_ERR(0, 187, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_evaluate_overlap_c, __pyx_t_4) < (0)) __PYX_ERR(0, 132, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
   /* "narrow_phase_c.pyx":1
@@ -23102,20 +22763,42 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_slice[0]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_slice[0]);
 
-  /* "narrow_phase_c.pyx":302
+  /* "narrow_phase_c.pyx":162
  * 
- *             if max_pos == 2 and max_neg == 2:
- *                 return (2, 2)             # <<<<<<<<<<<<<<
+ *     if num_a == 0 or num_b == 0:
+ *         return (0, 0)             # <<<<<<<<<<<<<<
+ * 
+ *     for i in range(num_a):
+*/
+  __pyx_mstate_global->__pyx_tuple[1] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_int_0, __pyx_mstate_global->__pyx_int_0); if (unlikely(!__pyx_mstate_global->__pyx_tuple[1])) __PYX_ERR(0, 162, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[1]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[1]);
+
+  /* "narrow_phase_c.pyx":186
+ *                 pair_count += 1
+ *                 if abort_threshold > 0 and pair_count > abort_threshold:
+ *                     return (-999, -999)             # <<<<<<<<<<<<<<
+ * 
+ *                 p_count = 0
+*/
+  __pyx_mstate_global->__pyx_tuple[2] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_int_neg_999, __pyx_mstate_global->__pyx_int_neg_999); if (unlikely(!__pyx_mstate_global->__pyx_tuple[2])) __PYX_ERR(0, 186, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[2]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[2]);
+
+  /* "narrow_phase_c.pyx":270
+ * 
+ *                     if max_pos == 2 and max_neg == 2:
+ *                         return (2, 2)             # <<<<<<<<<<<<<<
  * 
  *     return (max_pos, max_neg)
 */
-  __pyx_mstate_global->__pyx_tuple[1] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_int_2, __pyx_mstate_global->__pyx_int_2); if (unlikely(!__pyx_mstate_global->__pyx_tuple[1])) __PYX_ERR(0, 302, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[1]);
-  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[1]);
+  __pyx_mstate_global->__pyx_tuple[3] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_int_2, __pyx_mstate_global->__pyx_int_2); if (unlikely(!__pyx_mstate_global->__pyx_tuple[3])) __PYX_ERR(0, 270, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[3]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[3]);
   #if CYTHON_IMMORTAL_CONSTANTS
   {
     PyObject **table = __pyx_mstate->__pyx_tuple;
-    for (Py_ssize_t i=0; i<2; ++i) {
+    for (Py_ssize_t i=0; i<4; ++i) {
       #if PY_VERSION_HEX >= 0x030F0000
       PyUnstable_SetImmortal(table[i]);
       #elif CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
@@ -23169,31 +22852,31 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   {
-    const struct { const unsigned int length: 11; } index[] = {{2},{35},{54},{37},{60},{24},{52},{26},{34},{33},{45},{22},{15},{179},{37},{32},{1},{1},{1},{1},{1},{8},{5},{6},{15},{23},{25},{7},{6},{2},{6},{35},{9},{30},{18},{50},{38},{33},{8},{20},{32},{22},{30},{37},{5},{8},{20},{8},{15},{3},{15},{12},{18},{4},{1},{9},{17},{18},{5},{8},{15},{6},{9},{5},{28},{23},{5},{6},{7},{8},{24},{12},{2},{10},{5},{18},{13},{5},{8},{8},{7},{4},{10},{7},{5},{4},{8},{14},{4},{7},{9},{9},{2},{5},{3},{4},{3},{14},{11},{10},{19},{14},{12},{10},{17},{13},{8},{12},{10},{12},{19},{5},{4},{5},{4},{4},{6},{8},{9},{9},{9},{9},{5},{6},{6},{7},{5},{6},{5},{5},{1},{451},{443},{1239},{1}};
-    #if (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (2060 bytes) */
-const char* const cstring = "BZh91AY&SYs\270}\230\000\001\222\177\377\377\177\377\375\376\377~\367\277\373\377\377\277\377\377\376@@@@@@@@@@@@@\000@\000`\010?{\232\362\324\006\356t\316\260m0\326\216H\001o \300\t\200\000\000L\000&\000\000\0010\002h`\000\000\000\000\000\222@\206\221\221\251\350\t3E\036\247\246\223\324\364\2154\323\3224\001\240\032\032\001\221\243@\r4\323\023C#M\0004\010\320S@\231M\006\200\003@\00044\000\000\000\000\000\000\032\000i\240\014D\324\n\237\243T~\224h\000\315&\232\000\000z\232\000\000\000\000\000\000\000\0004\365\0100\002`\000\000\023\000\t\200\000\000L\000\232\030\000\000\000\000\000\025P\223CS5\024\3754\320\230\3216i\021\251\351\017Sh\324\304bh\323!\243CA\223@\3652h\323 \311\2657\250#\311\026\251\264\271\245j\026\343\006\377]\017'\225\346E\0179$\274\250\211!3|O7\240\302S\014\"\320r\307\364\212\216\021\376 QJ($\nA\"R\013A\006\2025\312\300\240\200D\3260\204)*fI\020\024pL8\212\210\232\301\241\t\310aR\204T1\001\266J\"\234H\225f\021\266\211\305\026\004R\304\\a\240\202\314\n\352\302jP\310\213\r\305\330\026\227X.\026\341\naj\315\024\242\263[*\024\026\227<\215\006P\"N\221\022.\2311\227S\265\325\035\333\356u\271\337\274\241\316\177o\232\356\305r\3724\253 \226\242f|\245\021\335\316\207\357IO1\352\021Y\234\305H\370_\255g!\276_:\335\346I\336\301\013\002\312\335\201m\241\244P\352\033.s#z\232\211\\X\017\304\241D\2404\220z\275\234\367\204\006\241\324F\030\037E5\377R\273\3127\267\315In\210\3378\247\212\"\000\360i\347\226\263j3 \260XP\331\240\263_R\376.\305\352\304\361s}\2758\262W\013g\034d\227S`\301\351\355jm\215\212\237\"\006\334/m\335c\2078e\025\301\310!y\304\024\242\311\305}\243\212\254\205\222t\313\025\225\305\214\365w_\255b\275sA\263JI\323\247wf\026\224\240\312e\352\035\237[D\314\213\255I[\"B\226c1Zb\22590\254,\023\237QpYY\357\337\267\246\301M\266\235y\030;\227o\350@\273\230\310\211d\314Y\335\236\335R\242\272\013\006j\205\345e\276\025\331Q\336\233\2676\211:\344\205\262\333<\341!x\245ZyJ5\377\\\332\025\240\234\240\277\224v\250mZ\027D\356\372\325\347\244\313\315V\205\226Qi\014""\375x\3112\333\370L\"\376Z\251(<\t\320\274.&&?\244<I\021L\223\373iB\034lq\215\306\227.xBmi!\031Cj<\303\316k\262f\"\242\032\246F0!\255l\265`r\265F\214\214TZ4D&\006m\026%\222,\022\014\206\367\371[\302\243I<\257\010\".\261\261M\200R\\\221Z\236\344\223\311\230\321\220\307D\217\n\227\322\231\246\322\273%\206#\255\315\3363D\356\346&h\321#\263\022\300\346\362q\025\000\340\311\312h4B82\224\254\221W\342\270)\272n\221\257\222\361\246\016k\355#\230\255\220\243\364\256U\003`l\027\333\003e5f\321<%&Z\346\236&[C\332\007\201\340\024cL\334s\025\200xf \356\233\333uj\307\264\367\332\255\2060v\304\202\017\271\251hzU\016%\306\345\227\233\204[\274\362i\025\230\\9\204\362FM!\2242\231K\264\000\210\364T\3119\264'\277^Db\010*\354_R\024\211;\"\202(\241\267\251\237+\330\246h\002)\240\343\n\362r\356\007Z\246X\356\226\261\316~%zl\221\213;\263j\332cS\302\001\244\210\344\350\017\004&\002\302\322\226a\2030 \214Se\225\t\205\365H\001F\201,\014\036!<\032\306PE\212\2571U\221\000'\013\006\275\221R\310x\221\275\211Iv\022\327kQ}\224q\230ff\205\331\222\251\211\351m\007\360\326/;\033\313\\\\\213Bp\211f\375\257\303\272\267C\020`\202i\310\344w\357T\033\244\303\000fNV0\266\315\320\322\375\251~\3324\300\271\310eA\345\2630\315\034\025,FhM\226\265L\022\223\336\314\025\300\257\003\213e\300\316\300@fj9\005b+)+R\254&J\0339\342\372\363\312\236\022\022z\250\333T6\270bE\233\016\013\242\034\r\222\376 \365:\212c\265\347\3019\231\351\312\225N`\242\030Jt\n\202..^$\220\030H4\000e\300\316E\002\262$\314[\003\244\335\022\t\237:\357 \0230\261\232\201\372\234@\244n\220\211:\240\001@\267\035\200\231X\204\214\205I\301g\241\005\304\n\014\314\225\306#\225@v\23115\343|\356-\2023`*`\247hJ\345\322\324\213\307\215\022Y\026,\333\035*\200 ^(Bp.\312\030\300\330Nd\036H\034V\223\214\361\031\206ao[\232\234\312h\277/\005Y\013h\236T\306\206tT\237\027l\3431\266\325R\324e\262\332\003\0026bx\322\336\003\222\267\205\302x\017M\313\023!\304\\\361\361\037\202\206L\215\220c@<\316i0\210\266\304\320\215\"\245\203u\236\265M\303-p\223)\216W\215\022\366""\010\322\344\2541\031\314\3633\014P\347OJ\306\211\234\311(t/\240\254gf\021X\212n\0011\232qm\343\233\305r\362\254\013-V=\253\0233ZP\305tU\343\246\035x\343e\251\253\"5\320c\036_{-\003\001Xaf\221\240\003@w\3167f\270\004\204)\034x\n\031\034`\206\014\300\016\350\035\017\235\016i\253\344\244Z\215\244a\222k\n\225\r\205\260R\"j\266x\367\211\372\026\343\353\242\225M7\231\0359\271\332\326\025\227K\373\204\007\204\332\020\334;\214C\031\257N=\306\016\027m\341\321\211\332\226\306\251\301f\365\034g9\212Gz\322\214\032\236\332MK[\025f\242\240-\261V\372\021\216\322Y\021\214\035ig&\221\237\013M\033\246\034)\254\242\275\035F\253\247<\314\351]\236\345\2309\325\026aEt2U/4!q\010\\r\005t\307\031\232\231\300\364(\307\366\235.\250t>\224\302\351\237y\361\257\220d\2230x\203\227\230\203\315>\344v\216\211\322\021\300\260z8N\263/\310rC{\\\304\340\353\357\213\246i\034\230w<\276=\206W\371\033\375\236x\227_\216\262\320\250\213\273\307\204b\355\027\374\022H\212(\257\370b<\316\2147\2753\031\331;\235\341'\014j\261\376g\001\274\304\2068k\ri\271\356\203\346B;\243\356\204\310\375\206\261\305k5\230\306\2040\n\221\227(\362B\241\323\213p\300\177\246\023\022*\020a6\376\224R1*0\3247\315\270`\204Q\251\316jv\367\021\377:)\347r\207%\204\356x\030XP\363\225\032\207&<\266\004\234\207\014\360\260\274N{U\304$7p=\266\017a3\001\300\302\276\207\3003\333\347a\232\3319\246r\353)\336l7\206'I\211\322bp\030\006\006\006\357\272m\266\332\206SL\322s\034\301\252R\245\2705\333\210'\030G4a\0355L(:\212\234g\001\236\251m\234\206r\246SK\252\352\227\261\373.\246\361o\210Rk\265\3304[\007\354\316x\306\312\030\314g\215\262\311}\356\333\361t\035G\302\354?'\316\367\333/\224\322r\267\227\252.<\036qH\256\210\334i\016\023jNT\203\017\350\014\370\224%K\177\241@p\337\344p\217\001X$\225/\261\032\327I\237\021\210:\t\013f\014P,\331c\350]\311\024\341BA\316\341\366`";
-    PyObject *data = __Pyx_DecompressString(cstring, 2060, 2);
+    const struct { const unsigned int length: 11; } index[] = {{2},{35},{54},{37},{60},{24},{52},{26},{34},{33},{45},{22},{15},{179},{37},{32},{1},{1},{1},{1},{1},{8},{5},{6},{15},{23},{25},{7},{6},{2},{6},{35},{9},{30},{18},{50},{38},{33},{8},{20},{32},{22},{30},{37},{5},{8},{20},{8},{15},{7},{7},{3},{15},{15},{12},{18},{4},{1},{9},{17},{18},{5},{8},{15},{6},{9},{5},{18},{23},{5},{6},{7},{8},{12},{2},{10},{5},{13},{5},{8},{8},{7},{4},{10},{7},{5},{4},{8},{14},{4},{7},{9},{9},{2},{5},{3},{4},{3},{14},{11},{10},{19},{14},{12},{10},{17},{13},{8},{12},{10},{12},{19},{5},{4},{5},{4},{4},{6},{8},{9},{9},{9},{9},{5},{6},{6},{7},{5},{6},{5},{5},{1},{1460},{246},{1}};
+    #if (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (1977 bytes) */
+const char* const cstring = "BZh91AY&SY\370\236]\334\000\001a\377\377\377\355\377\377\376\357~\177\277{\377~\377\377\377\370@@@@@@@@@@@@@\000@\000`\007\235\365<@6`\331\233k`\266[\034QK\202\251) h\001\246\203dmM\010d\315OH\0324i\241\3454\003M\017P44\r\244\365\017SFjd\032hp\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\001\246\202\t\242\232\230\217$\2144\002f\246 \030L\006\200\0020#\000\231\032i\210\300\324\306\200\224\324\321F\324\322\236\322\2324zC\324\365\032\014\236\243@\0002z\200\000\000\000\000\000\003\002z\203\200\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\tD\t\2214\310\3213Bh\304\230\320\223\324\311\206\220\007\250\032h\000\032h\r\032di\243 \032i\243S=F\227q\2335\23383\315!\315\026NG;@p\220BN\330C\013$$\255'\210\377I\322G\214ja\377\242\022\020\304\350\243\031p\034<E,\034\245\361s\001\021\244\204\223&d\311&HO`\n\363*\013\303<\200Q\010\223\220\341\034X6\231\023\252\2025\007\225\024\245\362\220\270J\250\227)\"\rZ\214\"4E\022\224\272\240(\243\031t\240|\315\2170\"$\312G\\w\233p\212=;~\017\354/\263\333\376s\264\244\374\326\366h\257\236\322\365\275-@\267\310\223\315a/\316\267\037:\322\272s\260Vw\231\026C\243\360\320\345\277\247\325mG>\223\236\0020\rL\254\003e)Y)\260\177}j\206v,)\211\240\177\364\213\226\340V\202vb\254\30083Y\303\336\323\245\264\345\231\262\330\001\240\010\317\r\343\210\030\247\023\032q\202\214o:-\3407g \"<<\321OABbG8\244l\367\r3\3534k\353\333\000\254\010$\344\343\216S\213K\212\304\2541\273\271\266S\247B\355mE\257\034jv\005\337\274z\275^L(\226\003M!\214v\0260\030\234#\021\024\314\214h<>O\201\362\366\370\347\034\222$w7\2025\226h\016\307\225\230O\206`m\313\200\321\024\t5\032\033\275\334\363m\032c\"& \324m\311\341\253\265^l\345\241\212\226D&\373\035G1\221\272r\004J\313\230\3602=v\375\255\254x\244D\255KD\2700`\343\271c@qJ@\310vb\035\013\344\r\007t\264Z\034e\"%\350\224\217\014\343\300\267\201l'\357\010\361?1\024G\005\207\350\016\035G\341\337\006\212x\030\035\362\350\302'\354f\003{\232\226!w\221 \037&\014\313)\333\202\260-lyS+J\373\301\320Gs\035\027\210""\250\263a\345B,\227\225U\001\305bp\217\004(%r\302\361\364\360i\035}\031\220X\246#s\3142 \221\220\263\226u#i\2440\003Hc\031\227U.\306\233\234\221\202\023\210\344\2569l\027\316\377\263\302d\360\344'-\312\363C\312\203\255\321\254\220\014\014]5r\335\200B\235\202F\303\314\030\"\021\277; _\301\204Y\301\213\202\241\370\007NK\273\000\326\007\010q\007<b3I\300\342\362W\263\234/\032L\234\240\340&Z\355\024j\324\025]C\232xO_j2\317y\224\245.\254\031\226`skX\253\275\251\014!\257\313,4\217_\023I\321\n\nX1A\244\014\005\250\230JJf\005C\275&*\265+\025\2725\\\334\206\022\010\256\322\255&T\360L\204\311\221\202\230?\333\356\253BA)\320\330\205\323M\221\206\320\352\334\026;\245}\223:\037S-\250\327\315\225v\353$\272q\001\350\25315:\250j\200\361{&\231\004\201%z\273N\344q\232\313\000\\\260\374\005\r\020Z\022\361\303\005\025\r\366\273\024@\005\227\245\315b\242\273;l\203\331\212E\372J\252m\221\301TSyU]64I)>U\310x\227-I\352_q[\013\020\254(s\312\265\326\333\267\021*(n\266O\003\217SRA@l\014JVQ\030\r\230Y1\236\365\031\3671\242W\203\t\253\231\211!)X\233RZ5P%Jl\273\210\023\2331 ^\342\3741H\336 \022eP\203t*\217P(!\365\230\341\253\206\021\351\016\203S\236s\215\303JK\000\313K\350`\317CCob`\343[q\3165.PI\365\321tRY0\014\225J\250\214iW\014\241`ge\"\314\014\210\036\000v\306\363F\223Y\254\321\213o\025\222\371f\231\301!BZ\307x\202\204\n\241\013\006\n\344\212N:\223\232\261\002%\375\326\004\026\362\221T\241&\023;\336\334\003EUF\314a\231(\t\235'#\254Y\266q\322BN\n\024I\\#Ui\254\274\273PL\316\222d\235\357e\014\006\r\353\014I\202\270\332CdW\223\3169\244\306\302\215)Dal\005QTMw\246\2164\234\261K\0148r\321\\hz)\221Y9\006\275\231\357\027\227D\241\261\226\354\002\2043\264\336~\377@\351\364NS\221\036\016EEz\212\324\031\305(\252*\033`\246@i\214\312^\030\267S(\343\326\230\323A\220\240\355\261\246\0025\301\024!\333\025\003\326\2035E\313C \"\025i\364\235\234I\221\311\206#?=B\252\261\021pz\3310\224\306^bf\354Y\033C\351\014\367\321\315Z\004UZ\311\224\242ir\"\214Smf\216A3\006d\304t\003\204\201\213\022\246\310\240\334F7:\342""\260\r+\205ad\233\210\213\311\341\315y:\242\301\352A \t\315D\3205\323SvI$\206j\r\232\007\302Hr\205hp7\324 \243R\234w\031\356\266K\323^\206\242\213\212s\2041M<p\325dp\232\214o\032\010\215\263_\032\367\224:\214\325N:\331\2456\364\316\344\330\3530\322\236;\243\350\317\0072\323:_\253\232}\303I\300\2739Cd*\360\t\3148M\301\364\252\252\207c \306\206T\317\2057\321\220\024\306\272\rG\260\366\226\263\003\357\305\017Gt\"\222\200\227\000\270n\234\006\31288\013\177\036\327u\177.\322eXZ{\242*\2642\235W\321\246-\276\332/|+h-~\"\252$\234\254\321\030h\221\022H\3134\263G\004\324j\nh\363\347,>Qg\277\027H\211\232\2727fz\332R\267\032Ft{t\013\302\244}n\n\250\241%~\2643r\326\3421\033&\265\035\265b\236\271\325\314'\037\033\rS\203\023R\237\030\177\\\341;\337\340\344\272\321;a\262n\004\233\022\271\264\214\032k\351M\034\313\216\362e\210\261\024\222\334&&I$\262Tbg\\\315LOl\027\205\352\202\244Pu\0221J\034\\X\323\234\235Q\262\240\314O\256\330\242\332V_<\213\265\026;]\331(\257\313\365L\271-\261\330\014e\327M\214\377f''\262by\214a\304X`\024\250*\014A\300x\315\363|\272\032\003p\244\264:\207f'\236l\261\030k\227!\202\334\266\3055\025v\371\221\340m{\256\327\352\262\347T\347`)\2530\213\342\232\251\206\223]\024\021\221\254\3265\324\237\223\t\343^\226\337\025\225\226z\245%\251\254\362F\211\276\016\007\234\260c\007\250+\223\316\026hC\n9\"5\212\307\306\301\300@\325\225\013*\007\2317\005B.\010\376\030\202\262X\266M\340\244!\265h\2771w$S\205\t\017\211\345\335\300";
+    PyObject *data = __Pyx_DecompressString(cstring, 1977, 2);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (1779 bytes) */
-const char* const cstring = "x\332\355U\317s\033E\026\266\203\275%\023\203\035;\211MBe[\006J\tKT\330\016E\222\n\246\254\304\200\263\005DrL \374\350\352\231iIMF=\243\351\036YJ\330\252=\3528\3079\316q\216:\352\250\243\216}\324Q\177\202\377\204}=3\262\2358\2418\020\212\303\0364~\335\375\372\365{\337\367\275\347\333\250\344W\253\324C-F\017\220\345P\201\270#\021m\273\216\240HH\217YT\334%\0349\334\356 \323\243DRD\220\221^\222u\"\021\023\310t\270d5\337\361\005b\0345h\303\361:E\270\245C\021!X\215#\351 \270l]O\342\244\036\372\311\314)\013|\3401I\014\233f\016iRU\317i\374\336]\306-\332F\007L\326\221\354\270\024\025\262}\351\021.\2222\216\257\244np\203y\324\224\310b\r\312\005s\270\2707\261\320\007\226\256H\007H\235v\032\256\354 Q'\020Z\372.$Wu<dvd\335\341E\342y\244\263{:\\r_\370\256\353x\222Z\273\274Elf\241\206c\321\2174\266\340L-T0\013\010B\025 \236\316\265\360\021\252\301\255\211s\372\"\300I\332\220\317\235\257\223\032\276\32358U\364\215\003h%\350\337M\022\321)[\324f\006\365\000G@I3\007\217$\024q\364`\347\301\365\0337o \302-@\362Wx^@v\206i\0039\3008\0044|fKxL#(\212h\267\212:\216\2178\2054\2019\027\374N^\220u\312\221\240R\033\250\220\300M$\324\215\341:\343\265B\006\035kQ}\373\013b\013Z\374\326\227\311C\216\317-x\222O4DL\223B\364\253I\231\373<\241\037.\201\244Z\324\003v%m\350\265c\350\264\213[\205k\237\023\313\302\\\003\240\313A\200\301\307m\323\261m\375 @_$\206y\347\204 \265S\232\316\326\213\333\023\035lYL\350wi\362z\315DW5\021\265D\002:G(\tX\223\224\313D\337G4\003\352\351\025Kg)\330S\212\356|\206>>%\020\016_\347\000\273u\"(6\213n\247\315\035\240\253J|[\"\214=j\371&\305\030Y~R:w\370u\240\257\305\210\r\247&\343Lb\314\375\206\333)\232\216G\213\r\270\306\222\300\250J\230\235R\304\032Zk'\274\374\006\001\251\277\350\220\341\270u'mm\3539xN\357i}\036\241\364\334\371\321\256\177D\031\261m\307L\346C\222\233E$)\276\3444\025\266\216\221\215\227\342\366\336\335\335\335\035\333f\256`\002\343\007\2356\374\356\201~\3617\000{\205V\367h\323\247\334\244Z\376\305\343N\000\246'Qq\252&\21431\002\234Dt\270\311\034\215\206\343""\203\266\2510\000\177\023\020\325*\306xb\324\250\324\364\351%8a\006*\366\210I\rb>1A\254\200\275\245S\301\226\356\r\014\t\246\020B>\320\316\024\020Oz\216\002\305\036\205\326\365\365\343p\340\342\347i\257\022!!\273\016<\000})R\265\302\266Mj\002\004\003les\000\343\252\317!M\310\353\204/\257a\2270O\340\364D\24452\013~\t\261\360W\317\301\227\\\200\214\217 Hu\232\211\025\343\006\201j1\214G=\033\365t\202\205c\371\266\376\013!\245c\363\344C\032\2603\371\236,\nD\000\300qz\000\037]\203-\240\304\3140\270\233\310\021\340r\001K\327q1\006\351c\263N\315'\302o\244\253\254\020m&\370&\226\317]f>\2014v\370\304\257\225\374c\320\2545}\222et\334:GV\332v'6h[\2335&\244V\007\314\254\254\016\260\262\016L\354,\215\023\366$R\"W\r\027l{pF]!\035\370y\276\026\205\204m\370z\0002\301\033Vfl\246\2061\3311`\307\007\262\332P\030@\341\273\320\033\324\007\000\277\256<l\351}\255\033*\016\264y\240\021o\377w\372\360\315\251\331\213\301\017a5\332\216\312\243\231\013\023s<\363^\264~\370\366\324\354\\w\266\273\037\344\203\365Qn)\3700\274\037\231\361R\274\036o\237Z\316ww\202\013\001\tD\230\037\315/t\237\206\313a)$\241\210\326\242\335\370q\357\351`yP\032\220A\3635\035\216\217\022\000\277\213\301\257\321\233\361{q%n\366\246O-\027\203\331`?\314\207\233!\031-.\007\267\303\275\350L\224\2176##\236\353]\352\337\036\354\r\317\014\363\303\365\327tx\370\217\251\267\026\273\355\300\013W\243\345\350\253\270\024\327{f\177u\2604\2709\334\034\326\325w\337\253\357\177\030-\236K\374\324\002\360\000\225\226c\253w\255\277\336\337\036-\256E\005\300|3&\343\231\263\335u5\265\026\345_\305\342\341\374\377\t\374\373\021\270\0224\023\352\240\373\226\246fW\241\336\031\330:\27425{\t\300\331\016\241\371r\335\371`'<\007L\344\026\0250\236\217n\305\333q\371\371\325\030\030\314\303#so\035\003\267\240\026P4\035]\212?\355\255\365\266{\017\373\227\006\237\016\327\206\333\303\207\252\374X=\376Q\375\370\323h\361r\270\036~\005\372\330\217?\354}\331\337\350\227\373\344\325\233\177\365\003\023r5\007j\371j<=:\177%\254E\225\250\031\317\304\367{\265~""\245\337\034\314\014\356k\240\037\251G\200u\372\354\317\352\347_\324/\2062leK%}\345\267T\253\255\332\035\325y\246\236\375\246~\373\317\237\030\350B\360P\2633>\377\317\260\031\345\342\351\370BLF\247\026\243\363+A\033\224\376~D\264\364\333\320Z\357\207d\234;\333\275\031l\006f\250\0252\367Nx\026\004R\212H\324\034\345V\377\310b\374b\253>\003\2706\302rhFK\321\347j\2434\370\327\260<4\324\203\262*W^\367\3718\367Nx%\362\342s\243c\343\262\272|=\306\375\222\332\252\250\312\3368\367n\010\343E\027}C\255\\\215\317\304\2204h\350075\267\010\363\340\"\2406=\312-\274\324|\273k\200\036*\301\323hE_LT\267\323_\202f|4,\r\311\360 \3516\240\014+\314\024s\225\353)O(!\307\257\010\370\347\304>1\252\026\272~P\n\252\341\275hVkKK\372v\364\010\206\002\211\233cXl\204\3730\352\376\r\223\353L/\337\333\354\031\375YP\3363\030$\033\200\242\251\312{j/\323\336\370\265\006\203N\202\251v+\274\033v\022\016\316\257\250\225k0\374o\365\356\367\311\370\334\305\300\010\247\001\032\031}\222\034\377\216o\246\3455\210\234\213\337\210\241SW\3037\302\365\361\314|w7(\177\373?,\034|8";
-    PyObject *data = __Pyx_DecompressString(cstring, 1779, 1);
+    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (1742 bytes) */
+const char* const cstring = "x\332\325UMs\023G\032\306`\357j+\324\"c\003&x\241\205\240\004\225\240B1\251\202,K\312\030SqRI\260\214]\001BuzfZ\322\300\250g4=\243\217\315%G\037\3478\3079\316q\216:\352\350\343\034u\324O\340'\354\3233\222m \233lm\025\251\312A\343w\336\351\367\353y\236\267\375\005y\3507\032\334%]\223\367\210asI\204\355\021\336wl\311\211\364\\\323\340r\203\tb\013k@t\2273\217\023F\264<\310k1\217\230\222\350\266\360\314\246o\373\222\230\202\264y\333v\007UD\251TLJ\263)\210g\023\004\033\267\262<\371\tUrzh\232\270\347\232\036\323,>=\2207\325p\355\366o\305\232\302\340}\3223\275\026\361\006\016'\225\251\337s\231\220\331\030G!\3711D\230.\327=b\230m.\244i\013\371hf\221\353\206\232H%\310\017m\266\035o@d\213!\265\347;h\256a\273D\037x-[T\231\353\262\301\326\373\351\262x\351;\216\355z\334\330\022]f\231\006i\333\006\377Ta\213\303\334 \025\275B\220\252\202|\252\327\312\247\244\211\250\331\341\274\"\340d}\364s\377\333l\206=5\203\335 \337\331@+C\177#kD\265lp\313\324\270\013\034\201\222b\016E2\212\004y\262\371\344\326\235\273w\010\023\006\220|\205\362\022\335i\272\005r\3008\022j\276iy(\246\020\224U\262\325 \003\333'\202\243M0\347\340\334\361\000\257\305\005\221\334S\006\251dp3\017sS\204\233\242Y\231Bgv\271\212~\314,\311\253\337\373^V\310\366\205\201\222b\246!\246\353\034\331odc\356\212\214~\004AR]\356\202]\217\267\325\273\255\251\266\253\017*7\277d\206A\205\002@\215C\200\301\355\276n[\226*\010\350\253L\323\357\037\023\244:\224\267\363\340]\367L\007\017\014S\252\272<\253\336\324\311\rED3\223\200\352\021#\2015\217\013/\323\367!\315@=\0171T\227\322\3747'\367\377En\277'\020\201\247\335\243N\213IN\365\2523\350\013\033t5\230oy\204R\227\033\276\316)%\206\237\215.lq\013\364uMf\341\253n\n\323\243T\370mgP\325m\227W\333\0103\263\304\244\301L+\247\310l+\255\035;\345\267\031\244\376\356\201)\216\017\356\347\253m\274\005\317\373>\245\317C\224\336\372~\350\365\017)c\226e\353\331\375\220\365f0\217U\177\345k.l\225cz\275T\327w6\266\2666-\313t\244))}2\350\343\367\010\372\245\337\001\366:o\354\360\216\317\205\316\225\374""\253G\233\300\230\246I\312\362?\032xg\032F\244^\313\345\262e[\306\254$\315\245F\351T\251\300\232\311\201\320M[Ae\373\020>\227\032\310\321\001\267\2228\2453\243\311=\305\255z\305!jB\342.\323\271\306\364\327:\224\014b\014\325'5\324\342Pt\237\343\213f\261\353\034td\013\311\301\277\313\261\327\276*nC\330\026s\250\336`\322CO\003\244\305\252\312\\\300p[\254)\241!\0208\275\032(m\370BW]\241\037\231O`\032\370e\234\342\257\272\002U\365\303qrANUIi\233\241s\212{P]\202\352\032\302\213m\370\226\372\253\020\263-\221=X\033\236\331\363\270h\3016@\020\274\207\207\352\314\002\3563C\023N\246;\214\356\000\027\307v(\205\306\251\336\342\372k\351\267\363\267i\333\312\314\260\312,_8\246\376\032ml\212\331\271n\366\037@\315\332\361\331\264\243\243\0359\264\362\375:\346\000\0000\233\246\364\024\323\270\234\246s\300\232\256ZfO\3338f\3172e\272Tp\301\355\342\033w\244g\343\347\372\212`\017n<]\200\314\350g\306\324X\313\rm\346\321\340\361AM\037\203\001\n\337\301\022p\037\000~[\177\332U~\245\001.{\312\354)\304\373\277\314\275Y>\261p>x\0266\242\365h{<\177nfN\346/\004\235\361\333\217\311\374\307a\351\315\371\023\013\205_\272\373;\301\311\240\034\354\205k!\033\027\212\301\251\2406\231/\354/\354\357\006\245\2406.\234\r*\341bX\016\267\177\327\234\024\376\276\337\n\264\360/\241\021U\342\305\370f\262\226h\303\271\361iU\261pz\17738\027\260`\020\301sf\277\007S\"\252\036v\306\305\305\311\357x\372\221\214+\311bRNv\206'\207\245\374{z\246\034\325\242ob\231|2\334\036\027/\243\377\342R\272T\216>\213\352\221\027\3773+\276\274\032\256\207{QmR\304\310\343\342r\260\031\236\013\031J,_H/\334\210\347\342\213I\t}\352\303\345\341\263\021\033\311\203\362\301\323t\373\307\364\307\227\343\025\225\376\253x=\336Mn\016k\303\215\241\034\225\376\273s\362\201s?\016\257\207\035`\267|9\324\243\263Q\rE\202~(\243r\364<F\305\025\300\316\021\276>^\271\n_=\352\214W.\205w\243\265H\217?Nj\223\225K\351\245\333\311\334x\365z\264\r\327r\3744\2718,\r\327\206\306\350\332\310<\350\244Ov\322\035\264\366S\372\223\231\232\257\322W\355\264\335M\273""\275\377#\340\037\341\323h1*MV+Q'.$s\311\271\204\215\337{\031\257^\311h\275\026\263\331(\327\"6).\005w!E=Z\234\024I\364Q\\\213\037\306\014\003\376o/G$\310\250\244\322\376\034\225 \0075\300\331\370\313\364\213\257\017>Iw\367\322\275\037\322\037\236\245\317\236\3771'&\305Rt9v\223\305\361\221QN\313\237't\3640}\374<}\376bR\274\006\342\262\321\357\244Wn''\0234\017\001M\212\027\324\276DK\352\353\257\233\347\261p\013\330\220\001\344\266\024o\304=\250~aX\037\016\016\346\016\226\0166\016zY\033/\323\2274\245\255\264\005\252\254\324\262S\333\371\260\271\217\357B\340\207\017q\027=\212\027\342:\370\202\240\357A\343;\311)%K\265\255\273\361\325\370\233\244\2436\033\372\322F\013\243\372\350\347\264\016}\355f8\002\304\027\351\013\010MK5}\362\301\023bK\260:\367\242\215h\2201\261z%\275RK\316&\367\206_\217\330\344\342\345P\003@\347q\303|\236}\376\215\263S]_E\346\202\352n\274B\242SX\347\371\323\373[\301vz\342*DztS\277{iO\346\377\372\356\365|f\277\363\246pb\341o\177\302\3539\033\350\243\375\332\367\377\001\264p\276\014";
+    PyObject *data = __Pyx_DecompressString(cstring, 1742, 1);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #else /* compression: none (4078 bytes) */
-const char* const bytes = ": Buffer view does not expose stridesCan only create a buffer that is contiguous in memory.Cannot assign to read-only memoryviewCannot create writable memory view from read-only memoryviewCannot index with type 'Cannot transpose memoryview with indirect dimensionsDimension %d is not directEmpty shape tuple for cython.arrayIndirect dimensions not supportedInvalid mode, expected 'c' or 'fortran', got Invalid shape in axis <MemoryView of Note that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.Out of bounds on buffer access (axis Unable to convert item to object.>')?add_note and  at 0xcollections.abc<contiguous and direct><contiguous and indirect>disableenablegc (got got differing extents in dimension isenableditemsize <= 0 for cython.arraynarrow_phase_c.pyxno default __reduce__ due to non-trivial __cinit__numpy.core.multiarray failed to importnumpy.core.umath failed to import object><strided and direct><strided and direct or indirect><strided and indirect>unable to allocate array data.unable to allocate shape and strides.ASCIIEllipsis__Pyx_PyDict_NextRefSequenceView.MemoryViewabcallocate_buffer__annotate__asyncio.coroutinesbasec__class____class_getitem__cline_in_tracebackcount__dict__dtype_is_objectencodeenumerateerrorevaluate_deep_narrow_phase_cfast_any_intersection_cflagsformatfortran__func__get_intersecting_pairs_c__getstate__id__import__indexintersecting_pairs_is_coroutineitemsitemsize__main__memviewmode__module__mrt_toln_tolname__name__narrow_phase_cndim__new__normals_anormals_bnpnumpyobjpackpop__pyx_checksum__pyx_state__pyx_type__pyx_unpickle_Enum__pyx_vtable____qualname____reduce____reduce_cython____reduce_ex__register__set_name__setdefault__setstate____setstate_cython__shapesizestartstepstopstruct__test__tris_a_2dtris_a_3dtris_b_2dtris_b_3du_idxunpackupdateuse_MRTv_idxvaluesw_idxw_tolx\200\001\360\n\000\005\026\220Y\230f\240A\240Q\330\004""\025\220Y\230f\240A\240Q\340\004#\2401\360\016\000\005\t\210\005\210U\220!\2201\330\010\022\220*\230J\240c\250\022\2501\250A\330\010\022\220*\230J\240c\250\022\2501\250A\330\010\014\210E\220\025\220a\220s\230!\330\014\017\210z\230\023\230B\230a\230s\240\"\240I\250Z\260z\300\023\300B\300a\300q\330\014\017\210z\230\023\230B\230a\230s\240\"\240I\250Z\260z\300\023\300B\300a\300q\330\014\017\210z\230\023\230B\230a\230s\240\"\240I\250Z\260z\300\023\300B\300a\300q\330\014\017\210z\230\023\230B\230a\230s\240\"\240I\250Z\260z\300\023\300B\300a\300q\340\010\014\210E\220\025\220a\220q\330\014\026\220j\240\n\250#\250R\250q\260\001\330\014\026\220j\240\n\250#\250R\250q\260\001\330\014\020\220\005\220U\230!\2303\230a\330\020\023\220:\230S\240\002\240!\2403\240b\250\t\260\032\270:\300S\310\002\310!\3101\330\020\023\220:\230S\240\002\240!\2403\240b\250\t\260\032\270:\300S\310\002\310!\3101\330\020\023\220:\230S\240\002\240!\2403\240b\250\t\260\032\270:\300S\310\002\310!\3101\330\020\023\220:\230S\240\002\240!\2403\240b\250\t\260\032\270:\300S\310\002\310!\3101\360\006\000\r\020\210x\220r\230\030\240\023\240H\250B\250h\260c\270\030\300\022\3008\3103\310h\320VX\320XY\330\020\021\360\006\000\r\020\320\017#\2401\240I\250Q\250d\260)\2701\270A\330\020\"\240'\250\022\2503\250a\340\004\013\2101\320\000\"\240!\360\n\000\005\026\220Y\230f\240A\240Q\330\004\025\220Y\230f\240A\240Q\360\014\000\005\t\210\005\210U\220!\2201\330\010\022\220*\230J\240c\250\022\2501\250A\330\010\022\220*\230J\240c\250\022\2501\250A\330\010\014\210E\220\025\220a\220s\230!\330\014\017\210z\230\023\230B\230a\230s\240\"\240I\250Z\260z\300\023\300B\300a\300q\330\014\017\210z\230\023\230B\230a\230s\240\"\240I\250Z\260z\300\023\300B\300a\300q\330\014\017\210z\230\023\230B\230a\230s\240\"\240I\250Z\260z\300\023\300B\300a\300q\330\014\017\210z\230\023\230B\230a\230s\240\"\240I\250Z\260z\300\023\300B\300a\300q\340\010\014\210E\220\025\220a\220q\330\014\026\220j\240\n\250#\250R\250q\260\001\330\014\026\220j\240\n\250#\250R""\250q\260\001\330\014\020\220\005\220U\230!\2303\230a\330\020\023\220:\230S\240\002\240!\2403\240b\250\t\260\032\270:\300S\310\002\310!\3101\330\020\023\220:\230S\240\002\240!\2403\240b\250\t\260\032\270:\300S\310\002\310!\3101\330\020\023\220:\230S\240\002\240!\2403\240b\250\t\260\032\270:\300S\310\002\310!\3101\330\020\023\220:\230S\240\002\240!\2403\240b\250\t\260\032\270:\300S\310\002\310!\3101\360\006\000\r\020\210x\220r\230\030\240\023\240H\250B\250h\260c\270\030\300\022\3008\3103\310h\320VX\320XY\330\020\021\360\006\000\r\020\320\017#\2401\240I\250Q\250d\260)\2701\270A\330\020\027\220q\340\004\013\2101\200\001\360\022\000\005\030\220q\330\004\027\220q\360\036\000\005\032\230\023\230A\230Q\340\004\010\210\014\220E\230\021\230!\330\010\020\320\020\"\240!\2409\250A\250Q\330\010\020\320\020\"\240!\2409\250A\250Q\340\010\022\220!\360\006\000\t\r\210E\220\025\220a\220q\330\014\017\320\017 \240\001\240\032\2507\260\"\260A\260T\270\032\3007\310\"\310A\310T\320QZ\320Z[\320[\\\330\020\033\2301\230H\240A\240U\250*\260G\2702\270Q\270a\330\020\033\2301\230H\240A\240U\250*\260G\2702\270Q\270a\330\020\033\2301\360\006\000\t\r\210E\220\025\220a\220q\330\014\017\320\017 \240\001\240\032\2507\260\"\260A\260T\270\032\3007\310\"\310A\310T\320QZ\320Z[\320[\\\330\020\033\2301\230H\240A\240U\250*\260G\2702\270Q\270a\330\020\033\2301\230H\240A\240U\250*\260G\2702\270Q\270a\330\020\033\2301\360\006\000\t\r\210E\220\025\220a\220q\330\014\020\220\005\220U\230!\2301\330\020\023\320\023(\250\001\330\024\036\230g\240R\240q\250\004\250J\260g\270R\270q\300\004\300J\310h\320VW\320WX\320XZ\320Z[\320[]\320]^\320^b\320bl\320lt\320tu\320uv\320vx\320xy\320y{\320{|\320|}\330\024\036\230g\240R\240q\250\004\250J\260g\270R\270q\300\004\300J\310h\320VW\320WX\320XZ\320Z[\320[]\320]^\320^b\320bl\320lt\320tu\320uv\320vx\320xy\320y{\320{|\320|}\330\024\025\220T\230\021\230!\340\024\037\230q\240\010\250\001\250\025\250a\330\024\037\230q\240\010\250\001\250\025\250a\330\024\037\230q\330\024\027\220x\230s""\240$\240a\330\014\017\210x\220s\230$\230a\340\010\013\2108\2203\220c\230\021\360\006\000\t\031\230\013\2401\240B\240a\240q\330\010\030\230\013\2401\240B\240a\240q\330\010\030\230\013\2401\240B\240a\240q\330\010\030\230\013\2401\240B\240a\240q\340\010\014\210E\220\025\220a\220s\230!\330\014\017\210{\230!\2302\230Q\230c\240\022\240?\3202B\300+\310Q\310b\320PQ\320QR\330\014\017\210{\230!\2302\230Q\230c\240\022\240?\3202B\300+\310Q\310b\320PQ\320QR\330\014\017\210{\230!\2302\230Q\230c\240\022\240?\3202B\300+\310Q\310b\320PQ\320QR\330\014\017\210{\230!\2302\230Q\230c\240\022\240?\3202B\300+\310Q\310b\320PQ\320QR\340\010\031\230\036\240r\250\021\330\010\031\230\036\240r\250\021\330\010\033\320\033-\250_\270B\320>R\320RS\340\010\034\230A\330\010\013\2108\2204\320\027(\250\002\250!\330\014 \240\001\360\010\000\t\020\210z\230\026\230q\240\001\330\010\017\210z\230\026\230q\240\001\330\010\017\210z\230\026\230q\240\001\330\010\016\210b\220\005\220R\220z\240\027\250\002\250!\2507\260\"\260E\270\022\270:\300W\310B\310a\310w\320VX\320X]\320]_\320_i\320ip\320pr\320rs\320st\340\010\017\210z\230\026\230q\240\001\330\010\017\210z\230\026\230q\240\001\330\010\017\210z\230\026\230q\240\001\330\010\016\210b\220\005\220R\220z\240\027\250\002\250!\2507\260\"\260E\270\022\270:\300W\310B\310a\310w\320VX\320X]\320]_\320_i\320ip\320pr\320rs\320st\340\010\014\210E\220\025\220a\220q\330\014\017\210u\220B\220f\230D\240\005\240R\240q\330\020\033\230:\240W\250B\250a\250q\340\020\033\2302\230U\240\"\240K\250q\260\002\260!\2603\260b\270\005\270R\270{\310!\3102\310Q\310c\320QS\320SX\320XZ\320Z[\340\014\017\210u\220B\220f\230D\240\005\240R\240q\330\020\033\230:\240W\250B\250a\250q\340\020\033\2302\230U\240\"\240K\250q\260\002\260!\2603\260b\270\005\270R\270{\310!\3102\310Q\310c\320QS\320SX\320XZ\320Z[\340\014\017\210u\220B\220f\230D\240\005\240R\240q\250\001\330\020\023\2209\230C\230y\250\002\250!\330\024\027\320\027)\250\022\2509\260J\270a\340\021\026\220b\230\001\230\026\230t\2405\250\002\250!\330""\020\023\2209\230C\230y\250\002\250!\330\024\027\320\027)\250\022\2509\260J\270a\340\014\017\210x\220s\230\"\230D\240\010\250\003\2501\330\020\030\230\003\2301\340\004\014\210I\220QO";
+    #else /* compression: none (3628 bytes) */
+const char* const bytes = ": Buffer view does not expose stridesCan only create a buffer that is contiguous in memory.Cannot assign to read-only memoryviewCannot create writable memory view from read-only memoryviewCannot index with type 'Cannot transpose memoryview with indirect dimensionsDimension %d is not directEmpty shape tuple for cython.arrayIndirect dimensions not supportedInvalid mode, expected 'c' or 'fortran', got Invalid shape in axis <MemoryView of Note that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.Out of bounds on buffer access (axis Unable to convert item to object.>')?add_note and  at 0xcollections.abc<contiguous and direct><contiguous and indirect>disableenablegc (got got differing extents in dimension isenableditemsize <= 0 for cython.arraynarrow_phase_c.pyxno default __reduce__ due to non-trivial __cinit__numpy.core.multiarray failed to importnumpy.core.umath failed to import object><strided and direct><strided and direct or indirect><strided and indirect>unable to allocate array data.unable to allocate shape and strides.ASCIIEllipsis__Pyx_PyDict_NextRefSequenceView.MemoryViewaabbs_aaabbs_babcabort_thresholdallocate_buffer__annotate__asyncio.coroutinesbasec__class____class_getitem__cline_in_tracebackcount__dict__dtype_is_objectencodeenumerateerrorevaluate_overlap_cfast_any_intersection_cflagsformatfortran__func____getstate__id__import__index_is_coroutineitemsitemsize__main__memviewmode__module__mrt_toln_tolname__name__narrow_phase_cndim__new__normals_anormals_bnpnumpyobjpackpop__pyx_checksum__pyx_state__pyx_type__pyx_unpickle_Enum__pyx_vtable____qualname____reduce____reduce_cython____reduce_ex__register__set_name__setdefault__setstate____setstate_cython__shapesizestartstepstopstruct__test__tris_a_2dtris_a_3dtris_b_2dtris_b_3du_idxunpackupdateuse_MRTv_idxvaluesw_idxw_tolx\200\001\360\024\000\005\026\220Y\230f\240A\240Q\330\004\025\220Y\230f\240A""\240Q\340\004\027\220q\330\004\027\220q\330\004\027\220q\330\004\027\220q\340\004\032\230!\360\026\000\005\010\200v\210S\220\002\220#\220V\2303\230a\330\010\020\220\003\2201\340\004\010\210\005\210U\220!\2201\330\010\022\220'\230\021\230#\230Q\330\010\022\220'\230\021\230#\230Q\330\010\022\220'\230\021\230#\230Q\330\010\022\220'\230\021\230#\230Q\340\010\016\210h\220b\230\006\230d\240'\250\021\250)\2603\260b\270\001\330\014\027\220q\340\010\014\210E\220\025\220a\220y\240\001\330\014\017\210w\220a\220s\230#\230R\230q\330\020\021\340\014\017\210w\220a\220s\230#\230R\230q\330\020\021\340\014\017\210w\220a\220s\230#\230R\230x\240s\250'\260\021\260#\260S\270\002\270!\330\020\021\340\014\017\320\017#\2401\240K\250s\260+\270Q\330\020\036\230a\330\020\023\320\023#\2402\240R\240t\250;\260b\270\001\330\024\034\230A\230V\2401\340\020\032\230!\330\020\024\220E\230\025\230a\230q\330\024\027\320\027(\250\001\250\031\260!\2603\260c\270\024\270Y\300a\300s\310#\310T\320Q\\\320\\]\330\030#\2401\240H\250A\250U\260)\2701\270C\270s\300!\330\030#\2401\240H\250A\250U\260)\2701\270C\270s\300!\330\030#\2401\340\020\024\220E\230\025\230a\230q\330\024\027\320\027(\250\001\250\031\260!\2603\260c\270\024\270Y\300a\300s\310#\310T\320Q\\\320\\]\330\030#\2401\240H\250A\250U\260)\2701\270C\270s\300!\330\030#\2401\240H\250A\250U\260)\2701\270C\270s\300!\330\030#\2401\340\020\024\220F\230%\230q\240\001\330\024\036\230c\240\022\2401\330\024\027\220x\230s\240#\240Z\250q\330\024\030\230\006\230e\2401\240A\330\030\"\240#\240R\240q\330\030\033\2308\2403\240c\250\032\2601\340\030\033\320\0330\260\001\330\034%\240Q\240c\250\024\250T\260\031\270!\2703\270d\300$\300i\310q\320PS\320S\\\320\\`\320`i\320ij\320jm\320mv\320vw\330\034%\240Q\240c\250\024\250T\260\031\270!\2703\270d\300$\300i\310q\320PS\320S\\\320\\`\320`i\320ij\320jm\320mv\320vw\330\034\035\230T\240\021\240!\340\034'\240q\250\010\260\001\260\025\260a\330\034'\240q\250\010\260\001\260\025\260a\330\034'\240q\330\034\037\230x\240s\250$\250a\330\024""\027\220x\230s\240$\240a\340\020\023\2208\2303\230c\240\021\340\020 \240\013\2501\250B\250a\250q\330\020 \240\013\2501\250B\250a\250q\330\020 \240\013\2501\250B\250a\250q\330\020 \240\013\2501\250B\250a\250q\340\020\024\220E\230\025\230a\230s\240!\330\024\027\220{\240!\2402\240Q\240c\250\022\250?\320:J\310+\320UV\320VX\320XY\320YZ\330\024\027\220{\240!\2402\240Q\240c\250\022\250?\320:J\310+\320UV\320VX\320XY\320YZ\330\024\027\220{\240!\2402\240Q\240c\250\022\250?\320:J\310+\320UV\320VX\320XY\320YZ\330\024\027\220{\240!\2402\240Q\240c\250\022\250?\320:J\310+\320UV\320VX\320XY\320YZ\340\020!\240\036\250r\260\021\330\020!\240\036\250r\260\021\330\020#\320#5\260_\300B\320FZ\320Z[\340\020$\240A\330\020\023\2208\2304\320\0370\260\002\260!\330\024(\250\001\340\020\027\220y\240\001\240\023\240A\330\020\027\220y\240\001\240\023\240A\330\020\027\220y\240\001\240\023\240A\330\020\026\220b\230\005\230R\230y\250\001\250\023\250C\250w\260b\270\005\270R\270y\310\001\310\023\310C\310w\320VX\320X]\320]_\320_h\320hi\320il\320lo\320op\340\020\027\220y\240\001\240\023\240A\330\020\027\220y\240\001\240\023\240A\330\020\027\220y\240\001\240\023\240A\330\020\026\220b\230\005\230R\230y\250\001\250\023\250C\250w\260b\270\005\270R\270y\310\001\310\023\310C\310w\320VX\320X]\320]_\320_h\320hi\320il\320lo\320op\340\020\024\220E\230\025\230a\230q\330\024\027\220u\230B\230f\240D\250\005\250R\250q\330\030#\2409\250A\250S\260\003\2601\340\030#\2402\240U\250\"\250K\260q\270\002\270!\2703\270b\300\005\300R\300{\320RS\320SU\320UV\320VY\320Y[\320[`\320`b\320bc\340\024\027\220u\230B\230f\240D\250\005\250R\250q\330\030#\2409\250A\250S\260\003\2601\340\030#\2402\240U\250\"\250K\260q\270\002\270!\2703\270b\300\005\300R\300{\320RS\320SU\320UV\320VY\320Y[\320[`\320`b\320bc\340\024\027\220u\230B\230f\240D\250\005\250R\250q\260\001\330\030\033\2309\240C\240y\260\002\260!\330\034\037\320\0371\260\022\2609\270J\300a\340\031\036\230b\240\001\240\026\240t\2505\260\002\260!\330\030\033\2309\240C\240y\260\002\260!""\330\034\037\320\0371\260\022\2609\270J\300a\340\024\027\220x\230s\240\"\240D\250\010\260\003\2601\330\030 \240\003\2401\340\004\014\210I\220Q\320\000\"\240!\330\004\025\220Y\230f\240A\240Q\330\004\025\220Y\230f\240A\240Q\340\004\027\220q\340\004\007\200v\210S\220\002\220#\220V\2303\230a\330\010\017\210q\360\010\000\005\t\210\005\210U\220!\2201\330\010\022\220'\230\021\230#\230Q\330\010\022\220'\230\021\230#\230Q\330\010\022\220'\230\021\230#\230Q\330\010\022\220'\230\021\230#\230Q\340\010\016\210h\220b\230\006\230d\240'\250\021\250)\2603\260b\270\001\330\014\027\220q\340\010\014\210E\220\025\220a\220y\240\001\330\014\017\210w\220a\220s\230#\230R\230q\330\020\021\340\014\017\210w\220a\220s\230#\230R\230q\330\020\021\340\014\017\210w\220a\220s\230#\230R\230x\240s\250'\260\021\260#\260S\270\002\270!\330\020\021\340\014\017\320\017#\2401\240K\250s\260+\270Q\330\020\027\220q\340\004\013\2101O";
     PyObject *data = NULL;
     CYTHON_UNUSED_VAR(__Pyx_DecompressString);
     #endif
     PyObject **stringtab = __pyx_mstate->__pyx_string_tab;
     Py_ssize_t pos = 0;
-    for (int i = 0; i < 131; i++) {
+    for (int i = 0; i < 132; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyUnicode_DecodeUTF8(bytes + pos, bytes_length, NULL);
       if (likely(string) && i >= 44) PyUnicode_InternInPlace(&string);
@@ -23204,7 +22887,7 @@ const char* const bytes = ": Buffer view does not expose stridesCan only create 
       stringtab[i] = string;
       pos += bytes_length;
     }
-    for (int i = 131; i < 135; i++) {
+    for (int i = 132; i < 135; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyBytes_FromStringAndSize(bytes + pos, bytes_length);
       stringtab[i] = string;
@@ -23222,8 +22905,8 @@ const char* const bytes = ": Buffer view does not expose stridesCan only create 
     }
     #if CYTHON_IMMORTAL_CONSTANTS
     {
-      PyObject **table = stringtab + 131;
-      for (Py_ssize_t i=0; i<4; ++i) {
+      PyObject **table = stringtab + 132;
+      for (Py_ssize_t i=0; i<3; ++i) {
         #if PY_VERSION_HEX >= 0x030F0000
         PyUnstable_SetImmortal(table[i]);
         #elif CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
@@ -23247,16 +22930,17 @@ const char* const bytes = ": Buffer view does not expose stridesCan only create 
   {
     PyObject **numbertab = __pyx_mstate->__pyx_number_tab + 0;
     int8_t const cint_constants_1[] = {0,-1,1,2};
+    int16_t const cint_constants_2[] = {-999};
     int32_t const cint_constants_4[] = {136983863L};
-    for (int i = 0; i < 5; i++) {
-      numbertab[i] = PyLong_FromLong((i < 4 ? cint_constants_1[i - 0] : cint_constants_4[i - 4]));
+    for (int i = 0; i < 6; i++) {
+      numbertab[i] = PyLong_FromLong((i < 4 ? cint_constants_1[i - 0] : (i < 5 ? cint_constants_2[i - 4] : cint_constants_4[i - 5])));
       if (unlikely(!numbertab[i])) __PYX_ERR(0, 1, __pyx_L1_error)
     }
   }
   #if CYTHON_IMMORTAL_CONSTANTS
   {
     PyObject **table = __pyx_mstate->__pyx_number_tab;
-    for (Py_ssize_t i=0; i<5; ++i) {
+    for (Py_ssize_t i=0; i<6; ++i) {
       #if PY_VERSION_HEX >= 0x030F0000
       PyUnstable_SetImmortal(table[i]);
       #elif CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
@@ -23282,10 +22966,10 @@ const char* const bytes = ": Buffer view does not expose stridesCan only create 
 }
 /* #### Code section: init_codeobjects ### */
 typedef struct {
-    unsigned int argcount : 4;
+    unsigned int argcount : 5;
     unsigned int num_posonly_args : 1;
     unsigned int num_kwonly_args : 1;
-    unsigned int nlocals : 4;
+    unsigned int nlocals : 5;
     unsigned int flags : 10;
     unsigned int first_line : 8;
 } __Pyx_PyCode_New_function_description;
@@ -23304,19 +22988,14 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
   PyObject* tuple_dedup_map = PyDict_New();
   if (unlikely(!tuple_dedup_map)) return -1;
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 62};
-    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_tris_a_2d, __pyx_mstate->__pyx_n_u_tris_b_2d};
-    __pyx_mstate_global->__pyx_codeobj_tab[0] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_narrow_phase_c_pyx, __pyx_mstate->__pyx_n_u_get_intersecting_pairs_c, __pyx_mstate->__pyx_kp_b_iso88591_YfAQ_YfAQ_1_U_1_Jc_1A_Jc_1A_E_a, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[0])) goto bad;
+    const __Pyx_PyCode_New_function_description descr = {4, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 63};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_tris_a_2d, __pyx_mstate->__pyx_n_u_tris_b_2d, __pyx_mstate->__pyx_n_u_aabbs_a, __pyx_mstate->__pyx_n_u_aabbs_b};
+    __pyx_mstate_global->__pyx_codeobj_tab[0] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_narrow_phase_c_pyx, __pyx_mstate->__pyx_n_u_fast_any_intersection_c, __pyx_mstate->__pyx_kp_b_iso88591_YfAQ_YfAQ_q_vS_V3a_q_U_1_Q_Q_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[0])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 106};
-    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_tris_a_2d, __pyx_mstate->__pyx_n_u_tris_b_2d};
-    __pyx_mstate_global->__pyx_codeobj_tab[1] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_narrow_phase_c_pyx, __pyx_mstate->__pyx_n_u_fast_any_intersection_c, __pyx_mstate->__pyx_kp_b_iso88591_YfAQ_YfAQ_U_1_Jc_1A_Jc_1A_E_as, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[1])) goto bad;
-  }
-  {
-    const __Pyx_PyCode_New_function_description descr = {14, 0, 0, 14, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 187};
-    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_tris_a_2d, __pyx_mstate->__pyx_n_u_tris_b_2d, __pyx_mstate->__pyx_n_u_tris_a_3d, __pyx_mstate->__pyx_n_u_tris_b_3d, __pyx_mstate->__pyx_n_u_normals_a, __pyx_mstate->__pyx_n_u_normals_b, __pyx_mstate->__pyx_n_u_intersecting_pairs, __pyx_mstate->__pyx_n_u_w_idx, __pyx_mstate->__pyx_n_u_u_idx, __pyx_mstate->__pyx_n_u_v_idx, __pyx_mstate->__pyx_n_u_w_tol, __pyx_mstate->__pyx_n_u_n_tol, __pyx_mstate->__pyx_n_u_use_MRT, __pyx_mstate->__pyx_n_u_mrt_tol};
-    __pyx_mstate_global->__pyx_codeobj_tab[2] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_narrow_phase_c_pyx, __pyx_mstate->__pyx_n_u_evaluate_deep_narrow_phase_c, __pyx_mstate->__pyx_kp_b_iso88591_q_q_AQ_E_9AQ_9AQ_E_aq_7_AT_7_AT, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[2])) goto bad;
+    const __Pyx_PyCode_New_function_description descr = {16, 0, 0, 16, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 132};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_tris_a_2d, __pyx_mstate->__pyx_n_u_tris_b_2d, __pyx_mstate->__pyx_n_u_aabbs_a, __pyx_mstate->__pyx_n_u_aabbs_b, __pyx_mstate->__pyx_n_u_tris_a_3d, __pyx_mstate->__pyx_n_u_tris_b_3d, __pyx_mstate->__pyx_n_u_normals_a, __pyx_mstate->__pyx_n_u_normals_b, __pyx_mstate->__pyx_n_u_w_idx, __pyx_mstate->__pyx_n_u_u_idx, __pyx_mstate->__pyx_n_u_v_idx, __pyx_mstate->__pyx_n_u_w_tol, __pyx_mstate->__pyx_n_u_n_tol, __pyx_mstate->__pyx_n_u_use_MRT, __pyx_mstate->__pyx_n_u_mrt_tol, __pyx_mstate->__pyx_n_u_abort_threshold};
+    __pyx_mstate_global->__pyx_codeobj_tab[1] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_narrow_phase_c_pyx, __pyx_mstate->__pyx_n_u_evaluate_overlap_c, __pyx_mstate->__pyx_kp_b_iso88591_YfAQ_YfAQ_q_q_q_q_vS_V3a_1_U_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[1])) goto bad;
   }
   Py_DECREF(tuple_dedup_map);
   return 0;
@@ -29792,17 +29471,17 @@ static const char* __Pyx_BufFmt_CheckString(__Pyx_BufFmt_Context* ctx, const cha
   }
   
 /* ObjectToMemviewSlice */
-  static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_dsdsds_double(PyObject *obj, int writable_flag) {
+  static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_d_d_dc_double(PyObject *obj, int writable_flag) {
       __Pyx_memviewslice result = __Pyx_MEMSLICE_INIT;
       __Pyx_BufFmt_StackElem stack[1];
-      int axes_specs[] = { (__Pyx_MEMVIEW_DIRECT | __Pyx_MEMVIEW_STRIDED), (__Pyx_MEMVIEW_DIRECT | __Pyx_MEMVIEW_STRIDED), (__Pyx_MEMVIEW_DIRECT | __Pyx_MEMVIEW_STRIDED) };
+      int axes_specs[] = { (__Pyx_MEMVIEW_DIRECT | __Pyx_MEMVIEW_FOLLOW), (__Pyx_MEMVIEW_DIRECT | __Pyx_MEMVIEW_FOLLOW), (__Pyx_MEMVIEW_DIRECT | __Pyx_MEMVIEW_CONTIG) };
       int retcode;
       if (obj == Py_None) {
           result.memview = (struct __pyx_memoryview_obj *) Py_None;
           return result;
       }
-      retcode = __Pyx_ValidateAndInit_memviewslice(axes_specs, 0,
-                                                   PyBUF_RECORDS_RO | writable_flag, 3,
+      retcode = __Pyx_ValidateAndInit_memviewslice(axes_specs, __Pyx_IS_C_CONTIG,
+                                                   (PyBUF_C_CONTIGUOUS | PyBUF_FORMAT) | writable_flag, 3,
                                                    &__Pyx_TypeInfo_double, stack,
                                                    &result, obj);
       if (unlikely(retcode == -1))
@@ -29815,17 +29494,17 @@ static const char* __Pyx_BufFmt_CheckString(__Pyx_BufFmt_Context* ctx, const cha
   }
   
 /* ObjectToMemviewSlice */
-  static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_dsds_double(PyObject *obj, int writable_flag) {
+  static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(PyObject *obj, int writable_flag) {
       __Pyx_memviewslice result = __Pyx_MEMSLICE_INIT;
       __Pyx_BufFmt_StackElem stack[1];
-      int axes_specs[] = { (__Pyx_MEMVIEW_DIRECT | __Pyx_MEMVIEW_STRIDED), (__Pyx_MEMVIEW_DIRECT | __Pyx_MEMVIEW_STRIDED) };
+      int axes_specs[] = { (__Pyx_MEMVIEW_DIRECT | __Pyx_MEMVIEW_FOLLOW), (__Pyx_MEMVIEW_DIRECT | __Pyx_MEMVIEW_CONTIG) };
       int retcode;
       if (obj == Py_None) {
           result.memview = (struct __pyx_memoryview_obj *) Py_None;
           return result;
       }
-      retcode = __Pyx_ValidateAndInit_memviewslice(axes_specs, 0,
-                                                   PyBUF_RECORDS_RO | writable_flag, 2,
+      retcode = __Pyx_ValidateAndInit_memviewslice(axes_specs, __Pyx_IS_C_CONTIG,
+                                                   (PyBUF_C_CONTIGUOUS | PyBUF_FORMAT) | writable_flag, 2,
                                                    &__Pyx_TypeInfo_double, stack,
                                                    &result, obj);
       if (unlikely(retcode == -1))
@@ -30588,75 +30267,6 @@ static const char* __Pyx_BufFmt_CheckString(__Pyx_BufFmt_Context* ctx, const cha
       }
   }
   
-/* CIntToPy */
-  static CYTHON_INLINE PyObject* __Pyx_PyLong_From_long(long value) {
-  #ifdef __Pyx_HAS_GCC_DIAGNOSTIC
-  #pragma GCC diagnostic push
-  #pragma GCC diagnostic ignored "-Wconversion"
-  #endif
-      const long neg_one = (long) -1, const_zero = (long) 0;
-  #ifdef __Pyx_HAS_GCC_DIAGNOSTIC
-  #pragma GCC diagnostic pop
-  #endif
-      const int is_unsigned = neg_one > const_zero;
-      if (is_unsigned) {
-          if (sizeof(long) < sizeof(long)) {
-              return PyLong_FromLong((long) value);
-          } else if (sizeof(long) <= sizeof(unsigned long)) {
-              return PyLong_FromUnsignedLong((unsigned long) value);
-  #if !CYTHON_COMPILING_IN_PYPY
-          } else if (sizeof(long) <= sizeof(unsigned PY_LONG_LONG)) {
-              return PyLong_FromUnsignedLongLong((unsigned PY_LONG_LONG) value);
-  #endif
-          }
-      } else {
-          if (sizeof(long) <= sizeof(long)) {
-              return PyLong_FromLong((long) value);
-          } else if (sizeof(long) <= sizeof(PY_LONG_LONG)) {
-              return PyLong_FromLongLong((PY_LONG_LONG) value);
-          }
-      }
-      {
-          unsigned char *bytes = (unsigned char *)&value;
-  #if !CYTHON_COMPILING_IN_LIMITED_API && PY_VERSION_HEX >= 0x030d00A4
-          if (is_unsigned) {
-              return PyLong_FromUnsignedNativeBytes(bytes, sizeof(value), -1);
-          } else {
-              return PyLong_FromNativeBytes(bytes, sizeof(value), -1);
-          }
-  #elif !CYTHON_COMPILING_IN_LIMITED_API && PY_VERSION_HEX < 0x030d0000
-          int one = 1; int little = (int)*(unsigned char *)&one;
-          return _PyLong_FromByteArray(bytes, sizeof(long),
-                                       little, !is_unsigned);
-  #else
-          int one = 1; int little = (int)*(unsigned char *)&one;
-          PyObject *from_bytes, *result = NULL, *kwds = NULL;
-          PyObject *py_bytes = NULL, *order_str = NULL;
-          from_bytes = PyObject_GetAttrString((PyObject*)&PyLong_Type, "from_bytes");
-          if (!from_bytes) return NULL;
-          py_bytes = PyBytes_FromStringAndSize((char*)bytes, sizeof(long));
-          if (!py_bytes) goto limited_bad;
-          order_str = PyUnicode_FromString(little ? "little" : "big");
-          if (!order_str) goto limited_bad;
-          {
-              PyObject *args[3+(CYTHON_VECTORCALL ? 1 : 0)] = { NULL, py_bytes, order_str };
-              if (!is_unsigned) {
-                  kwds = __Pyx_MakeVectorcallBuilderKwds(1);
-                  if (!kwds) goto limited_bad;
-                  if (__Pyx_VectorcallBuilder_AddArgStr("signed", __Pyx_NewRef(Py_True), kwds, args+3, 0) < 0) goto limited_bad;
-              }
-              result = __Pyx_Object_Vectorcall_CallFromBuilder(from_bytes, args+1, 2 | __Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET, kwds);
-          }
-          limited_bad:
-          Py_XDECREF(kwds);
-          Py_XDECREF(order_str);
-          Py_XDECREF(py_bytes);
-          Py_XDECREF(from_bytes);
-          return result;
-  #endif
-      }
-  }
-  
 /* PyObjectCall2Args (used by PyObjectCallMethod1) */
   static CYTHON_INLINE PyObject* __Pyx_PyObject_Call2Args(PyObject* function, PyObject* arg1, PyObject* arg2) {
       PyObject *args[3] = {NULL, arg1, arg2};
@@ -31018,6 +30628,75 @@ static const char* __Pyx_BufFmt_CheckString(__Pyx_BufFmt_Context* ctx, const cha
       PyErr_SetString(PyExc_OverflowError,
           "can't convert negative value to long");
       return (long) -1;
+  }
+  
+/* CIntToPy */
+  static CYTHON_INLINE PyObject* __Pyx_PyLong_From_long(long value) {
+  #ifdef __Pyx_HAS_GCC_DIAGNOSTIC
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wconversion"
+  #endif
+      const long neg_one = (long) -1, const_zero = (long) 0;
+  #ifdef __Pyx_HAS_GCC_DIAGNOSTIC
+  #pragma GCC diagnostic pop
+  #endif
+      const int is_unsigned = neg_one > const_zero;
+      if (is_unsigned) {
+          if (sizeof(long) < sizeof(long)) {
+              return PyLong_FromLong((long) value);
+          } else if (sizeof(long) <= sizeof(unsigned long)) {
+              return PyLong_FromUnsignedLong((unsigned long) value);
+  #if !CYTHON_COMPILING_IN_PYPY
+          } else if (sizeof(long) <= sizeof(unsigned PY_LONG_LONG)) {
+              return PyLong_FromUnsignedLongLong((unsigned PY_LONG_LONG) value);
+  #endif
+          }
+      } else {
+          if (sizeof(long) <= sizeof(long)) {
+              return PyLong_FromLong((long) value);
+          } else if (sizeof(long) <= sizeof(PY_LONG_LONG)) {
+              return PyLong_FromLongLong((PY_LONG_LONG) value);
+          }
+      }
+      {
+          unsigned char *bytes = (unsigned char *)&value;
+  #if !CYTHON_COMPILING_IN_LIMITED_API && PY_VERSION_HEX >= 0x030d00A4
+          if (is_unsigned) {
+              return PyLong_FromUnsignedNativeBytes(bytes, sizeof(value), -1);
+          } else {
+              return PyLong_FromNativeBytes(bytes, sizeof(value), -1);
+          }
+  #elif !CYTHON_COMPILING_IN_LIMITED_API && PY_VERSION_HEX < 0x030d0000
+          int one = 1; int little = (int)*(unsigned char *)&one;
+          return _PyLong_FromByteArray(bytes, sizeof(long),
+                                       little, !is_unsigned);
+  #else
+          int one = 1; int little = (int)*(unsigned char *)&one;
+          PyObject *from_bytes, *result = NULL, *kwds = NULL;
+          PyObject *py_bytes = NULL, *order_str = NULL;
+          from_bytes = PyObject_GetAttrString((PyObject*)&PyLong_Type, "from_bytes");
+          if (!from_bytes) return NULL;
+          py_bytes = PyBytes_FromStringAndSize((char*)bytes, sizeof(long));
+          if (!py_bytes) goto limited_bad;
+          order_str = PyUnicode_FromString(little ? "little" : "big");
+          if (!order_str) goto limited_bad;
+          {
+              PyObject *args[3+(CYTHON_VECTORCALL ? 1 : 0)] = { NULL, py_bytes, order_str };
+              if (!is_unsigned) {
+                  kwds = __Pyx_MakeVectorcallBuilderKwds(1);
+                  if (!kwds) goto limited_bad;
+                  if (__Pyx_VectorcallBuilder_AddArgStr("signed", __Pyx_NewRef(Py_True), kwds, args+3, 0) < 0) goto limited_bad;
+              }
+              result = __Pyx_Object_Vectorcall_CallFromBuilder(from_bytes, args+1, 2 | __Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET, kwds);
+          }
+          limited_bad:
+          Py_XDECREF(kwds);
+          Py_XDECREF(order_str);
+          Py_XDECREF(py_bytes);
+          Py_XDECREF(from_bytes);
+          return result;
+  #endif
+      }
   }
   
 /* CIntFromPy */
