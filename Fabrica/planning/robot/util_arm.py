@@ -12,6 +12,39 @@ from assets.transform import get_transform_matrix_quat, get_pos_euler_from_trans
 from planning.robot.geometry import get_ft_sensor_spec, get_gripper_basis_directions
 from planning.robot.workcell import get_move_arm_pos, get_move_arm_euler, get_hold_arm_pos, get_hold_arm_euler
 
+def get_yumi_arm_chain_right(base_pos, base_euler, reduced_limit=0.0):
+    chain = Chain.from_urdf_file(os.path.join(project_base_dir, 'assets/yumi/yumi_right.urdf'), base_elements=['yumi_body'],
+        origin_translation=np.array(base_pos), origin_orientation=np.array(base_euler), scale_translation=100, reduced_limit=reduced_limit)
+    
+    chain.rest_q = [0.5, -1.5, 0.0, 1.0, 0.0, 0.0, 0.0]
+    
+    chain.no_collision_links = [
+        # The compact shoulder/chest overlaps
+        ('yumi_body', 'yumi_link_1'), ('yumi_body', 'yumi_link_2'), 
+        ('yumi_body', 'yumi_link_3'), ('yumi_body', 'yumi_link_4'), 
+        
+        # The internal joint overlaps caused by the YuMi's tight design
+        ('yumi_link_1', 'yumi_link_3'), ('yumi_link_2', 'yumi_link_4'),
+        ('yumi_link_4', 'yumi_link_6'), ('yumi_link_5', 'yumi_link_7')
+    ]
+    return chain
+
+def get_yumi_arm_chain_left(base_pos, base_euler, reduced_limit=0.0):
+    chain = Chain.from_urdf_file(os.path.join(project_base_dir, 'assets/yumi/yumi_left.urdf'), base_elements=['yumi_body'],
+        origin_translation=np.array(base_pos), origin_orientation=np.array(base_euler), scale_translation=100, reduced_limit=reduced_limit)
+    
+    chain.rest_q = [-0.5, -1.5, 0.0, 1.0, 0.0, 0.0, 0.0]
+    
+    chain.no_collision_links = [
+        # The compact shoulder/chest overlaps
+        ('yumi_body', 'yumi_link_1'), ('yumi_body', 'yumi_link_2'), 
+        ('yumi_body', 'yumi_link_3'), ('yumi_body', 'yumi_link_4'), 
+        
+        # The internal joint overlaps caused by the YuMi's tight design
+        ('yumi_link_1', 'yumi_link_3'), ('yumi_link_2', 'yumi_link_4'),
+        ('yumi_link_4', 'yumi_link_6'), ('yumi_link_5', 'yumi_link_7')
+    ]
+    return chain
 
 def get_xarm7_arm_chain(base_pos, base_euler, reduced_limit=0.0):
     chain = Chain.from_urdf_file(os.path.join(project_base_dir, 'assets/xarm7/xarm7.urdf'), base_elements=['linkbase'],
@@ -35,7 +68,7 @@ def get_ur5e_arm_chain(base_pos, base_euler, reduced_limit=0.0):
     return chain
 
 
-def get_arm_chain(arm_type, motion_type=None, base_pos=None, base_euler=None, reduced_limit=0.0):
+def get_arm_chain(arm_type, motion_type=None, base_pos=None, base_euler=None, reduced_limit=0.0, side=None):
 
     # get base position and orientation
     if motion_type is not None:
@@ -57,22 +90,33 @@ def get_arm_chain(arm_type, motion_type=None, base_pos=None, base_euler=None, re
         arm_chain = get_panda_arm_chain(base_pos, base_euler, reduced_limit=reduced_limit)
     elif arm_type == 'ur5e':
         arm_chain = get_ur5e_arm_chain(base_pos, base_euler, reduced_limit=reduced_limit)
+    elif arm_type == 'yumi':
+        # Dynamically map the physical side instead of the abstract motion_type
+        if side == 'right':
+            arm_chain = get_yumi_arm_chain_right(base_pos, base_euler, reduced_limit=reduced_limit)
+        elif side == 'left':
+            arm_chain = get_yumi_arm_chain_left(base_pos, base_euler, reduced_limit=reduced_limit)
+        else: # Fallback
+            if motion_type == 'move':
+                arm_chain = get_yumi_arm_chain_right(base_pos, base_euler, reduced_limit=reduced_limit)
+            elif motion_type == 'hold':
+                arm_chain = get_yumi_arm_chain_left(base_pos, base_euler, reduced_limit=reduced_limit)
     else:
-        raise ValueError('Unknown arm type: {}'.format(arm_type))
+        raise ValueError('Unknown arm type: {}'.format(arm_type))   
     arm_chain.arm_type = arm_type
     arm_chain.base_pos = base_pos
     arm_chain.base_euler = base_euler
 
-    # set bounds for the first link to avoid unintuitive motion
-    first_link = arm_chain.get_active_link(0)
-    if motion_type is None:
-        pass
-    elif motion_type == 'move':
-        first_link.bounds = (first_link.bounds[0], min(first_link.bounds[1], 0.5))
-    elif motion_type == 'hold':
-        first_link.bounds = (max(first_link.bounds[0], -0.5), first_link.bounds[1])
-    else:
-        raise ValueError('Unknown motion type: {}'.format(motion_type))
+    if arm_type != 'yumi':
+        first_link = arm_chain.get_active_link(0)
+        if motion_type is None:
+            pass
+        elif motion_type == 'move':
+            first_link.bounds = (first_link.bounds[0], min(first_link.bounds[1], 0.5))
+        elif motion_type == 'hold':
+            first_link.bounds = (max(first_link.bounds[0], -0.5), first_link.bounds[1])
+        else:
+            raise ValueError('Unknown motion type: {}'.format(motion_type))
     
     return arm_chain
     

@@ -51,6 +51,8 @@ def interpolate_qs(arm_type, start_q, end_q, num_steps):
             bidirectional = False
         elif arm_type == 'ur5e':
             bidirectional = i in [0, 1, 3, 4, 5]
+        elif arm_type == 'yumi':
+            bidirectional = False
         else:
             raise NotImplementedError
         interpolated_qs[:, i] = interpolate_angles(start_q[i], end_q[i], num_steps, bidirectional)
@@ -307,28 +309,32 @@ class ArmMotionPlanner: # NOTE: all input/output q is full unless specified acti
             for obj_pair in objs_in_collision:
                 if self.arm_chain.get_base_link_name() in obj_pair: continue
                 if verbose:
-                    print('collision detected: arm and ground')
+                    print(f'collision detected: arm and ground ({obj_pair})')
                 return True
 
             # check collision between gripper and ground
             gripper_col_manager = self.gripper_col_manager_buffered if buffered else self.gripper_col_manager
             if gripper_col_manager.in_collision_other(self.ground_col_manager):
                 if verbose:
-                    print('collision detected: gripper and ground')
+                    print(f'collision detected: gripper and ground ({obj_pair})')
                 return True
 
             # check collision between move part and ground
             if move_col_manager is not None and move_col_manager.in_collision_other(self.ground_col_manager_buffered if move_ground_buffer else self.ground_col_manager):
                 if verbose:
-                    print('collision detected: move part and ground')
+                    print(f'collision detected: move part and ground ({obj_pair})')
                 return True
 
             # check collision between arm and grippers
             _, objs_in_collision = self.arm_col_manager_buffered.in_collision_other(self.gripper_col_manager_buffered, return_names=True)
             for obj_pair in objs_in_collision:
                 if 'ft_sensor' in obj_pair or self.arm_chain.get_eef_link_name() in obj_pair: continue
+
+                if self.arm_type == 'yumi':
+                    if any(link in obj_pair for link in ['yumi_link_6', 'yumi_link_5']):
+                        continue
                 if verbose:
-                    print('collision detected: arm and gripper')
+                    print(f'collision detected: arm and gripper ({obj_pair})')
                 return True
 
             # check collision between arm and parts
@@ -367,11 +373,32 @@ class ArmMotionPlanner: # NOTE: all input/output q is full unless specified acti
 
             # check dual-arm collision
             if other_col_manager_buffered is not None:
-                if other_col_manager_buffered.in_collision_other(self.arm_col_manager_buffered) or \
-                    other_col_manager_buffered.in_collision_other(self.gripper_col_manager_buffered) or \
-                    (move_col_manager is not None and other_col_manager_buffered.in_collision_other(move_col_manager)):
-                    if verbose:
-                        print('collision detected: dual-arm')
+                # 1. Arm vs Arm (With Torso Substring Bypass)
+                is_col, col_names = other_col_manager_buffered.in_collision_other(self.arm_col_manager_buffered, return_names=True)
+                if is_col:
+                    if self.arm_type == 'yumi':
+                        real_collisions = []
+                        for pair in col_names:
+                            # Use substring 'in' instead of exact '==' match to account for FCL prefixes
+                            if 'yumi_body' in pair[0] and 'yumi_body' in pair[1]: continue
+                            if ('yumi_body' in pair[0] or 'yumi_body' in pair[1]) and \
+                               any('yumi_link_1' in name or 'yumi_link_2' in name for name in pair): continue
+                            real_collisions.append(pair)
+                        if len(real_collisions) > 0:
+                            if verbose: print(f'collision detected: dual-arm arm-arm ({real_collisions[0]})')
+                            return True
+                    else:
+                        if verbose: print('collision detected: dual-arm arm-arm')
+                        return True
+                
+                # 2. Arm vs Gripper
+                if other_col_manager_buffered.in_collision_other(self.gripper_col_manager_buffered):
+                    if verbose: print('collision detected: dual-arm other-gripper')
+                    return True
+                
+                # 3. Arm vs Moving Part
+                if move_col_manager is not None and other_col_manager_buffered.in_collision_other(move_col_manager):
+                    if verbose: print('collision detected: dual-arm other-move')
                     return True
 
             if verbose:
@@ -492,6 +519,12 @@ class ArmMotionPlanner: # NOTE: all input/output q is full unless specified acti
 
         if collision_fn(q_start_active) or collision_fn(q_goal_active):
             collision_fn_new = lambda q, buffered=False, move_ground_buffer=False: collision_fn(q, buffered=buffered, move_ground_buffer=move_ground_buffer)
+            # --- HIJACK THE VISUALIZER HERE ---
+            if collision_fn_new(q_start_active):
+                print("\nCRASH INCOMING: Opening 3D viewer. Close the window to let the script crash.")
+                self.visualize_meshes(q_start, open_ratio, still_meshes=still_meshes, other_arm_chain=arm_chain_other, other_q=arm_q_other, other_open_ratio=open_ratio_other, buffered=False)
+            # ----------------------------------
+
             assert not collision_fn_new(q_start_active), f'[plan_path_with_grasp] start in collision even without buffer'
             assert not collision_fn_new(q_goal_active), f'[plan_path_with_grasp] goal in collision even without buffer'
         else:

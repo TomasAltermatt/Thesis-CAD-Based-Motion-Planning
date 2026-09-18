@@ -25,8 +25,14 @@ elif [ "$SETUP" == "ur5e" ]; then
   ARM="ur5e"
   GRIPPER="robotiq-85"
   FT_SENSOR="none"
+# --- ADD YUMI HERE ---
+elif [ "$SETUP" == "yumi" ]; then
+  ARM="yumi"
+  GRIPPER="panda" # <--- CHANGED FROM 85
+  FT_SENSOR="none"
+# ---------------------
 else
-  echo "Error: Unsupported SETUP value '$SETUP'. Please use 'panda' or 'xarm7' or 'ur5e'."
+  echo "Error: Unsupported SETUP value '$SETUP'. Please use 'panda', 'xarm7', 'ur5e', or 'yumi'."
   exit 1
 fi
 

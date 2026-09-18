@@ -60,14 +60,33 @@ class Chain(IKPyChain):
         solution, success = None, False
         n_trial = 0
         while not success and n_trial < n_restart:
-            solution, success = super().inverse_kinematics(target_position, target_orientation, orientation_mode, initial_position=initial_position, **kwargs)
-            fks = self.forward_kinematics(solution, full_kinematics=True)
-            fks = [fks[link_idx] for link_idx in range(len(self.links)) if self.active_links_mask[link_idx]]
-            success = True
-            for fk in fks:
-                if fk[2, 3] < ground_z:
-                    success = False
-                    break
+            solution, ik_success = super().inverse_kinematics(target_position, target_orientation, orientation_mode, initial_position=initial_position, **kwargs)
+            
+            # Only perform the ground check if the IK solver actually found a valid path
+            if ik_success:
+                fks = self.forward_kinematics(solution, full_kinematics=True)
+                fks = [fks[link_idx] for link_idx in range(len(self.links)) if self.active_links_mask[link_idx]]
+                success = True
+                for fk in fks:
+                    if fk[2, 3] < ground_z:
+                        #print('IK successful but ground collision --> rejected')
+                        success = False
+                        break
+                    #print(f'Successful IK found')
+            else:
+                success = False
+                # --- NEW DEBUG PRINTS ---
+                # ef_matrix = self.forward_kinematics(solution)
+                # actual_pos = ef_matrix[:3, 3]
+                # pos_error = np.linalg.norm(actual_pos - target_position)
+                
+                # actual_ori = ef_matrix[:3, :3]
+                # target_ori_mat = target_orientation[:3, :3]
+                # ori_error = 1 - np.trace(actual_ori.T @ target_ori_mat) / 3
+                
+                # print(f"[IK DEBUG] Pos Error: {pos_error:.3f} | Ori Error: {ori_error:.3f} | Target: {np.round(target_position, 2)}")
+                # ------------------------
+                
             n_trial += 1
             initial_position = self.active_to_full(self.sample_joint_angles_active(), initial_position)
         return solution, success
