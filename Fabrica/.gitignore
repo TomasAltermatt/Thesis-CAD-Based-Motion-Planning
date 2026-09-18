@@ -1,3 +1,20 @@
+# Folders i added but should ignore
+planning_original/
+assets/fabrica/10part_00161/
+assets/fabrica/11part_00433/
+assets/fabrica/11part_00678/
+assets/fabrica/12part_00675/
+assets/fabrica/12part_00752/
+assets/fabrica/14part_01235/
+assets/fabrica/15part_00365/
+assets/fabrica/15part_01035/
+assets/fabrica/8part_01082/
+assets/fabrica/9part_01289/
+assets/fabrica/9part_01355/
+
+.vscode/
+records/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
