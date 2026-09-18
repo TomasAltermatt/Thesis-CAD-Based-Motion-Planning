@@ -70,16 +70,19 @@ def get_ur5e_arm_chain(base_pos, base_euler, reduced_limit=0.0):
 
 def get_arm_chain(arm_type, motion_type=None, base_pos=None, base_euler=None, reduced_limit=0.0, side=None):
 
-    # get base position and orientation
-    if motion_type is not None:
-        if motion_type == 'move':
+    # Get physical side based on the side argument mainly
+    physical_side = side if side is not None else ('right' if motion_type == 'move' else 'left')
+
+    # get base position and orientation based on physical side
+    if motion_type is not None or side is not None:
+        if physical_side == 'right':
             if base_pos is None: base_pos = get_move_arm_pos(arm_type)
             if base_euler is None: base_euler = get_move_arm_euler()
-        elif motion_type == 'hold':
+        elif physical_side == 'left':
             if base_pos is None: base_pos = get_hold_arm_pos(arm_type)
             if base_euler is None: base_euler = get_hold_arm_euler()
         else:
-            raise ValueError('Unknown motion type: {}'.format(motion_type))
+            raise ValueError('Unknown side: {}'.format(physical_side))
     else:
         assert base_pos is not None and base_euler is not None
         
@@ -91,32 +94,25 @@ def get_arm_chain(arm_type, motion_type=None, base_pos=None, base_euler=None, re
     elif arm_type == 'ur5e':
         arm_chain = get_ur5e_arm_chain(base_pos, base_euler, reduced_limit=reduced_limit)
     elif arm_type == 'yumi':
-        # Dynamically map the physical side instead of the abstract motion_type
-        if side == 'right':
+        if physical_side == 'right':
             arm_chain = get_yumi_arm_chain_right(base_pos, base_euler, reduced_limit=reduced_limit)
-        elif side == 'left':
+        elif physical_side == 'left':
             arm_chain = get_yumi_arm_chain_left(base_pos, base_euler, reduced_limit=reduced_limit)
-        else: # Fallback
-            if motion_type == 'move':
-                arm_chain = get_yumi_arm_chain_right(base_pos, base_euler, reduced_limit=reduced_limit)
-            elif motion_type == 'hold':
-                arm_chain = get_yumi_arm_chain_left(base_pos, base_euler, reduced_limit=reduced_limit)
     else:
         raise ValueError('Unknown arm type: {}'.format(arm_type))   
     arm_chain.arm_type = arm_type
     arm_chain.base_pos = base_pos
     arm_chain.base_euler = base_euler
 
+    # enforce joint limits based strictly on the physical side
     if arm_type != 'yumi':
         first_link = arm_chain.get_active_link(0)
-        if motion_type is None:
-            pass
-        elif motion_type == 'move':
+        if physical_side == 'right':
             first_link.bounds = (first_link.bounds[0], min(first_link.bounds[1], 0.5))
-        elif motion_type == 'hold':
+        elif physical_side == 'left':
             first_link.bounds = (max(first_link.bounds[0], -0.5), first_link.bounds[1])
         else:
-            raise ValueError('Unknown motion type: {}'.format(motion_type))
+            raise ValueError('Invalid physical side: {}'.format(physical_side))
     
     return arm_chain
     

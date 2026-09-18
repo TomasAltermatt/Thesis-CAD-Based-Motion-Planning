@@ -99,18 +99,14 @@ class GraspArmGenerator(GraspGenerator):
             self.col_manager_hold.add_object(name, mesh)
 
         #self.arm_chains = {'move': get_arm_chain(arm_type, 'move', reduced_limit=reduced_limit), 'hold': get_arm_chain(arm_type, 'hold', reduced_limit=reduced_limit)}
-        if self.arm_type == 'yumi':
-            self.arm_chains = {
-                'move_right': get_arm_chain(arm_type, 'move', reduced_limit=reduced_limit, side='right'),
-                'move_left': get_arm_chain(arm_type, 'move', reduced_limit=reduced_limit, side='left'),
-                'hold_right': get_arm_chain(arm_type, 'hold', reduced_limit=reduced_limit, side='right'),
-                'hold_left': get_arm_chain(arm_type, 'hold', reduced_limit=reduced_limit, side='left')
-            }
-        else:
-            self.arm_chains = {
-                'move': get_arm_chain(arm_type, 'move', reduced_limit=reduced_limit), 
-                'hold': get_arm_chain(arm_type, 'hold', reduced_limit=reduced_limit)
-            }
+        # Universalize arm chains to allow hold-move for both arms (expected to slow down but more versatile)
+        self.arm_chains = {
+            'move_right': get_arm_chain(arm_type, 'move', reduced_limit=reduced_limit, side='right'),
+            'move_left': get_arm_chain(arm_type, 'move', reduced_limit=reduced_limit, side='left'),
+            'hold_right': get_arm_chain(arm_type, 'hold', reduced_limit=reduced_limit, side='right'),
+            'hold_left': get_arm_chain(arm_type, 'hold', reduced_limit=reduced_limit, side='left')
+        }
+
 
         # gripper knuckle
         self.gripper_knuckle_names = get_gripper_knuckle_names(self.gripper_type)
@@ -125,9 +121,8 @@ class GraspArmGenerator(GraspGenerator):
             box_mesh = box_outer_mesh.difference(box_inner_mesh)
             self.box_col_manager[motion_type].add_object('box', box_mesh)
 
-        if self.arm_type == 'yumi':
-            self.box_col_manager['right'] = self.box_col_manager['move']
-            self.box_col_manager['left'] = self.box_col_manager['hold']
+        self.box_col_manager['right'] = self.box_col_manager['move']
+        self.box_col_manager['left'] = self.box_col_manager['hold']
 
         # --- NEW: CACHE TRANSFORMED STATIC MESHES ONCE ---
         self.static_part_meshes_cache = {}
@@ -1163,7 +1158,21 @@ def run_grasp_arm_gen(assembly_dir, log_dir, gripper, arm, ft_sensor, seed, n_su
         with open(os.path.join(log_dir, 'grasp_stats.txt'), 'w') as fp:
             fp.write('--- grasp stats ---\n')
             for part_id, grasps in grasps_all.items():
-                fp.write(f'part {part_id}: {len(grasps["move"])} move + {len(grasps["hold"])} hold\n')
+                
+                # --- FIX: EXPLICIT 4-KEY COUNTING ---
+                counts = {'move_right': 0, 'move_left': 0, 'hold_right': 0, 'hold_left': 0}
+                for g in grasps['move']:
+                    # move grasps are lists of timesteps. Extract the tag from the first index!
+                    key = getattr(g[0], 'arm_key', 'move_right') if isinstance(g, list) else getattr(g, 'arm_key', 'move_right')
+                    if key in counts: counts[key] += 1
+                for g in grasps['hold']:
+                    # hold grasps are single objects
+                    key = getattr(g, 'arm_key', 'hold_left')
+                    if key in counts: counts[key] += 1
+                
+                fp.write(f'part {part_id}: {counts["move_right"]} move_R | {counts["move_left"]} move_L | {counts["hold_right"]} hold_R | {counts["hold_left"]} hold_L\n')
+                # ------------------------------------
+                
                 if len(grasps["move"]) == 0 and len(grasps["hold"]) == 0:
                     success = False
             fp.write('--- grasp pair stats ---\n')
