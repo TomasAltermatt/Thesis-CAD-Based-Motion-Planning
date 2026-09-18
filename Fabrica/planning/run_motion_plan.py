@@ -178,20 +178,23 @@ def run_motion_plan(assembly_dir, log_dir, optimized, seed, verbose=False):
     
     sequence, grasps_sequence = sequence[::-1], grasps_sequence[::-1] # reverse the sequence to be forward assembly
 
-    arm_box_move, arm_box_hold = get_dual_arm_box(arm_type)
-    arm_chain_move = get_arm_chain(arm_type, 'move')
-    arm_chain_hold = get_arm_chain(arm_type, 'hold')
-    arm_chains = {'move': arm_chain_move, 'hold': arm_chain_hold}
-    rest_q_move = arm_chain_move.active_to_full(arm_chain_move.rest_q)
-    rest_q_hold = arm_chain_hold.active_to_full(arm_chain_hold.rest_q)
-
+    # --- FIX 1: UNIVERSAL PHYSICAL PLANNERS ---
+    physical_chains = {
+        'right': get_arm_chain(arm_type, 'move', side='right'), 
+        'left': get_arm_chain(arm_type, 'hold', side='left')
+    }
+    b_m, b_h = get_dual_arm_box(arm_type)
     stamp = TimeStamp()
-
-    random.seed(seed)
-    np.random.seed(seed)
-
-    motion_planner_move = ArmMotionPlanner(arm_chain_move, gripper_type, has_ft_sensor['move'], arm_box_move, stamp=stamp)
-    motion_planner_hold = ArmMotionPlanner(arm_chain_hold, gripper_type, has_ft_sensor['hold'], arm_box_hold, stamp=stamp)
+    random.seed(seed); np.random.seed(seed)
+    physical_planners = {
+        'right': ArmMotionPlanner(physical_chains['right'], gripper_type, has_ft_sensor['move'], b_m, stamp=stamp),
+        'left': ArmMotionPlanner(physical_chains['left'], gripper_type, has_ft_sensor['hold'], b_h, stamp=stamp)
+    }
+    arm_chains = {'move': physical_chains['right'], 'hold': physical_chains['left']}
+    
+    rest_q_move = arm_chains['move'].active_to_full(arm_chains['move'].rest_q)
+    rest_q_hold = arm_chains['hold'].active_to_full(arm_chains['hold'].rest_q)
+    # ------------------------------------------
 
     '''
     Plan commands
@@ -209,15 +212,35 @@ def run_motion_plan(assembly_dir, log_dir, optimized, seed, verbose=False):
     
     # init
     commands = []
-    commands.append(['move', 'arm', rest_q_move, None, 'init'])
-    commands.append(['hold', 'arm', rest_q_hold, None, 'init'])
-    commands.append(['move', 'gripper', OPEN_RATIO_REST, None, 'init'])
-    commands.append(['hold', 'gripper', OPEN_RATIO_REST, None, 'init'])
+    curr_move_side = 'right'
+    curr_hold_side = 'left'
+
+    # appended current arm and gripper states
+    commands.append(['move', 'arm', rest_q_move, None, 'init', curr_move_side])
+    commands.append(['hold', 'arm', rest_q_hold, None, 'init', curr_hold_side])
+    commands.append(['move', 'gripper', OPEN_RATIO_REST, None, 'init', curr_move_side])
+    commands.append(['hold', 'gripper', OPEN_RATIO_REST, None, 'init', curr_hold_side])
 
     for step, ((part_move, part_hold), (grasps_move, grasp_hold)) in enumerate(zip(sequence, grasps_sequence)):
+        start_cmd_idx = len(commands)
+
+        # --- FIX 2: UNIVERSAL DYNAMIC ROUTING ---
+        arm_key_m = getattr(grasps_move[0], 'arm_key', 'move_right')
+        arm_key_h = getattr(grasp_hold, 'arm_key', 'hold_left')
+        curr_move_side = arm_key_m.split('_')[1] if '_' in arm_key_m else 'right'
+        curr_hold_side = arm_key_h.split('_')[1] if '_' in arm_key_h else 'left'
+        
+        motion_planner_move = physical_planners[curr_move_side]
+        motion_planner_hold = physical_planners[curr_hold_side]
+        arm_chains['move'] = physical_chains[curr_move_side]
+        arm_chains['hold'] = physical_chains[curr_hold_side]
+        rest_q_move = arm_chains['move'].active_to_full(arm_chains['move'].rest_q)
+        rest_q_hold = arm_chains['hold'].active_to_full(arm_chains['hold'].rest_q)
+        # ----------------------------------------
     
         # hold (first)
         if step == 0:
+            random.seed(seed); np.random.seed(seed)
             pickup_q_hold = get_pickup_arm_q(motion_planner_hold, grasp_hold, part_pickup_pose[part_hold], part_final_pose[part_hold], arm_q_init=rest_q_hold, has_ft_sensor=has_ft_sensor['hold'], optimizer='least_squares', regularization=1.0)
             if pickup_q_hold is None:
                 raise Exception(f'[run_motion_plan] Failed to solve pickup IK for hold arm in step {step} ({assembly_dir})')
@@ -229,6 +252,7 @@ def run_motion_plan(assembly_dir, log_dir, optimized, seed, verbose=False):
             commands.append(['hold', 'arm', (grasp_hold.arm_q, [np.array([0, 0, 1.0]), np.array([0, 0, 1.0])]), part_hold, 'transport']) # transport with both retract
         
         # move (assembly)
+        random.seed(seed); np.random.seed(seed)
         pickup_q_move = get_pickup_arm_q(motion_planner_move, grasps_move[0], part_pickup_pose[part_move], part_final_pose[part_move], arm_q_init=rest_q_move, has_ft_sensor=has_ft_sensor['move'], optimizer='least_squares', regularization=1.0)
         if pickup_q_move is None:
             raise Exception(f'[run_motion_plan] Failed to solve pickup IK for move arm in step {step} ({assembly_dir})')
@@ -259,10 +283,17 @@ def run_motion_plan(assembly_dir, log_dir, optimized, seed, verbose=False):
             commands.append(['move', 'arm', (rest_q_move, [None, None]), None, 'transport']) # transport with start retract
             commands.append(['move', 'gripper', OPEN_RATIO_REST, None, 'close'])
 
+        for i in range(start_cmd_idx, len(commands)):
+            if len(commands[i]) == 5:
+                side = curr_move_side if commands[i][0] == 'move' else curr_hold_side
+                commands[i].append(side)
+
     # post-process qs in commands
     last_qs = {'move': None, 'hold': None}
     for command in commands:
-        motion_type, body_type, value, _, _ = command
+        # --- FIX: USE SLICE INDEXING TO PREVENT UNPACKING ERRORS ---
+        motion_type, body_type, value = command[:3]
+        # -----------------------------------------------------------
         if body_type == 'arm':
             if type(value) == tuple:
                 q = value[0]
@@ -283,11 +314,14 @@ def run_motion_plan(assembly_dir, log_dir, optimized, seed, verbose=False):
     paths = []
     current_states = {
         'parts': {part_id: 'pickup' for part_id in part_ids}, # 'pickup', 'final'
-        'move': {'arm': None, 'gripper': None},
-        'hold': {'arm': None, 'gripper': None},
+        'move': {'arm': None, 'gripper': None, 'side': curr_move_side},
+        'hold': {'arm': None, 'gripper': None, 'side': curr_hold_side},
     }
     for cid, command in enumerate(commands):
-        motion_type, body_type, value, active_part, task = command
+        motion_type, body_type, value, active_part, task = command[:5]
+        physical_side = command[5] if len(command) > 5 else ('right' if motion_type == 'move' else 'left')
+        current_states[motion_type]['side'] = physical_side
+        
         if verbose:
             print('[run_motion_plan] motion: %s, body: %s, part: %s, task: %s' % (motion_type, body_type, active_part, task))
         assert motion_type in ['move', 'hold'] and body_type in ['arm', 'gripper']
@@ -298,23 +332,25 @@ def run_motion_plan(assembly_dir, log_dir, optimized, seed, verbose=False):
                 path = [np.array(value)] if body_type == 'arm' else value
             else:
                 path = value
-            paths.append([motion_type, body_type, path, active_part, task])
+            paths.append([motion_type, body_type, path, active_part, task, physical_side])
             current_states[motion_type][body_type] = value
 
         elif task in ['transport', 'switch', 'assembly']:
             assert body_type == 'arm'
 
-            if motion_type == 'move':
-                motion_planner = motion_planner_move
-            elif motion_type == 'hold':
-                motion_planner = motion_planner_hold
-
+            # --- FIX 3: DYNAMIC PATH ROUTING ---
+            motion_planner = physical_planners[physical_side]
             q_start = current_states[motion_type]['arm']
             open_ratio = current_states[motion_type]['gripper']
 
             part_meshes_curr = {part_id: part_meshes_map[current_states['parts'][part_id]][part_id] for part_id in part_ids}
             motion_type_other = 'hold' if motion_type == 'move' else 'move'
-            arm_chain_other, arm_q_other, open_ratio_other = arm_chains[motion_type_other], current_states[motion_type_other]['arm'], current_states[motion_type_other]['gripper']
+            
+            other_side = current_states[motion_type_other]['side']
+            arm_chain_other = physical_chains[other_side]
+            arm_q_other = current_states[motion_type_other]['arm']
+            open_ratio_other = current_states[motion_type_other]['gripper']
+            # -----------------------------------
 
             if task == 'transport':
                 q_goal, [retract_start, retract_goal] = value
@@ -339,7 +375,7 @@ def run_motion_plan(assembly_dir, log_dir, optimized, seed, verbose=False):
                 
                 if path is None:
                     raise Exception(f'[run_motion_plan] Failed to plan path for {motion_type} {body_type} in task {task} ({assembly_dir})')
-                paths.append([motion_type, body_type, path, active_part, task])
+                paths.append([motion_type, body_type, path, active_part, task, physical_side])
                 current_states[motion_type][body_type] = q_goal
 
             elif task == 'switch':
@@ -357,13 +393,13 @@ def run_motion_plan(assembly_dir, log_dir, optimized, seed, verbose=False):
                 if None in [path1, path2]:
                     raise Exception(f'[run_motion_plan] Failed to plan path for {motion_type} {body_type} in task {task} ({assembly_dir})')
                 if open_ratio == open_ratio_next:
-                    paths.append([motion_type, 'arm', path1 + path2, None, task])
+                    paths.append([motion_type, 'arm', path1 + path2, None, task, physical_side])
                 else:
                     if len(path1) > 0:
-                        paths.append([motion_type, 'arm', path1, None, task])
-                    paths.append([motion_type, 'gripper', open_ratio_next, None, 'open'])
+                        paths.append([motion_type, 'arm', path1, None, task, physical_side])
+                    paths.append([motion_type, 'gripper', open_ratio_next, None, 'open', physical_side])
                     if len(path2) > 0:
-                        paths.append([motion_type, 'arm', path2, None, task])
+                        paths.append([motion_type, 'arm', path2, None, task, physical_side])
                 current_states[motion_type]['arm'] = q_goal
                 current_states[motion_type]['gripper'] = open_ratio_next
 
@@ -373,7 +409,7 @@ def run_motion_plan(assembly_dir, log_dir, optimized, seed, verbose=False):
             
                 if path is None:
                     raise Exception(f'[run_motion_plan] Failed to plan path for {motion_type} {body_type} in task {task} ({assembly_dir})')
-                paths.append([motion_type, body_type, path, active_part, task])
+                paths.append([motion_type, body_type, path, active_part, task, physical_side])
                 current_states[motion_type][body_type] = q_goal
 
             else:
@@ -385,30 +421,33 @@ def run_motion_plan(assembly_dir, log_dir, optimized, seed, verbose=False):
     # post-process motions in paths
     last_qs = {'move': None, 'hold': None}
     for i in range(len(paths)):
-        motion_type, body_type, path, _, _ = paths[i]
+        motion_type, body_type, path = paths[i][:3]
+        physical_side = paths[i][5] if len(paths[i]) > 5 else ('right' if motion_type == 'move' else 'left')
         if body_type == 'arm':
-            path = post_process_motion(arm_chains[motion_type], path, last_qs[motion_type])
+            path = post_process_motion(physical_chains[physical_side], path, last_qs[motion_type])
             path = [q.tolist() for q in path]
             paths[i][2] = path
             last_qs[motion_type] = path[-1]
 
     # convert commands and motion from full to active
     for i in range(len(commands)):
-        motion_type, body_type, value, _, _ = commands[i]
+        motion_type, body_type, value = commands[i][:3]
+        physical_side = commands[i][5] if len(commands[i]) > 5 else ('right' if motion_type == 'move' else 'left')
         if body_type == 'arm':
             if type(value) == tuple:
                 q = value[0]
             else:
                 q = value
-            q_active = arm_chains[motion_type].active_from_full(q).tolist()
+            q_active = physical_chains[physical_side].active_from_full(q).tolist()
             if type(value) == tuple:
                 commands[i][2] = (q_active, *value[1:])
             else:
                 commands[i][2] = q_active
     for i in range(len(paths)):
-        motion_type, body_type, path, _, _ = paths[i]
+        motion_type, body_type, path = paths[i][:3]
+        physical_side = paths[i][5] if len(paths[i]) > 5 else ('right' if motion_type == 'move' else 'left')
         if body_type == 'arm':
-            paths[i][2] = [arm_chains[motion_type].active_from_full(q).tolist() for q in path]
+            paths[i][2] = [physical_chains[physical_side].active_from_full(q).tolist() for q in path]
 
     with open(os.path.join(log_dir, 'commands.pkl'), 'wb') as fp:
         pickle.dump(commands, fp)

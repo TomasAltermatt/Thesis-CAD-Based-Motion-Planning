@@ -159,7 +159,7 @@ def render_motion_plan(assembly_dir, log_dir, record_path=None, make_gif=False, 
     q_his = [q_curr]
 
     for motion_step in motion:
-        motion_type, body_type, path, active_part, description = motion_step
+        motion_type, body_type, path, active_part, description = motion_step[:5]
         # print(motion_type, body_type, path is not None, active_part, description)
         assert path is not None
 
