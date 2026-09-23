@@ -1091,23 +1091,109 @@ class GraspArmGenerator(GraspGenerator):
             grasp_id_pairs.append((grasp_move[0].grasp_id, grasp_hold.grasp_id))
         
         return (part_move, part_hold), grasp_id_pairs
+
+    def check_hold_hold_pair_feasible_batch(self, grasps_hold_left, grasps_hold_right, verbose=False):
+        """
+        Evaluates pairs of static hold grasps to ensure the Left Arm and Right Arm 
+        can simultaneously grip the base part without colliding.
+        """
+        grasp_id_pairs = []
+        if len(grasps_hold_left) == 0 or len(grasps_hold_right) == 0:
+            return grasp_id_pairs
+
+        part_id = grasps_hold_left[0].part_id
+        interlock_col_manager = trimesh.collision.CollisionManager()
+        finger_meshes = {name: mesh.copy() for name, mesh in self.gripper_meshes.items() if name in get_gripper_finger_names(self.gripper_type)}
+
+        # Pre-calculate transforms and buffered managers for the LEFT arm
+        transforms_left = []
+        for i, grasp_l in enumerate(grasps_hold_left):
+            # Ensure physical side is explicitly left
+            physical_l = grasp_l.arm_key.split('_')[1] if hasattr(grasp_l, 'arm_key') and '_' in grasp_l.arm_key else 'left'
+            if physical_l != 'left': continue
+
+            gripper_pos, gripper_quat, open_ratio = grasp_l.pos, grasp_l.quat, grasp_l.open_ratio
+            gripper_transforms = get_gripper_meshes_transforms(self.gripper_type, self.gripper_meshes, gripper_pos, gripper_quat, np.eye(4), open_ratio)
+            gripper_transforms_open = get_gripper_meshes_transforms(self.gripper_type, self.gripper_meshes, gripper_pos, gripper_quat, np.eye(4), min(open_ratio + RETRACT_OPEN_RATIO, 1.0))
+            gripper_transforms_open = {k + '_open': v for k, v in gripper_transforms_open.items()}
+            arm_transforms = get_arm_meshes_transforms(self.arm_meshes_buffered, self.arm_chains[grasp_l.arm_key], grasp_l.arm_q)
+            transforms_left.append({**gripper_transforms, **gripper_transforms_open, **arm_transforms})
+
+            if i == 0:
+                finger_meshes_l = {name: mesh.copy().apply_transform(gripper_transforms[name]) for name, mesh in finger_meshes.items()}
+                if CHECK_GRIPPERS_INTERLOCK:
+                    interlock_col_manager.add_object('gripper_left', trimesh.util.concatenate(list(finger_meshes_l.values())).convex_hull)
+
+        # Cross-reference against the RIGHT arm
+        for i, grasp_r in enumerate(grasps_hold_right):
+            physical_r = grasp_r.arm_key.split('_')[1] if hasattr(grasp_r, 'arm_key') and '_' in grasp_r.arm_key else 'right'
+            if physical_r != 'right': continue
+
+            gripper_pos, gripper_quat, open_ratio = grasp_r.pos, grasp_r.quat, grasp_r.open_ratio
+            gripper_transforms = get_gripper_meshes_transforms(self.gripper_type, self.gripper_meshes, gripper_pos, gripper_quat, np.eye(4), open_ratio)
+            gripper_transforms_open = get_gripper_meshes_transforms(self.gripper_type, self.gripper_meshes, gripper_pos, gripper_quat, np.eye(4), min(open_ratio + RETRACT_OPEN_RATIO, 1.0))
+            gripper_transforms_open = {k + '_open': v for k, v in gripper_transforms_open.items()}
+            arm_transforms = get_arm_meshes_transforms(self.arm_meshes, self.arm_chains[grasp_r.arm_key], grasp_r.arm_q) # unbuffered
+            
+            # Use the existing hold managers (repurposing move_buffered for left, hold for right)
+            self.apply_transforms_to_col_manager(self.col_manager_hold_buffered, {**gripper_transforms, **gripper_transforms_open, **get_arm_meshes_transforms(self.arm_meshes_buffered, self.arm_chains[grasp_r.arm_key], grasp_r.arm_q)})
+            self.apply_transforms_to_col_manager(self.col_manager_hold, {**gripper_transforms, **gripper_transforms_open, **arm_transforms}) 
+
+            in_collision = False
+            for transform_l in transforms_left:
+                self.apply_transforms_to_col_manager(self.col_manager_move_buffered, transform_l)
+                
+                # Check Left Arm vs Right Arm collision
+                if self.col_manager_move_buffered.in_collision_other(self.col_manager_hold):
+                    in_collision = True
+                    break
+            if in_collision: continue
+
+            # Check interlock
+            if CHECK_GRIPPERS_INTERLOCK:
+                if 'gripper_right' in interlock_col_manager._objs: interlock_col_manager.remove_object('gripper_right')
+                finger_meshes_r = {name: mesh.copy().apply_transform(gripper_transforms[name]) for name, mesh in finger_meshes.items()}
+                interlock_col_manager.add_object('gripper_right', trimesh.util.concatenate(list(finger_meshes_r.values())).convex_hull)
+                if interlock_col_manager.in_collision_internal():
+                    continue
+
+            grasp_id_pairs.append((grasp_l.grasp_id, grasp_r.grasp_id))
+        
+        return grasp_id_pairs
     
     def filter_grasp_id_pairs_all(self, grasps_all, n_proc=1, verbose=False):
         part_ids = list(grasps_all.keys())
         grasp_id_pairs_all = {}
-        args = []
+        handoff_id_pairs_all = {pid: [] for pid in part_ids}
+        args_move_hold = []
         for part_move in part_ids:
             for part_hold in part_ids:
                 if part_move in self.G_preced.nodes[part_hold]['parts_after']: continue
                 grasp_id_pairs_all[(part_move, part_hold)] = []
                 if len(grasps_all[part_hold]['hold']) > 0:
-                    args.extend([(grasp_move, grasps_all[part_hold]['hold'], False if n_proc > 1 else verbose) for grasp_move in grasps_all[part_move]['move']])
-        for (part_move, part_hold), grasp_id_pairs in parallel_execute(self.check_grasp_id_pair_feasible_batch, args, num_proc=n_proc, show_progress=verbose, desc='grasp pair filtering'):
+                    args_move_hold.extend([(grasp_move, grasps_all[part_hold]['hold'], False if n_proc > 1 else verbose) for grasp_move in grasps_all[part_move]['move']])
+        for (part_move, part_hold), grasp_id_pairs in parallel_execute(self.check_grasp_id_pair_feasible_batch, args_move_hold, num_proc=n_proc, show_progress=verbose, desc='grasp pair filtering'):
             grasp_id_pairs_all[(part_move, part_hold)].extend(grasp_id_pairs)
+
+        # Add check for hold-hold pairs
+        args_handoff = []
+        for part_base in part_ids:
+            holds = grasps_all[part_base]['hold']
+            holds_left = [g for g in holds if (getattr(g, 'arm_key', 'hold_left').endswith('left'))]
+            holds_right = [g for g in holds if (getattr(g, 'arm_key', 'hold_right').endswith('right'))]
+
+            # check feasibility for hold-hold
+            if len(holds_left) > 0 and len(holds_right) > 0:
+                args_handoff = [([grasp_l], holds_right, False if n_proc > 1 else verbose) for grasp_l in holds_left]
+                for grasp_id_pairs in parallel_execute(self.check_hold_hold_pair_feasible_batch, args_handoff, num_proc=n_proc, show_progress=False, desc=f'handoff filtering ({part_base})'):
+                    handoff_id_pairs_all[part_base].extend(grasp_id_pairs)
+            
         if verbose:
             for part_move, part_hold in grasp_id_pairs_all.keys():
                 print(f'[filter_grasp_id_pairs_all] {part_move}-{part_hold}: {len(grasp_id_pairs_all[(part_move, part_hold)])} grasp pairs')
-        return grasp_id_pairs_all
+            for part_base, pairs in handoff_id_pairs_all.items():
+                print(f'[filter_grasp_id_pairs_all] handoffs on {part_base}: {len(pairs)}')
+        return grasp_id_pairs_all, handoff_id_pairs_all
     
 
 def run_grasp_arm_gen(assembly_dir, log_dir, gripper, arm, ft_sensor, seed, n_surface_pt, n_angle, antipodal_thres, ik_optimizer, ik_regularization, offset_delta, reduced_limit, max_n_grasp, num_proc, verbose, use_cython=False):
@@ -1130,7 +1216,7 @@ def run_grasp_arm_gen(assembly_dir, log_dir, gripper, arm, ft_sensor, seed, n_su
         seed, n_surface_pt, n_angle, antipodal_thres, ik_optimizer, ik_regularization, offset_delta, reduced_limit, use_cython)
 
     grasps_all, (fcl_skips, fcl_calls) = grasp_generator.generate_grasps_all(max_n_grasp=max_n_grasp, n_proc=num_proc, verbose=verbose)
-    grasp_id_pairs_all = grasp_generator.filter_grasp_id_pairs_all(grasps_all, n_proc=num_proc, verbose=verbose)
+    grasp_id_pairs_all, handoff_id_pairs_all = grasp_generator.filter_grasp_id_pairs_all(grasps_all, n_proc=num_proc, verbose=verbose)
 
     if log_dir is not None:
         os.makedirs(log_dir, exist_ok=True)
@@ -1142,6 +1228,7 @@ def run_grasp_arm_gen(assembly_dir, log_dir, gripper, arm, ft_sensor, seed, n_su
                     'ft_sensor': has_ft_sensor,
                     'grasps': grasps_all, 
                     'grasp_id_pairs': grasp_id_pairs_all,
+                    'handoff_id_pairs': handoff_id_pairs_all,
                     'settings': {
                         'n_surface_pt': n_surface_pt,
                         'n_angle': n_angle,
@@ -1181,6 +1268,9 @@ def run_grasp_arm_gen(assembly_dir, log_dir, gripper, arm, ft_sensor, seed, n_su
                 if len(grasp_id_pairs) > 0:
                     success_joint[part_move] = True
                     success_joint[part_hold] = True
+            fp.write('--- handoff pair stats ---\n')
+            for part_base, handoff_pairs in handoff_id_pairs_all.items():
+                fp.write(f'part base {part_base}: {len(handoff_pairs)}\n')
         success = success and all(list(success_joint.values()))
         
         stats_path = os.path.join(log_dir, 'stats.json')
