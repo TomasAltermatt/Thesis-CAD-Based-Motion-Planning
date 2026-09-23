@@ -42,6 +42,7 @@ class SequencePlanner:
             self.grasps[part]['move'] = {grasp[0].grasp_id: grasp for grasp in self.grasps[part]['move']}
             self.grasps[part]['hold'] = {grasp.grasp_id: grasp for grasp in self.grasps[part]['hold']}
         self.grasp_id_pairs = grasps['grasp_id_pairs']
+        self.handoff_id_pairs = grasps.get('handoff_id_pairs', {})
         self.gripper = grasps['gripper']
         self.arm = grasps['arm']
 
@@ -143,7 +144,21 @@ class SequencePlanner:
                         valid_grasp_move_ids[part_move].add(grasp_move_id)
                 n_valid_grasp_pairs[part_move] = len(valid_grasp_move_ids[part_move])
         else:
-            valid_grasp_hold_ids = E_last['grasp_ids']
+            # here we add valid handoffs
+            valid_grasp_hold_ids_base = E_last['grasp_ids']
+            valid_grasp_hold_ids = set(valid_grasp_hold_ids_base)
+
+            # here i explicitly add the complementary valid pair that goes with the last hold grasp
+            # this makes it possible for the next move-hold pair to be with swapped arms
+            # if we add this valid handoff grasp first here, then when we optimize we will get the 
+            # feasible hold-move pairs including that newly added hold grasp
+            valid_handoffs = self.handoff_id_pairs.get(part_hold, [])
+            for hold_id in valid_grasp_hold_ids_base:
+                for pair in valid_handoffs:
+                    if pair[0] == hold_id: valid_grasp_hold_ids.add(pair[1])
+                    elif pair[1] == hold_id: valid_grasp_hold_ids.add(pair[0])
+            
+
             for part_move in parts_move_cand:
                 next_node = (tuple([part for part in node[0] if part != part_move]), 'move', part_move)
                 valid_grasp_id_pairs = []
