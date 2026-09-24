@@ -1108,6 +1108,8 @@ class GraspArmGenerator(GraspGenerator):
         # Pre-calculate transforms and buffered managers for the LEFT arm
         transforms_left = []
         for i, grasp_l in enumerate(grasps_hold_left):
+            if len(grasp_l.parts_in_collision_hold['fix']) > 0:
+                continue
             # Ensure physical side is explicitly left
             physical_l = grasp_l.arm_key.split('_')[1] if hasattr(grasp_l, 'arm_key') and '_' in grasp_l.arm_key else 'left'
             if physical_l != 'left': continue
@@ -1126,6 +1128,8 @@ class GraspArmGenerator(GraspGenerator):
 
         # Cross-reference against the RIGHT arm
         for i, grasp_r in enumerate(grasps_hold_right):
+            if len(grasp_r.parts_in_collision_hold['fix']) > 0:
+                continue
             physical_r = grasp_r.arm_key.split('_')[1] if hasattr(grasp_r, 'arm_key') and '_' in grasp_r.arm_key else 'right'
             if physical_r != 'right': continue
 
