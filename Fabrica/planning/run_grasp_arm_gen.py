@@ -239,10 +239,11 @@ class GraspArmGenerator(GraspGenerator):
                 else:
                     open_ratios = [grasp_open_ratio]
 
-                # --- FIX 1: THE BROADPHASE OPTIMIZATION ---
-                # Only update the exact part that is moving!
-                self.part_col_manager.set_transform(part_id, part_transform)
-                # ------------------------------------------
+
+                current_transforms = self.part_final_transforms.copy()
+                current_transforms[part_id] = part_transform
+                self.apply_transforms_to_col_manager(self.part_col_manager, current_transforms)
+
 
                 action_vec = self.G_preced.nodes[part_id].get('action', None)
                 is_straight_path = self.G_preced.nodes[part_id].get('is_straight', False)
