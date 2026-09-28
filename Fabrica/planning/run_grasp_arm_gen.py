@@ -913,11 +913,27 @@ class GraspArmGenerator(GraspGenerator):
     
             # limit number of grasps (Exact cutoff, as our final batch might have slightly overshot)
             if max_n_grasp is not None:
-                random_move_indices = np.random.choice(len(grasps['move']), min(max_n_grasp, len(grasps['move'])), replace=False)
-                grasps['move'] = [grasps['move'][i] for i in random_move_indices]
+                # 1. Extract base IDs from BOTH lists
+                move_base_ids = set([str(g[0].grasp_id).split('_')[0] for g in grasps['move']])
+                hold_base_ids = set([str(g.grasp_id).split('_')[0] for g in grasps['hold']])
                 
-                random_hold_indices = np.random.choice(len(grasps['hold']), min(max_n_grasp, len(grasps['hold'])), replace=False)
-                grasps['hold'] = [grasps['hold'][i] for i in random_hold_indices]
+                # 2. Categorize the IDs
+                shared_ids = list(move_base_ids.intersection(hold_base_ids))
+                move_only_ids = list(move_base_ids - hold_base_ids)
+                hold_only_ids = list(hold_base_ids - move_base_ids)
+                
+                # 3. Shuffle each category independently
+                np.random.shuffle(shared_ids)
+                np.random.shuffle(move_only_ids)
+                np.random.shuffle(hold_only_ids)
+                
+                # 4. Fill the budgets: Prioritize shared pairs first, then pad with specialized grips
+                selected_move = set((shared_ids + move_only_ids)[:max_n_grasp])
+                selected_hold = set((shared_ids + hold_only_ids)[:max_n_grasp])
+                
+                # 5. Safely slice the original dictionaries
+                grasps['move'] = [g for g in grasps['move'] if str(g[0].grasp_id).split('_')[0] in selected_move]
+                grasps['hold'] = [g for g in grasps['hold'] if str(g.grasp_id).split('_')[0] in selected_hold]
 
             if verbose:
                 print(f'[generate_grasps] {len(grasps["move"])} move grasps and {len(grasps["hold"])} hold grasps generated for part {part_id}')
