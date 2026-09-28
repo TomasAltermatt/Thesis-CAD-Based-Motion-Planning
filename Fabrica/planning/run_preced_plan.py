@@ -22,7 +22,7 @@ import trimesh
 
 from assets.load import load_part_ids, load_config
 from planning.robot.geometry import load_part_meshes
-from planning.sequence.feasibility_check import check_assemblable_parallel, check_path_collision, new_check_path_collision, check_ground_collision, new_check_ground_collision, CONTACT_EPS, generate_straight_path
+from planning.sequence.feasibility_check import check_assemblable_parallel, check_path_collision, new_check_path_collision, check_ground_collision, new_check_ground_collision, CONTACT_EPS, generate_straight_path, check_assemblable_verify_straight
 from planning.robot.workcell import get_assembly_center
 from utils.parallel import parallel_execute
 from matrix_code.IM_Generation.functions import load_fabrica_assembly_from_folder, calculate_IM_matrices, get_freedom_score, get_free_directions, identify_ground_parts
@@ -176,9 +176,11 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
                     free_dirs.remove("-z")
                 
                 if len(free_dirs) > 0:
-                    # Pull the exact physical vector from your manifest dictionary
-                    action_vec = assembly_manifest_AABB[part_move]["extraction_vectors"][free_dirs[0]]
-                    free_parts.append((part_move, action_vec))
+                    for d in free_dirs:
+                        # Pull the exact physical vector from your manifest dictionary
+                        action_vec = assembly_manifest_AABB[part_move]["extraction_vectors"][d]
+                        free_parts.append((part_move, action_vec))
+                        break # at the moment only get first free direction
                 else:
                     locked_parts.append(part_move)
 
@@ -202,21 +204,19 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
                         part_ids_list=master_part_ids, 
                         matrices_dict=directional_matrices_OBB
                     )
-                    
-                    safe_dir = None
-                    for d in free_dirs_obb:
-                        # Pull the EXACT diagonal OBB vector you already computed
-                        action_vec = assembly_manifest_OBB[part_move]["extraction_vectors"][d]
-                        
-                        # Prevent downward extraction into the floor
-                        if part_move in ground_parts and action_vec[2] < -0.1:
-                            continue
-                            
-                        safe_dir = action_vec
-                        break
-                        
-                    if safe_dir is not None:
-                        free_parts.append((part_move, safe_dir))
+
+                    # revise if we have feasible directions
+                    if len(free_dirs_obb) > 0:
+                        for d in free_dirs_obb:
+                            # Pull the exact physical vector from your manifest dictionary
+                            action_vec = assembly_manifest_OBB[part_move]["extraction_vectors"][d]
+
+                            # remove ground parts in -z
+                            if part_move in ground_parts and action_vec[2] < -0.1:
+                                continue
+
+                            free_parts.append((part_move, action_vec))
+                            break # at the moment only check for first successful simulation
                     else:
                         still_locked_parts.append(part_move)
 
@@ -270,7 +270,7 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
 
         # Check if any part is touching the ground
         if len(tier) > 1 and len(parts_assembled) == 0:
-            parts_on_ground = new_check_ground_collision(assembly_dir, list(tier.keys()))
+            parts_on_ground = new_check_ground_collision(assembly_dir, list(tier.keys())) # revise if we use
             assert len(parts_on_ground) > 0, f'No parts in {list(tier.keys())} touches the ground'
             parts_floating = list(set(tier.keys()) - set(parts_on_ground))
             tier_floating, tier_on_ground = {part: tier[part] for part in parts_floating}, {part: tier[part] for part in parts_on_ground}
