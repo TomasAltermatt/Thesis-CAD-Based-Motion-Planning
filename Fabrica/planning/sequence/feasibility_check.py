@@ -236,6 +236,36 @@ def get_R3_actions():
     ]
     return actions
 
+def check_assemblable_verify_straight(action_vect, asset_folder, assembly_dir, parts_fix, part_move, pose=None, save_sdf=False, debug=0, render=False, return_path=False, optimize_path=False, min_sep=None, adaptive_sample=False, return_sim_count=False):
+    '''
+    Check if certain parts are disassemblable
+    '''
+    sim_count = 0
+    planner = MultiPartPathPlanner(asset_folder, assembly_dir, parts_fix, part_move, pose=pose, save_sdf=save_sdf, adaptive_sample=adaptive_sample)
+
+    best_path = None
+    best_path_len = np.inf
+    sim_count += 1
+    success, path = planner.check_success(action_vect, return_path=True, min_sep=min_sep, max_path_len=best_path_len)
+    if debug > 0:
+        print(f'[check_assemblable] success: {success}, parts_fix: {parts_fix}, part_move: {part_move}, action: {action_vect}, path_len: {len(path)}')
+        if render:
+            SimRenderer().replay(planner.sim)
+    if success:
+        if len(path) < best_path_len:
+            best_path_len = len(path)
+            best_path = path
+
+    if best_path is not None:
+        best_path = np.array(best_path)
+        
+    if return_sim_count:
+        if return_path: return success, best_path, sim_count
+        else: return success, sim_count
+    else:
+        if return_path: return success, best_path
+        else: return success
+
 
 def check_assemblable(asset_folder, assembly_dir, parts_fix, part_move, pose=None, save_sdf=False, debug=0, render=False, return_path=False, optimize_path=False, min_sep=None, adaptive_sample=False, return_sim_count=False):
     '''
