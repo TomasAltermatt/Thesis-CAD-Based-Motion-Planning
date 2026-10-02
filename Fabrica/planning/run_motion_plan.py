@@ -297,15 +297,17 @@ def run_motion_plan(assembly_dir, log_dir, optimized, seed, verbose=False):
         commands.append([chan_move, 'gripper', open_ratio_retract_move, None, 'open', curr_move_side])
 
         if step == len(sequence) - 1:
-            # retract both arms
+            # --- FIX: CLEAR THE WORKSPACE FIRST ---
+            # 1. Retract the move arm (right) to its rest pose to get it out of the way
+            commands.append([chan_move, 'arm', (rest_q_move, [None, None]), None, 'transport', curr_move_side]) 
+            commands.append([chan_move, 'gripper', OPEN_RATIO_REST, None, 'close', curr_move_side])
+
+            # 2. Safely retract the hold arm (left) now that the air is clear
             open_ratio_retract_hold = min(grasp_hold.open_ratio + RETRACT_OPEN_RATIO, 1.0)
             commands.append([chan_hold, 'gripper', open_ratio_retract_hold, None, 'open', curr_hold_side])
             commands.append([chan_hold, 'arm', (rest_q_hold, [None, None]), None, 'transport', curr_hold_side])
             commands.append([chan_hold, 'gripper', OPEN_RATIO_REST, None, 'close', curr_hold_side])
-
-            # note: we already open the gripper on the move arm after every assembly step
-            commands.append([chan_move, 'arm', (rest_q_move, [None, None]), None, 'transport', curr_move_side]) 
-            commands.append([chan_move, 'gripper', OPEN_RATIO_REST, None, 'close', curr_move_side])
+            # --------------------------------------
         
 
 
@@ -391,7 +393,7 @@ def run_motion_plan(assembly_dir, log_dir, optimized, seed, verbose=False):
                         max_speed=max_speed[task], verbose=verbose)
                 
                 if path is None:
-                    raise Exception(f'[run_motion_plan] Failed to plan path for {physical_side} {body_type} in task {task} ({assembly_dir})')
+                    raise Exception(f'[run_motion_plan] Failed to plan path for {physical_side} {body_type} in task {task} | Active Part: {active_part} ({assembly_dir})')
                 paths.append([motion_type, body_type, path, active_part, task, physical_side])
                 current_states[physical_side][body_type] = q_goal
 
@@ -408,7 +410,7 @@ def run_motion_plan(assembly_dir, log_dir, optimized, seed, verbose=False):
                         retract_start=retract_start, retract_goal=retract_goal, retract_delta=RETRACT_DELTA_FAR,
                         max_speed=max_speed[task], verbose=verbose)
                 if None in [path1, path2]:
-                    raise Exception(f'[run_motion_plan] Failed to plan path for {physical_side} {body_type} in task {task} ({assembly_dir})')
+                    raise Exception(f'[run_motion_plan] Failed to plan path for {physical_side} {body_type} in task {task} | Active Part: {active_part} ({assembly_dir})')
                 if open_ratio == open_ratio_next:
                     paths.append([motion_type, 'arm', path1 + path2, None, task, physical_side])
                 else:

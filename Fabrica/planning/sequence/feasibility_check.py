@@ -90,34 +90,74 @@ def jit_check_single_direction(assembly_dir, parts_fix, part_move, action_vec, m
 def generate_straight_path(assembly_manifest, part_move_id, action_vec, parts_fix=None, min_sep=None, n_steps=100):
     """
     Generates a 3D relative displacement path starting from [0, 0, 0].
-    Now uses the blazing fast assembly_manifest.
+    Uses 3D Minkowski Ray-AABB intersection to exactly clear the active_min_sep 
+    spherical volume for any arbitrary vector (OBB or AABB).
     """
-    # Safely pull the mesh regardless of which loader generated the dictionary
     mesh_a = assembly_manifest[part_move_id].get('part_mesh', assembly_manifest[part_move_id].get('mesh_final'))
-    
     active_min_sep = min_sep if min_sep is not None else 0.5
     
-    axis_idx = np.argmax(np.abs(action_vec))
-    sign = action_vec[axis_idx] # +1 or -1
-    my_bounds = mesh_a.bounds
+    # 1. Normalize the true direction of movement
+    w = np.array(action_vec, dtype=float)
+    w_norm = np.linalg.norm(w)
+    if w_norm < 1e-6:
+        return np.zeros((n_steps + 1, 3))
+    w /= w_norm
+    
+    a_bounds = mesh_a.bounds
     
     if not parts_fix:
-        part_span = my_bounds[1][axis_idx] - my_bounds[0][axis_idx]
-        total_distance = part_span + active_min_sep
+        # 2. Base Part: No fixed parts left, safely retract active_min_sep
+        total_distance = active_min_sep
     else:
-        if sign > 0:
-            max_fix_upper = max(assembly_manifest[pf].get('part_mesh', assembly_manifest[pf].get('mesh_final')).bounds[1][axis_idx] for pf in parts_fix)
-            my_lower = my_bounds[0][axis_idx]
-            total_distance = max(max_fix_upper - my_lower, 0) + active_min_sep
+        max_req_dist = 0.0
+        blocked = False
+        
+        for pf in parts_fix:
+            mesh_b = assembly_manifest[pf].get('part_mesh', assembly_manifest[pf].get('mesh_final'))
+            b_bounds = mesh_b.bounds
+            
+            # 3. Minkowski Difference: Inflate Part B by min_sep AND the size of Part A
+            tol = 1e-3
+            c_min = b_bounds[0] - active_min_sep - a_bounds[1] - tol
+            c_max = b_bounds[1] + active_min_sep - a_bounds[0] + tol
+            
+            t_enter = -np.inf
+            t_exit = np.inf
+            intersect = True
+            
+            # 4. Ray-Cast: Check exactly when the movement ray exits the inflated 3D volume
+            for i in range(3):
+                if abs(w[i]) < 1e-6:
+                    # Ray is flat on this axis; check if it's already safely outside the bounds
+                    if 0 < c_min[i] or 0 > c_max[i]:
+                        intersect = False
+                        break
+                else:
+                    t1 = c_min[i] / w[i]
+                    t2 = c_max[i] / w[i]
+                    
+                    t_enter = max(t_enter, min(t1, t2))
+                    t_exit = min(t_exit, max(t1, t2))
+                    
+                    if t_enter > t_exit:
+                        intersect = False
+                        break
+                        
+            # If the ray intersects, t_exit is the exact 3D distance needed to break free
+            if intersect and t_exit >= 0:
+                blocked = True
+                max_req_dist = max(max_req_dist, t_exit)
+        
+        # 5. Determine final distance
+        if not blocked:
+            total_distance = active_min_sep
         else:
-            min_fix_lower = min(assembly_manifest[pf].get('part_mesh', assembly_manifest[pf].get('mesh_final')).bounds[0][axis_idx] for pf in parts_fix)
-            my_upper = my_bounds[1][axis_idx]
-            total_distance = max(my_upper - min_fix_lower, 0) + active_min_sep
+            total_distance = max(max_req_dist, active_min_sep)
 
-    # Redmax paths start at relative displacement [0, 0, 0]
+    # 6. Generate the 3D relative path steps
     path = []
     for i in range(n_steps + 1):
-        displacement = action_vec * (total_distance * (i / n_steps))
+        displacement = w * (total_distance * (i / n_steps))
         path.append(displacement)
         
     return np.array(path)
@@ -237,34 +277,50 @@ def get_R3_actions():
     return actions
 
 def check_assemblable_verify_straight(action_vect, asset_folder, assembly_dir, parts_fix, part_move, pose=None, save_sdf=False, debug=0, render=False, return_path=False, optimize_path=False, min_sep=None, adaptive_sample=False, return_sim_count=False):
-    '''
-    Check if certain parts are disassemblable
-    '''
     sim_count = 0
     planner = MultiPartPathPlanner(asset_folder, assembly_dir, parts_fix, part_move, pose=pose, save_sdf=save_sdf, adaptive_sample=adaptive_sample)
 
-    best_path = None
     best_path_len = np.inf
     sim_count += 1
     success, path = planner.check_success(action_vect, return_path=True, min_sep=min_sep, max_path_len=best_path_len)
-    if debug > 0:
-        print(f'[check_assemblable] success: {success}, parts_fix: {parts_fix}, part_move: {part_move}, action: {action_vect}, path_len: {len(path)}')
-        if render:
-            SimRenderer().replay(planner.sim)
+    
     if success:
-        if len(path) < best_path_len:
-            best_path_len = len(path)
-            best_path = path
-
-    if best_path is not None:
-        best_path = np.array(best_path)
+        best_path = np.array(path)
         
-    if return_sim_count:
-        if return_path: return success, best_path, sim_count
-        else: return success, sim_count
-    else:
-        if return_path: return success, best_path
-        else: return success
+        # --- INSTANT MATHEMATICAL SMOOTHER WITH TOLERANCE ---
+        # 1. Use the absolute Euclidean norm (hypotenuse) so the distance never shrinks
+        final_displacement = best_path[-1][:3] - best_path[0][:3]
+        raw_dist = np.linalg.norm(final_displacement)
+        
+        # 2. Inject a 0.05 unit safety buffer to guarantee it clears the FCL boundary
+        clearance_dist = raw_dist + 0.05
+        
+        # 3. Rewrite the wobbly physics path into a perfect mathematical straight line
+        num_steps = len(best_path)
+        smoothed_path = np.zeros_like(best_path)
+        for i in range(num_steps):
+            smoothed_path[i, :3] = best_path[0, :3] + action_vect * (clearance_dist * (i / max(1, num_steps - 1)))
+        
+        best_path = smoothed_path
+        # ----------------------------------------------------
+
+        if optimize_path: 
+            best_dirs = best_path[1:, :3] - best_path[:-1, :3]
+            best_dirs = best_dirs[np.linalg.norm(best_dirs, axis=1) > 1e-6]
+            if len(best_dirs) > 0:
+                opt_action = np.median(best_dirs / np.linalg.norm(best_dirs, axis=1)[:, None], axis=0)
+                opt_action = opt_action / np.linalg.norm(opt_action)
+                sim_count += 1
+                success, opt_path = planner.check_success(opt_action, return_path=True, min_sep=min_sep)
+                if success:
+                    best_path = np.array(opt_path)
+                    action_vect = opt_action
+
+        if return_sim_count:
+            return success, best_path, sim_count
+        return success, best_path
+    
+    return (False, None, sim_count) if return_sim_count else (False, None)
 
 
 def check_assemblable(asset_folder, assembly_dir, parts_fix, part_move, pose=None, save_sdf=False, debug=0, render=False, return_path=False, optimize_path=False, min_sep=None, adaptive_sample=False, return_sim_count=False):

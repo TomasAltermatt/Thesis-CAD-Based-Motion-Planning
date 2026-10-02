@@ -150,6 +150,7 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
                         part_move = ret_arg[-1]
                         parts_assembled.remove(part_move)
                         tier[part_move] = {'action': action, 'path': path}
+                        print(f'Action for part {part_move}: {action}')
                         found_success = True
                 
                 # If we found at least one free part in this chunk, stop simulating the deeper parts!
@@ -162,6 +163,7 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
             locked_parts = []
             
             ground_parts = identify_ground_parts(assembly_manifest_AABB)
+            #print(f"\n[DEBUG] AABB detected these parts on the ground: {ground_parts}")
 
             # --- STAGE 1: GLOBAL AABB LOOKUP ---
             for part_move in parts_assembled:
@@ -270,7 +272,7 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
 
         # Check if any part is touching the ground
         if len(tier) > 1 and len(parts_assembled) == 0:
-            parts_on_ground = new_check_ground_collision(assembly_dir, list(tier.keys())) # revise if we use
+            parts_on_ground = check_ground_collision(assembly_dir, list(tier.keys())) # revise if we use
             assert len(parts_on_ground) > 0, f'No parts in {list(tier.keys())} touches the ground'
             parts_floating = list(set(tier.keys()) - set(parts_on_ground))
             tier_floating, tier_on_ground = {part: tier[part] for part in parts_floating}, {part: tier[part] for part in parts_on_ground}
@@ -341,6 +343,8 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
     with open(stats_path, 'w') as fp:
         json.dump({'preced_plan': {'time': round(time() - t_start, 2)},
                    'total_simulations': total_simulations_run}, fp)
+    # print(f'Time: {round(time() - t_start, 2)}')
+    # print(f'Total Simulations: {total_simulations_run}')
 
 
 def draw_graph(G, save_path=None):

@@ -19,12 +19,13 @@ import random
 
 # Combined Cost Weights
 WEIGHTS = {
-    'move': 1.0,     
+    'move': 7.5,     
     'hold': 0.1,     
     'dynamic': 1.0,  
-    'static': 1.5,    
+    'static': 0.8,    
     'role_swap': 2.0,    # A massive tax. The robot will refuse to juggle.
-    'grasp_switch': 0.25
+    'grasp_switch': 0.25,
+    'manipulability': 0.2 # added yoshikawa index to calculation
 }
 # 1. Base maximum for a single np.linalg.norm() on a 7-DOF arm
 MAX_SINGLE_NORM = 2 * np.pi * np.sqrt(7) 
@@ -245,6 +246,67 @@ class SequenceOptimizer:
                 grasp_score = self._get_move_grasp_score(grasp[0])
                 grasp_scores[part][grasp_id] = grasp_score
         return grasp_scores
+
+    def _compute_jacobian(self, arm_chain, q, eps=1e-4):
+        """Computes a 6xN numerical Jacobian using forward kinematics."""
+        q = np.array(q, dtype=float)
+        N = len(q)
+        J = np.zeros((6, N))
+        
+        # Base pose
+        T0 = arm_chain.forward_kinematics(q)
+        p0 = T0[:3, 3]
+        R0 = T0[:3, :3]
+        
+        for i in range(N):
+            q_plus = q.copy()
+            q_plus[i] += eps
+            
+            # Slightly perturbed pose
+            T_plus = arm_chain.forward_kinematics(q_plus)
+            p_plus = T_plus[:3, 3]
+            R_plus = T_plus[:3, :3]
+            
+            # Linear Jacobian (Position derivative)
+            J[:3, i] = (p_plus - p0) / eps
+            
+            # Angular Jacobian (Orientation derivative)
+            skew_w_eps = (R_plus @ R0.T) - np.eye(3)
+            J[3, i] = skew_w_eps[2, 1] / eps  # w_x
+            J[4, i] = skew_w_eps[0, 2] / eps  # w_y
+            J[5, i] = skew_w_eps[1, 0] / eps  # w_z
+            
+        return J
+
+    def _get_all_manipulability_scores(self):
+        """Pre-computes the Yoshikawa Index using numerical Jacobians."""
+        manip_scores = {'move': {}, 'hold': {}}
+        
+        for part in self.parts:
+            # 1. Cache Move Grasps
+            manip_scores['move'][part] = {}
+            for grasp_id, grasp_list in self.grasps[part]['move'].items():
+                grasp = grasp_list[0] # Evaluate the insertion posture
+                side = grasp.arm_key.split('_')[-1] if hasattr(grasp, 'arm_key') else 'right'
+                q = np.array(grasp.arm_q)
+                
+                # Use our new numerical Jacobian calculator
+                J = self._compute_jacobian(self.arm_chains[side], q)
+                w = np.sqrt(max(0, np.linalg.det(J @ J.T)))
+                manip_scores['move'][part][grasp_id] = w
+
+            # 2. Cache Hold Grasps
+            manip_scores['hold'][part] = {}
+            for grasp_id, grasp in self.grasps[part]['hold'].items():
+                side = grasp.arm_key.split('_')[-1] if hasattr(grasp, 'arm_key') else 'left'
+                q = np.array(grasp.arm_q)
+                
+                # Use our new numerical Jacobian calculator
+                J = self._compute_jacobian(self.arm_chains[side], q)
+                w = np.sqrt(max(0, np.linalg.det(J @ J.T)))
+                manip_scores['hold'][part][grasp_id] = w
+                
+        return manip_scores
     
     def _calculate_average_random_sequence_score(self, grasp_tree, verbose=False):
         
@@ -384,6 +446,8 @@ class SequenceOptimizer:
 
         # gives stability scores for each move grasp
         move_grasp_scores = self._get_all_move_grasp_scores()
+        manip_scores = self._get_all_manipulability_scores()
+
         # --- NEW: Pre-compute Maximums for Normalization ---
         # 1. Find the highest move score across all parts
         max_move_score = 1e-6 # Small offset to prevent division by zero
@@ -398,6 +462,14 @@ class SequenceOptimizer:
             for grasp_hold in self.grasps[part]['hold'].values():
                 theoretical_max = np.pi * len(grasp_hold.contact_points)
                 max_hold_score = max(max_hold_score, theoretical_max)
+
+        # 3. Find the dynamic maximum manipulability (Auto-scales to CAD units)
+        max_w = 1e-6
+        for part in self.parts:
+            if manip_scores['move'][part]:
+                max_w = max(max_w, max(manip_scores['move'][part].values()))
+            if manip_scores['hold'][part]:
+                max_w = max(max_w, max(manip_scores['hold'][part].values()))
         # ---------------------------------------------------
 
         # calculate DP values (ALL OF THEM)
@@ -493,6 +565,11 @@ class SequenceOptimizer:
                         dynamic_cost = hold_travel + move_travel + insertion_travel
                         static_cost = np.linalg.norm(curr_move_q - rest_q_move) + np.linalg.norm(curr_hold_q - rest_q_hold)
 
+                        # Get total manipulability
+                        w_move = manip_scores['move'][move_part][move_grasp_id]
+                        w_hold = manip_scores['hold'][hold_part][hold_grasp_id]
+                        total_manipulability = w_move + w_hold
+
                         # calculate new cost, update DP and prev
                         if nx.has_path(G_preced_curr, hold_part, move_part):
                             if G_preced_curr.has_edge(hold_part, move_part):
@@ -515,6 +592,7 @@ class SequenceOptimizer:
                         norm_hold = hold_score / max_hold_score
                         norm_dynamic = dynamic_cost/MAX_DYNAMIC_COST
                         norm_static = static_cost/MAX_STATIC_COST
+                        norm_manip = total_manipulability / (max_w * 2.0)
 
                         # Weight costs
                         weighted_move = WEIGHTS['move'] * norm_move
@@ -523,9 +601,10 @@ class SequenceOptimizer:
                         weighted_static = WEIGHTS['static'] * norm_static
                         role_switch_tax = WEIGHTS['role_swap'] if if_role_switch else 0.0
                         grasp_switch_tax = WEIGHTS['grasp_switch'] if if_grasp_switch else 0.0
+                        weighted_manip = WEIGHTS['manipulability'] * norm_manip
 
                         # Get final
-                        step_cost = weighted_move - weighted_hold + weighted_dynamic + weighted_static + role_switch_tax + grasp_switch_tax
+                        step_cost = weighted_move - weighted_hold + weighted_dynamic + weighted_static + role_switch_tax + grasp_switch_tax - weighted_manip
 
                         if ABLATION == 'original' or ABLATION == 'wograsp':
                             num_stable_part_hold = DP[layer - 1][parent_node][0] + int(if_stable_part_hold)
@@ -574,7 +653,7 @@ class SequenceOptimizer:
         optimal_path = optimal_path[::-1]
 
         # --- COMPONENT LOGGING FOR OPTIMAL PATH ---
-        comp = {'move': 0.0, 'hold': 0.0, 'dyn': 0.0, 'stat': 0.0, 'rs': 0.0, 'gs': 0.0}
+        comp = {'move': 0.0, 'hold': 0.0, 'dyn': 0.0, 'stat': 0.0, 'rs': 0.0, 'gs': 0.0, 'manip': 0.0}
         
         for i in range(0, len(optimal_path) - 2, 2):
             p_node, c_node, gc_node = optimal_path[i], optimal_path[i+1], optimal_path[i+2]
@@ -613,10 +692,15 @@ class SequenceOptimizer:
             comp['rs'] += WEIGHTS['role_swap'] if is_rs else 0.0
             comp['gs'] += WEIGHTS['grasp_switch'] if h_trav > 0.01 else 0.0
 
+            w_m = manip_scores['move'][c_node[1]][c_node[2]]
+            w_h = manip_scores['hold'][gc_node[1]][gc_node[2]]
+            comp['manip'] += WEIGHTS['manipulability'] * ((w_m + w_h) / (max_w * 2.0))
+
         print("\n" + "="*45 + "\n🏆 OPTIMAL SEQUENCE BREAKDOWN")
         print(f"Move Penalty (Torque) :  {comp['move']:.4f}\nHold Reward (Grip)    : -{comp['hold']:.4f}")
         print(f"Dynamic Penalty (Dist):  {comp['dyn']:.4f}\nStatic Penalty (Pose) :  {comp['stat']:.4f}")
-        print(f"Role Swap Taxes       :  {comp['rs']:.4f}\nGrasp Switch Taxes    :  {comp['gs']:.4f}\n" + "="*45 + "\n")
+        print(f"Role Swap Taxes       :  {comp['rs']:.4f}\nGrasp Switch Taxes    :  {comp['gs']:.4f}")
+        print(f"Manipulability Reward : -{comp['manip']:.4f}\n" + "="*45 + "\n")
         # ----------------------------------------
         
         # build optimal part tree
