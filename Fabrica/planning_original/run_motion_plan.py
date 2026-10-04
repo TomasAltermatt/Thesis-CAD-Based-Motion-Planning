@@ -1,4 +1,7 @@
 import os
+from turtle import stamp
+
+from json_load_append import update_json_stats
 os.environ['OMP_NUM_THREADS'] = '1'
 import sys
 
@@ -416,11 +419,7 @@ def run_motion_plan(assembly_dir, log_dir, optimized, seed, verbose=False):
         pickle.dump(paths, fp)
 
     stats_path = os.path.join(log_dir, 'stats.json')
-    with open(stats_path, 'r') as fp:
-        stats = json.load(fp)
-    stats['motion_plan'] = {'time': round(time() - stamp.start_time, 2)}
-    with open(stats_path, 'w') as fp:
-        json.dump(stats, fp)
+    update_json_stats(stats_path, 'motion_plan', {'time': round(time() - stamp.start_time, 2)})
 
 
 if __name__ == '__main__':

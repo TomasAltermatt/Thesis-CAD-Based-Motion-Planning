@@ -5,7 +5,7 @@ import sys
 project_base_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 sys.path.append(project_base_dir)
 
-
+from json_load_append import update_json_stats
 import numpy as np
 import random
 import json
@@ -271,8 +271,10 @@ def run_motion_plan(assembly_dir, log_dir, optimized, seed, verbose=False):
                 # open gripper on previous hold side
                 open_ratio_retract_prev_hold = min(prev_grasp_hold.open_ratio + RETRACT_OPEN_RATIO, 1.0)
                 commands.append([chan_prev_hold, 'gripper', open_ratio_retract_prev_hold, None, 'open', prev_hold_side])
-                #commands.append([chan_prev_hold, 'arm', (rest_q_hold, [None, None]), None, 'transport', prev_hold_side])
-                # may need to change this rest_q_hold so it doesnt swing much
+                
+                # ---> ADDED: Safely pull the old hold arm straight back before resting
+                if prev_grasp_hold.arm_q_retract is not None:
+                    commands.append([chan_prev_hold, 'arm', (prev_grasp_hold.arm_q_retract, [None, None]), None, 'transport', prev_hold_side])
 
             # if we do not change hold sides, it is an arm regrasp (just in case)    
             elif grasp_hold.grasp_id != prev_grasp_hold.grasp_id:
@@ -305,6 +307,12 @@ def run_motion_plan(assembly_dir, log_dir, optimized, seed, verbose=False):
             # 2. Safely retract the hold arm (left) now that the air is clear
             open_ratio_retract_hold = min(grasp_hold.open_ratio + RETRACT_OPEN_RATIO, 1.0)
             commands.append([chan_hold, 'gripper', open_ratio_retract_hold, None, 'open', curr_hold_side])
+            
+            # ---> ADDED: Pull straight back to the dedicated standoff pose first
+            if grasp_hold.arm_q_retract is not None:
+                commands.append([chan_hold, 'arm', (grasp_hold.arm_q_retract, [None, None]), None, 'transport', curr_hold_side])
+            
+            # Now safely swing to rest
             commands.append([chan_hold, 'arm', (rest_q_hold, [None, None]), None, 'transport', curr_hold_side])
             commands.append([chan_hold, 'gripper', OPEN_RATIO_REST, None, 'close', curr_hold_side])
             # --------------------------------------
@@ -472,11 +480,7 @@ def run_motion_plan(assembly_dir, log_dir, optimized, seed, verbose=False):
         pickle.dump(clean_paths, fp)
 
     stats_path = os.path.join(log_dir, 'stats.json')
-    with open(stats_path, 'r') as fp:
-        stats = json.load(fp)
-    stats['motion_plan'] = {'time': round(time() - stamp.start_time, 2)}
-    with open(stats_path, 'w') as fp:
-        json.dump(stats, fp)
+    update_json_stats(stats_path, 'motion_plan', {'time': round(time() - stamp.start_time, 2)})
 
 
 if __name__ == '__main__':

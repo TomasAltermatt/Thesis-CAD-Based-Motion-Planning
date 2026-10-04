@@ -78,6 +78,8 @@ def smooth_path(path, extend_fn, collision_fn, distance_fn=None, cost_fn=None, s
         weights = [distance_fn(waypoints[i], waypoints[j]) for i, j in segments]
         paths = [list(extend_fn(*pair)) for pair in get_pairs(waypoints)]
         #weights = [len(paths[i]) for i, j in segments]
+        if sum(weights) == 0:
+            return path
         probabilities = np.array(weights) / sum(weights)
         if verbose:
             print('Iteration: {} | Waypoints: {} | Cost: {:.3f} | Elapsed: {:.3f} | Remaining: {:.3f}'.format(

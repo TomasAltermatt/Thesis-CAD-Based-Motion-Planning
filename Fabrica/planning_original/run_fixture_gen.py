@@ -1,4 +1,6 @@
 import os
+
+from json_load_append import update_json_stats
 os.environ['OMP_NUM_THREADS'] = '1'
 import sys
 
@@ -451,11 +453,7 @@ def run_fixture_gen(assembly_dir, log_dir, optimized, seed, render=False):
         fp.write(scene.save_image(visible=False))
     
     stats_path = os.path.join(log_dir, 'stats.json')
-    with open(stats_path, 'r') as fp:
-        stats = json.load(fp)
-    stats['fixture_gen'] = {'time': round(time() - t_start, 2)}
-    with open(stats_path, 'w') as fp:
-        json.dump(stats, fp)
+    update_json_stats(stats_path, 'fixture_gen', {'time': round(time() - t_start, 2)})
 
 
 if __name__ == '__main__':

@@ -19,7 +19,7 @@ from time import time
 from scipy.spatial.transform import Rotation as R
 import pickle
 import json
-
+from json_load_append import update_json_stats
 from assets.transform import get_transform_from_path
 from planning.robot.util_grasp import compute_antipodal_pairs, generate_gripper_states, get_antipodal_aligned_grasp, sample_points_with_normal_alignment, get_grasp_info_from_gripper_state, get_reverse_grasp
 from planning.robot.util_arm import get_arm_chain, get_ik_target_orientation, get_gripper_pos_quat_from_arm_q, get_ft_pos_from_gripper_pos_quat
@@ -1295,17 +1295,13 @@ def run_grasp_arm_gen(assembly_dir, log_dir, gripper, arm, ft_sensor, seed, n_su
         success = success and all(list(success_joint.values()))
         
         stats_path = os.path.join(log_dir, 'stats.json')
-        with open(stats_path, 'r') as fp:
-            stats = json.load(fp)
-        stats['grasp_gen'] = {
+        update_json_stats(stats_path, 'grasp_gen', {
             'success': success, 
             'time': round(time() - t_start, 2),
             'fcl_skips': fcl_skips,
             'fcl_calls': fcl_calls,
             'cython_enabled': use_cython
-        }  
-        with open(stats_path, 'w') as fp:
-            json.dump(stats, fp)
+        })
 
 
 if __name__ == '__main__':

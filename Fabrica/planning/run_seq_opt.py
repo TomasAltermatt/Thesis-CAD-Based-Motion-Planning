@@ -16,6 +16,7 @@ from functools import total_ordering
 from scipy.spatial.transform import Rotation as R
 from planning.robot.util_arm import get_arm_chain
 import random
+from json_load_append import update_json_stats
 
 # Combined Cost Weights
 WEIGHTS = {
@@ -23,7 +24,7 @@ WEIGHTS = {
     'hold': 0.1,     
     'dynamic': 1.0,  
     'static': 0.8,    
-    'role_swap': 2.0,    # A massive tax. The robot will refuse to juggle.
+    'role_swap': 0.1,    # A massive tax. The robot will refuse to juggle.
     'grasp_switch': 0.25,
     'manipulability': 0.2 # added yoshikawa index to calculation
 }
@@ -91,6 +92,13 @@ class SequenceOptimizer:
             'right': get_arm_chain(self.arm, side='right'),
             'left': get_arm_chain(self.arm, side='left')
         }
+
+        # --- DYNAMIC DOF NORMALIZATION ---
+        dof = len(self.arm_chains['right'].rest_q)
+        max_single_norm = 2 * np.pi * np.sqrt(dof)
+        self.max_dynamic_cost = 4 * max_single_norm
+        self.max_static_cost = 2 * max_single_norm
+        # ---------------------------------
 
     def _find_root_node(self, tree):
         for node in tree.nodes:
@@ -590,8 +598,8 @@ class SequenceOptimizer:
                         # Normalize individual costs
                         norm_move = move_score / max_move_score
                         norm_hold = hold_score / max_hold_score
-                        norm_dynamic = dynamic_cost/MAX_DYNAMIC_COST
-                        norm_static = static_cost/MAX_STATIC_COST
+                        norm_dynamic = dynamic_cost / self.max_dynamic_cost
+                        norm_static = static_cost / self.max_static_cost
                         norm_manip = total_manipulability / (max_w * 2.0)
 
                         # Weight costs
@@ -687,8 +695,8 @@ class SequenceOptimizer:
             # Log exact weighted costs charged to this specific sequence
             comp['move'] += WEIGHTS['move'] * (move_grasp_scores[c_node[1]][c_node[2]] / max_move_score)
             comp['hold'] += WEIGHTS['hold'] * (self._get_hold_grasp_score(h_grasp, m_grasp) / max_hold_score)
-            comp['dyn'] += WEIGHTS['dynamic'] * ((h_trav + d_trav + f_trav + ins_trav) / MAX_DYNAMIC_COST)
-            comp['stat'] += WEIGHTS['static'] * ((np.linalg.norm(c_m_q - r_q_m) + np.linalg.norm(c_h_q - r_q_h)) / MAX_STATIC_COST)
+            comp['dyn'] += WEIGHTS['dynamic'] * ((h_trav + d_trav + f_trav + ins_trav) / self.max_dynamic_cost)
+            comp['stat'] += WEIGHTS['static'] * ((np.linalg.norm(c_m_q - r_q_m) + np.linalg.norm(c_h_q - r_q_h)) / self.max_static_cost)
             comp['rs'] += WEIGHTS['role_swap'] if is_rs else 0.0
             comp['gs'] += WEIGHTS['grasp_switch'] if h_trav > 0.01 else 0.0
 
@@ -796,11 +804,7 @@ def run_seq_opt(log_dir, plot=False, verbose=False):
         pickle.dump(new_tree, f)
     
     stats_path = os.path.join(log_dir, 'stats.json')
-    with open(stats_path, 'r') as fp:
-        stats = json.load(fp)
-    stats['seq_opt'] = {'time': round(time() - t_start, 2)}
-    with open(stats_path, 'w') as fp:
-        json.dump(stats, fp)
+    update_json_stats(stats_path, 'seq_opt', {'time': round(time() - t_start, 2)})
     
     if plot:
         seq_optimizer.plot_tree(new_tree, save_path=os.path.join(log_dir, 'tree_opt.png'))

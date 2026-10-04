@@ -1,4 +1,6 @@
 import os
+
+from json_load_append import update_json_stats
 os.environ['OMP_NUM_THREADS'] = '1'
 import sys
 
@@ -178,9 +180,11 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
 
     save_graph(G, log_dir)
     stats_path = os.path.join(log_dir, 'stats.json')
-    with open(stats_path, 'w') as fp:
-        json.dump({'preced_plan': {'time': round(time() - t_start, 2)}, 
-                   'total_simulations': total_simulations_run}, fp)
+    stats_path = os.path.join(log_dir, 'stats.json')
+    update_json_stats(stats_path, 'preced_plan', {
+        'time': round(time() - t_start, 2), 
+        'total_simulations': total_simulations_run
+    })
     print(f'Time: {round(time() - t_start, 2)}')
     print(f'Total Simulations: {total_simulations_run}')
 

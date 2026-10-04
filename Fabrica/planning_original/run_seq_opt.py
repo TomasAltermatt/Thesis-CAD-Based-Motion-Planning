@@ -1,4 +1,6 @@
 import os
+
+from json_load_append import update_json_stats
 os.environ['OMP_NUM_THREADS'] = '1'
 import sys
 
@@ -503,11 +505,7 @@ def run_seq_opt(log_dir, plot=False, verbose=False):
         pickle.dump(new_tree, f)
     
     stats_path = os.path.join(log_dir, 'stats.json')
-    with open(stats_path, 'r') as fp:
-        stats = json.load(fp)
-    stats['seq_opt'] = {'time': round(time() - t_start, 2)}
-    with open(stats_path, 'w') as fp:
-        json.dump(stats, fp)
+    update_json_stats(stats_path, 'seq_opt', {'time': round(time() - t_start, 2)})
     
     if plot:
         seq_optimizer.plot_tree(new_tree, save_path=os.path.join(log_dir, 'tree_opt.png'))

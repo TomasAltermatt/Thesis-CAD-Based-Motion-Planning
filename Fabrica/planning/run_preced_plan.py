@@ -26,6 +26,7 @@ from planning.sequence.feasibility_check import check_assemblable_parallel, chec
 from planning.robot.workcell import get_assembly_center
 from utils.parallel import parallel_execute
 from matrix_code.IM_Generation.functions import load_fabrica_assembly_from_folder, calculate_IM_matrices, get_freedom_score, get_free_directions, identify_ground_parts
+from json_load_append import update_json_stats
 
 def remove_redundant_edges(G):
     # Iterate over all pairs of nodes (u, v) in the graph
@@ -173,6 +174,7 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
                     part_ids_list=master_part_ids, 
                     matrices_dict=directional_matrices_AABB
                 )
+                #print(f"[DEBUG] Part {part_move} has free directions: {free_dirs}")
                 
                 if part_move in ground_parts and "-z" in free_dirs:
                     free_dirs.remove("-z")
@@ -180,7 +182,10 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
                 if len(free_dirs) > 0:
                     for d in free_dirs:
                         # Pull the exact physical vector from your manifest dictionary
-                        action_vec = assembly_manifest_AABB[part_move]["extraction_vectors"][d]
+                        preferred_order = ['+z', '+x', '-x', '+y', '-y', '-z']
+                        best_d = next((d for d in preferred_order if d in free_dirs), free_dirs[0])
+                        
+                        action_vec = assembly_manifest_AABB[part_move]["extraction_vectors"][best_d]
                         free_parts.append((part_move, action_vec))
                         break # at the moment only get first free direction
                 else:
@@ -224,6 +229,7 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
 
             # ---> MAIN THREAD OVERRIDE: Instant Assignment <---
             if len(free_parts) > 0:
+                free_parts.sort(key=lambda item: item[0] in ground_parts)
                 for part_move, action_vec in free_parts:
                     parts_fix = parts_assembled.copy()
                     parts_fix.remove(part_move)
@@ -237,7 +243,7 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
                     
                     parts_assembled.remove(part_move)
                     tier[part_move] = {'action': action_vec, 'path': path, 'is_straight': True}
-            
+                    # print(f'part {part_move} added to tier')
             # --- STAGE 3: PARALLEL WORKER FALLBACK --- (MISSING TESTING TO SELECT HEURISTIC FOR SORTING EFFICIENTLY)
             if len(tier) == 0:
                 print(f'[run_preced_plan] Absolute lock. Sorting and evaluating in parallel: {still_locked_parts}')
@@ -325,6 +331,30 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
     if len(parts_assembled) == 1: # add base part
         for part_other in tiers[-1]:
             G.add_edge(parts_assembled[0], part_other)
+            
+    # --- CYCLE-PROOF GRAVITY SUPPORT ---
+    # 1. Map each part to the tier it was extracted in. 
+    # Parts removed later (or the base part) have higher tier indices.
+    tier_map = {}
+    for i, tier in enumerate(tiers):
+        for part in tier.keys():
+            tier_map[part] = i
+    for part in parts_assembled:
+        tier_map[part] = len(tiers)
+
+    # 2. Apply gravity edges strictly from higher tiers to lower tiers
+    for node in list(G.nodes()):
+        if G.in_degree(node) == 0 and node not in parts_assembled:
+            node_idx = master_part_ids.index(node)
+            for other_node in G.nodes():
+                if other_node != node:
+                    other_idx = master_part_ids.index(other_node)
+                    # Support is valid if 'other_node' is physically below 'node' (-z) 
+                    # AND is extracted AFTER it (meaning it's a more foundational piece)
+                    if directional_matrices_AABB["-z"][node_idx, other_idx] > 0:
+                        if tier_map[other_node] > tier_map[node]:
+                            G.add_edge(other_node, node)
+    # -----------------------------------
 
     # add precedence preference from config
     if config is not None and 'precedence' in config:
@@ -340,9 +370,11 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
 
     save_graph(G, log_dir)
     stats_path = os.path.join(log_dir, 'stats.json')
-    with open(stats_path, 'w') as fp:
-        json.dump({'preced_plan': {'time': round(time() - t_start, 2)},
-                   'total_simulations': total_simulations_run}, fp)
+    update_json_stats(stats_path, 'preced_plan', {
+        'time': round(time() - t_start, 2), 
+        'total_simulations': total_simulations_run
+})
+    
     # print(f'Time: {round(time() - t_start, 2)}')
     # print(f'Total Simulations: {total_simulations_run}')
 

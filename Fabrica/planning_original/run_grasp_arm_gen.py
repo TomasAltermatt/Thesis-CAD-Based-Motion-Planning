@@ -1,4 +1,6 @@
 import os
+
+from json_load_append import update_json_stats
 os.environ['OMP_NUM_THREADS'] = '1'
 import sys
 
@@ -615,11 +617,10 @@ def run_grasp_arm_gen(assembly_dir, log_dir, gripper, arm, ft_sensor, seed, n_su
         success = success and all(list(success_joint.values()))
         
         stats_path = os.path.join(log_dir, 'stats.json')
-        with open(stats_path, 'r') as fp:
-            stats = json.load(fp)
-        stats['grasp_gen'] = {'success': success, 'time': round(time() - t_start, 2)}  
-        with open(stats_path, 'w') as fp:
-            json.dump(stats, fp)
+        update_json_stats(stats_path, 'grasp_gen', {
+            'success': success, 
+            'time': round(time() - t_start, 2)
+        })
 
 
 if __name__ == '__main__':

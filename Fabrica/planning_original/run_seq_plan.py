@@ -1,4 +1,6 @@
 import os
+
+from json_load_append import update_json_stats
 os.environ['OMP_NUM_THREADS'] = '1'
 import sys
 
@@ -439,15 +441,11 @@ class SequencePlanner:
             pickle.dump(tree, fp)
         
         stats_path = os.path.join(log_dir, 'stats.json')
-        with open(stats_path, 'r') as fp:
-            stats = json.load(fp)
-        stats['seq_plan'] = {
+        update_json_stats(stats_path, 'seq_plan', {
             'success': SequencePlanner.check_success(tree),
             'time': round(time() - self.t_start, 2),
             'stop_msg': self.stop_msg,
-        }
-        with open(stats_path, 'w') as fp:
-            json.dump(stats, fp)
+        })
         
         if plot:
             self.plot_tree(tree, save_path=os.path.join(log_dir, 'tree.png'))
