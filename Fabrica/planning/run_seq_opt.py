@@ -21,7 +21,7 @@ from json_load_append import update_json_stats
 # Combined Cost Weights
 WEIGHTS = {
     'move': 7.5,     
-    'hold': 0.1,     
+    'hold': 0.175,     
     'dynamic': 1.0,  
     'static': 0.8,    
     'role_swap': 0.1,    # A massive tax. The robot will refuse to juggle.
