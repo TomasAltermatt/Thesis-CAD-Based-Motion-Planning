@@ -1,11 +1,13 @@
 import os
 
-from json_load_append import update_json_stats
+
 os.environ['OMP_NUM_THREADS'] = '1'
 import sys
 
 project_base_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 sys.path.append(project_base_dir)
+workspace_dir = os.path.abspath(os.path.join(project_base_dir, '..'))
+sys.path.insert(0, workspace_dir)
 
 import numpy as np
 import os
@@ -26,6 +28,7 @@ from planning_original.robot.geometry import load_arm_meshes, transform_gripper_
 from planning_original.config import RETRACT_OPEN_RATIO, CHECK_GRIPPERS_INTERLOCK
 from planning_original.run_grasp_gen import GraspGenerator, Grasp
 from utils.parallel import parallel_execute
+from json_load_append import update_json_stats
 
 
 class GraspArmGenerator(GraspGenerator):

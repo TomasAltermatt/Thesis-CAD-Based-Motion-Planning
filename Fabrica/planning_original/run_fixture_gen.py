@@ -1,11 +1,12 @@
 import os
 
-from json_load_append import update_json_stats
 os.environ['OMP_NUM_THREADS'] = '1'
 import sys
 
 project_base_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 sys.path.append(project_base_dir)
+workspace_dir = os.path.abspath(os.path.join(project_base_dir, '..'))
+sys.path.insert(0, workspace_dir)
 
 import numpy as np
 import pickle
@@ -15,7 +16,7 @@ from rectpack import newPacker
 import trimesh
 import json
 from time import time
-
+from json_load_append import update_json_stats
 from assets.load import load_pos_quat_dict
 from assets.transform import get_transform_matrix, get_transform_matrix_quat, mat_to_pos_quat, get_pos_euler_from_transform_matrix
 from planning_original.robot.geometry import load_part_meshes, load_gripper_meshes, transform_gripper_meshes, get_buffered_meshes

@@ -36,18 +36,18 @@ echo "Running precedence and path planning..."
 python planning_original/run_preced_plan.py --assembly-dir assets/$ASSEMBLY_DIR/$ASSEMBLY --log-dir logs/$EXP_NAME/$ASSEMBLY/original --num-proc 12 --arm $ARM
 
 echo "Running grasp and arm IK generation..."
-python planning_original/run_grasp_arm_gen.py --assembly-dir assets/$ASSEMBLY_DIR/$ASSEMBLY --log-dir logs/$EXP_NAME/$ASSEMBLY/original --num-proc 50 --max-n-grasp 100 --arm $ARM --gripper $GRIPPER --ft-sensor $FT_SENSOR
+python planning_original/run_grasp_arm_gen.py --assembly-dir assets/$ASSEMBLY_DIR/$ASSEMBLY --log-dir logs/$EXP_NAME/$ASSEMBLY/original --num-proc 50 --max-n-grasp 140 --arm $ARM --gripper $GRIPPER --ft-sensor $FT_SENSOR
 
-# echo "Running sequence planning..."
-# python planning_original/run_seq_plan.py --assembly-dir assets/$ASSEMBLY_DIR/$ASSEMBLY --log-dir logs/$EXP_NAME/$ASSEMBLY/original --plot
+echo "Running sequence planning..."
+python planning_original/run_seq_plan.py --assembly-dir assets/$ASSEMBLY_DIR/$ASSEMBLY --log-dir logs/$EXP_NAME/$ASSEMBLY/original --plot
 
-# echo "Running sequence optimization..."
-# python planning_original/run_seq_opt.py --log-dir logs/$EXP_NAME/$ASSEMBLY/original --plot
+echo "Running sequence optimization..."
+python planning_original/run_seq_opt.py --log-dir logs/$EXP_NAME/$ASSEMBLY/original --plot
 
-# echo "Running fixture generation..."
-# python planning_original/run_fixture_gen.py --assembly-dir assets/$ASSEMBLY_DIR/$ASSEMBLY --log-dir logs/$EXP_NAME/$ASSEMBLY/original --optimized
+echo "Running fixture generation..."
+python planning_original/run_fixture_gen.py --assembly-dir assets/$ASSEMBLY_DIR/$ASSEMBLY --log-dir logs/$EXP_NAME/$ASSEMBLY/original --optimized
 
-# echo "Running complete motion planning..."
-# python planning_original/run_motion_plan.py --assembly-dir assets/$ASSEMBLY_DIR/$ASSEMBLY --log-dir logs/$EXP_NAME/$ASSEMBLY/original --optimized
+echo "Running complete motion planning..."
+python planning_original/run_motion_plan.py --assembly-dir assets/$ASSEMBLY_DIR/$ASSEMBLY --log-dir logs/$EXP_NAME/$ASSEMBLY/original --optimized
 
 echo "Done."

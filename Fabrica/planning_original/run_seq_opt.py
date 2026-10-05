@@ -1,11 +1,13 @@
 import os
 
-from json_load_append import update_json_stats
+
 os.environ['OMP_NUM_THREADS'] = '1'
 import sys
 
 project_base_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 sys.path.append(project_base_dir)
+workspace_dir = os.path.abspath(os.path.join(project_base_dir, '..'))
+sys.path.insert(0, workspace_dir)
 
 import numpy as np
 import networkx as nx
@@ -17,6 +19,7 @@ from tqdm import tqdm
 from functools import total_ordering
 from scipy.spatial.transform import Rotation as R
 import random
+from json_load_append import update_json_stats
 
 
 @total_ordering

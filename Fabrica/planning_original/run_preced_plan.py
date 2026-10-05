@@ -1,6 +1,5 @@
 import os
 
-from json_load_append import update_json_stats
 os.environ['OMP_NUM_THREADS'] = '1'
 import sys
 
@@ -13,6 +12,7 @@ import pickle
 from time import time
 import json
 import trimesh
+from json_load_append import update_json_stats
 
 from assets.load import load_part_ids, load_config
 from planning_original.robot.geometry import load_part_meshes
@@ -107,7 +107,7 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
                 part_move = ret_arg[-1]
                 parts_assembled.remove(part_move)
                 tier[part_move] = {'action': action, 'path': path}
-                print(f'Action for part {part_move}: {action}')
+                #print(f'Action for part {part_move}: {action}')
 
         if len(tier) == 0:
             raise ValueError(f'[run_preced_plan] No parts in {parts_assembled} can be disassembled ({assembly_dir})')
@@ -179,7 +179,6 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
     G = compute_contact_points(G, assembly_dir, assembly_center)
 
     save_graph(G, log_dir)
-    stats_path = os.path.join(log_dir, 'stats.json')
     stats_path = os.path.join(log_dir, 'stats.json')
     update_json_stats(stats_path, 'preced_plan', {
         'time': round(time() - t_start, 2), 

@@ -1,7 +1,6 @@
 import os
-from turtle import stamp
 
-from json_load_append import update_json_stats
+
 os.environ['OMP_NUM_THREADS'] = '1'
 import sys
 
@@ -18,6 +17,7 @@ import traceback
 import trimesh
 from scipy.spatial.transform import Rotation as R
 from time import time
+from json_load_append import update_json_stats
 
 from planning_original.robot.geometry import load_part_meshes
 from planning_original.robot.motion_plan_arm import ArmMotionPlanner

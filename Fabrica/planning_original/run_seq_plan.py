@@ -1,11 +1,12 @@
 import os
 
-from json_load_append import update_json_stats
 os.environ['OMP_NUM_THREADS'] = '1'
 import sys
 
 project_base_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 sys.path.append(project_base_dir)
+workspace_dir = os.path.abspath(os.path.join(project_base_dir, '..'))
+sys.path.insert(0, workspace_dir)
 
 import numpy as np
 import json
@@ -18,7 +19,7 @@ import traceback
 from assets.load import load_part_ids
 from planning_original.sequence.sim_string import get_body_color_dict
 from planning_original.sequence.physics_planner import MultiPartPathPlanner, get_contact_graph
-
+from json_load_append import update_json_stats
 
 DEBUG = False
 
