@@ -391,11 +391,15 @@ class GraspArmGenerator(GraspGenerator):
 
 
                 # HERE WE START CHECKING THE ARM IK AND COLLISIONS
+                # HERE WE START CHECKING THE ARM IK AND COLLISIONS
                 for arm_key, arm_chain in self.arm_chains.items():
                     motion_type = arm_key.split('_')[0]
+                    physical_side = arm_key.split('_')[1] if '_' in arm_key else motion_type
                     if timestep > 0 and (motion_type == 'hold' or grasps[arm_key] is None): continue
 
-                    target_pos = ft_pos if self.has_ft_sensor[motion_type] else gripper_pos
+                    # Map hardware properties to the physical side, not the task
+                    hardware_ft_key = 'move' if physical_side == 'right' else 'hold'
+                    target_pos = ft_pos if self.has_ft_sensor[hardware_ft_key] else gripper_pos
 
 
                     # check IK
@@ -413,7 +417,7 @@ class GraspArmGenerator(GraspGenerator):
                         if verbose: print(f'[check_grasp_feasible] IK failed for {arm_key} (inverse kinematics unsuccessful)')
                         grasps[arm_key] = None
                         continue
-                    debug_gripper_pos, debug_gripper_quat = get_gripper_pos_quat_from_arm_q(arm_chain, arm_q, self.gripper_type, has_ft_sensor=self.has_ft_sensor[motion_type])
+                    debug_gripper_pos, debug_gripper_quat = get_gripper_pos_quat_from_arm_q(arm_chain, arm_q, self.gripper_type, has_ft_sensor=self.has_ft_sensor[hardware_ft_key])
                     pos_match = np.allclose(gripper_pos, debug_gripper_pos, atol=1e-4)
                     quat_match = np.allclose(gripper_quat, debug_gripper_quat, atol=1e-4) or np.allclose(gripper_quat, -debug_gripper_quat, atol=1e-4)
                     if not (pos_match and quat_match):

@@ -225,7 +225,7 @@ def run_motion_plan(assembly_dir, log_dir, optimized, seed, verbose=False):
     commands.append(['hold', 'arm', rest_q_hold, None, 'init', curr_hold_side])
     commands.append(['move', 'gripper', OPEN_RATIO_REST, None, 'init', curr_move_side])
     commands.append(['hold', 'gripper', OPEN_RATIO_REST, None, 'init', curr_hold_side])
-
+    has_ft_sensor_dict = {'right': has_ft_sensor['move'], 'left': has_ft_sensor['hold']}
     for step, ((part_move, part_hold), (grasps_move, grasp_hold)) in enumerate(zip(sequence, grasps_sequence)):
         start_cmd_idx = len(commands)
 
@@ -245,7 +245,7 @@ def run_motion_plan(assembly_dir, log_dir, optimized, seed, verbose=False):
         # hold (first, and pre-move)
         if step == 0:
             random.seed(seed); np.random.seed(seed)
-            pickup_q_hold = get_pickup_arm_q(motion_planner_hold, grasp_hold, part_pickup_pose[part_hold], part_final_pose[part_hold], arm_q_init=rest_q_hold, has_ft_sensor=has_ft_sensor['hold'], optimizer='least_squares', regularization=1.0)
+            pickup_q_hold = get_pickup_arm_q(motion_planner_hold, grasp_hold, part_pickup_pose[part_hold], part_final_pose[part_hold], arm_q_init=rest_q_hold, has_ft_sensor=has_ft_sensor_dict[curr_hold_side], optimizer='least_squares', regularization=1.0)
             if pickup_q_hold is None:
                 raise Exception(f'[run_motion_plan] Failed to solve pickup IK for hold arm in step {step} ({assembly_dir})')
             gripper_pickup_pose[part_hold] = get_pickup_gripper_pose(grasp_hold, part_pickup_pose[part_hold], part_final_pose[part_hold])
@@ -272,9 +272,6 @@ def run_motion_plan(assembly_dir, log_dir, optimized, seed, verbose=False):
                 open_ratio_retract_prev_hold = min(prev_grasp_hold.open_ratio + RETRACT_OPEN_RATIO, 1.0)
                 commands.append([chan_prev_hold, 'gripper', open_ratio_retract_prev_hold, None, 'open', prev_hold_side])
                 
-                # ---> ADDED: Safely pull the old hold arm straight back before resting
-                if prev_grasp_hold.arm_q_retract is not None:
-                    commands.append([chan_prev_hold, 'arm', (prev_grasp_hold.arm_q_retract, [None, None]), None, 'transport', prev_hold_side])
 
             # if we do not change hold sides, it is an arm regrasp (just in case)    
             elif grasp_hold.grasp_id != prev_grasp_hold.grasp_id:
@@ -285,7 +282,7 @@ def run_motion_plan(assembly_dir, log_dir, optimized, seed, verbose=False):
             
         # move (assembly)
         random.seed(seed); np.random.seed(seed)
-        pickup_q_move = get_pickup_arm_q(motion_planner_move, grasps_move[0], part_pickup_pose[part_move], part_final_pose[part_move], arm_q_init=rest_q_move, has_ft_sensor=has_ft_sensor['move'], optimizer='least_squares', regularization=1.0)
+        pickup_q_move = get_pickup_arm_q(motion_planner_move, grasps_move[0], part_pickup_pose[part_move], part_final_pose[part_move], arm_q_init=rest_q_move, has_ft_sensor=has_ft_sensor_dict[curr_move_side], optimizer='least_squares', regularization=1.0)
         if pickup_q_move is None:
             raise Exception(f'[run_motion_plan] Failed to solve pickup IK for move arm in step {step} ({assembly_dir})')
         gripper_pickup_pose[part_move] = get_pickup_gripper_pose(grasps_move[0], part_pickup_pose[part_move], part_final_pose[part_move])
@@ -307,10 +304,6 @@ def run_motion_plan(assembly_dir, log_dir, optimized, seed, verbose=False):
             # 2. Safely retract the hold arm (left) now that the air is clear
             open_ratio_retract_hold = min(grasp_hold.open_ratio + RETRACT_OPEN_RATIO, 1.0)
             commands.append([chan_hold, 'gripper', open_ratio_retract_hold, None, 'open', curr_hold_side])
-            
-            # ---> ADDED: Pull straight back to the dedicated standoff pose first
-            if grasp_hold.arm_q_retract is not None:
-                commands.append([chan_hold, 'arm', (grasp_hold.arm_q_retract, [None, None]), None, 'transport', curr_hold_side])
             
             # Now safely swing to rest
             commands.append([chan_hold, 'arm', (rest_q_hold, [None, None]), None, 'transport', curr_hold_side])

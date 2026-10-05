@@ -42,7 +42,7 @@ export OMP_NUM_THREADS=1
 # python planning/run_preced_plan.py --assembly-dir assets/$ASSEMBLY_DIR/$ASSEMBLY --log-dir logs/$EXP_NAME/$ASSEMBLY/new --num-proc 12 --arm $ARM
 
 # echo "Running grasp and arm IK generation..."
-# python planning/run_grasp_arm_gen.py --assembly-dir assets/$ASSEMBLY_DIR/$ASSEMBLY --log-dir logs/$EXP_NAME/$ASSEMBLY/new --num-proc 50 --max-n-grasp 150 --arm $ARM --gripper $GRIPPER --ft-sensor $FT_SENSOR --disable-cython
+# python planning/run_grasp_arm_gen.py --assembly-dir assets/$ASSEMBLY_DIR/$ASSEMBLY --log-dir logs/$EXP_NAME/$ASSEMBLY/new --num-proc 50 --max-n-grasp 140 --arm $ARM --gripper $GRIPPER --ft-sensor $FT_SENSOR --disable-cython
 
 # echo "Running sequence planning..."
 # python planning/run_seq_plan.py --assembly-dir assets/$ASSEMBLY_DIR/$ASSEMBLY --log-dir logs/$EXP_NAME/$ASSEMBLY/new --plot
