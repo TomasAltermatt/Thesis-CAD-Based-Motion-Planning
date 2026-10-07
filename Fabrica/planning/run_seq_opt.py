@@ -20,14 +20,16 @@ from json_load_append import update_json_stats
 
 # Combined Cost Weights
 WEIGHTS = {
-    'move': 7.5,     
-    'hold': 0.175,     
+    'move': 1.0,     
+    'hold': 1.0,     
     'dynamic': 1.0,  
-    'static': 0.8,    
+    'static': 0.4,    
     'role_swap': 0.1,    # A massive tax. The robot will refuse to juggle.
     'grasp_switch': 0.25,
     'manipulability': 0.2 # added yoshikawa index to calculation
 }
+tolerances = [0.0, 0.02, 0.002, 0.0]
+tolerance_caps = [0.0, 0.08, 0.015, 0.0]
 # 1. Base maximum for a single np.linalg.norm() on a 7-DOF arm
 MAX_SINGLE_NORM = 2 * np.pi * np.sqrt(7) 
 
@@ -39,22 +41,47 @@ MAX_STATIC_COST = 2 * MAX_SINGLE_NORM
 
 @total_ordering
 class GraspScore:
-    def __init__(self, scores: list, maximize: list):
+    def __init__(self, scores: list, maximize: list, tolerances: list = None):
         self.scores = scores
         self.maximize = maximize
-        assert len(scores) == len(maximize)
+        # tolerances now act as the absolute discrete grid sizes
+        self.tolerances = tolerances if tolerances else [0.0] * len(scores)
+        assert len(scores) == len(maximize) == len(self.tolerances)
 
     def __eq__(self, other):
-        return all(score == other_score for score, other_score in zip(self.scores, other.scores))
+        # Strict equality check
+        for s, os_val in zip(self.scores, other.scores):
+            if abs(s - os_val) > 1e-6:
+                return False
+        return True
 
     def __gt__(self, other):
         assert len(self.scores) == len(other.scores)
         assert self.maximize == other.maximize
-        for score, other_score, maximize in zip(self.scores, other.scores, self.maximize):
-            if score > other_score:
-                return maximize
-            elif score < other_score:
-                return not maximize
+        
+        # 1. HIERARCHICAL GRID PASS (Transitive Buckets)
+        for s, os_val, maximize, step in zip(self.scores, other.scores, self.maximize, self.tolerances):
+            # If the tier has a bucket step, safely round the scores into discrete integer grids
+            if step > 0.0 and np.isfinite(s) and np.isfinite(os_val):
+                binned_s = round(s / step)
+                binned_os = round(os_val / step)
+                if binned_s == binned_os:
+                    continue  # Perfectly transitive tie, move to the next tier
+                return binned_s > binned_os if maximize else binned_s < binned_os
+            else:
+                # 0.0 tolerance or handling worst_score np.inf initialization
+                if abs(s - os_val) <= 1e-6:
+                    continue
+                return s > os_val if maximize else s < os_val
+        
+        # 2. RAW SUDDEN-DEATH TIEBREAKER (Physics, not Alphabet)
+        # If completely different physical sequences perfectly tied across all grid buckets 
+        # AND tied through the exact float pass of Tier 4, we fallback to comparing their 
+        # raw unbinned float values to find the true physical winner.
+        for s, os_val, maximize in zip(self.scores, other.scores, self.maximize):
+            if abs(s - os_val) > 1e-6:
+                return s > os_val if maximize else s < os_val
+                
         return False
     
     def __iter__(self):
@@ -67,7 +94,7 @@ class GraspScore:
         self.scores[index] = value
 
     def copy(self):
-        return GraspScore(self.scores.copy(), self.maximize.copy())
+        return GraspScore(self.scores.copy(), self.maximize.copy(), self.tolerances.copy())
 
 
 class SequenceOptimizer:
@@ -145,11 +172,14 @@ class SequenceOptimizer:
         grasp_tree = nx.DiGraph() # node format: (assembled_parts, part_id, grasp_id)
 
         part_root_node = self._find_root_node(part_tree)
-        parent_nodes = {part_root_node}
-        num_layers = len(self.parts) - 1 # number of move-hold layers
+        
+        # 1. Use a list instead of a set to enforce deterministic iteration order
+        parent_nodes = [part_root_node] 
+        num_layers = len(self.parts) - 1 
 
         for i in tqdm(range(2 * num_layers - 1), desc='tree conversion', disable=not verbose):
-            child_nodes = set()
+            # 2. Use a dictionary instead of a set to maintain insertion order while ensuring uniqueness
+            child_nodes = {} 
 
             for parent_node in parent_nodes:
                 # do not explore a parent node that's unfeasible
@@ -163,15 +193,13 @@ class SequenceOptimizer:
                     # if edge is unfeasible i dont explore
                     if not parent_edge_info['feasible']: continue
 
-                    # add child node to set of valid children (so far)
-                    child_nodes.add(child_node)
+                    # 3. Add to dictionary to preserve order
+                    child_nodes[child_node] = None 
 
                     # obtain part and grasps that are actioned on to get to the child node
                     parent_part = parent_edge_info['part']
-                    parent_grasp_ids = parent_edge_info['grasp_ids']
-
-                    if i == 0: # root node
-                        # if i'm in root node i generate an edge to all the candidate grasps on the next possibility
+                    parent_grasp_ids = sorted(list(parent_edge_info['grasp_ids']))
+                    if i == 0: 
                         for parent_grasp_id in parent_grasp_ids:
                             grasp_tree.add_edge((parent_node[0], None, None), (child_node[0], parent_part, parent_grasp_id))
 
@@ -181,7 +209,7 @@ class SequenceOptimizer:
                         if not child_edge_info['feasible']: continue
 
                         child_part = child_edge_info['part']
-                        child_grasp_ids = child_edge_info['grasp_ids']
+                        child_grasp_ids = sorted(list(child_edge_info['grasp_ids']))
 
                         # remaining parts on this granchild node
                         parts_remain = list(grandchild_node[0])
@@ -214,8 +242,9 @@ class SequenceOptimizer:
                         if i == 2 * num_layers - 2:
                             assert part_tree.out_degree(grandchild_node) == 0 
 
-            parent_nodes = child_nodes
-            if len(parent_nodes) == 0: # tree is not complete
+            # 4. Extract keys to list to maintain the exact traversal sequence for the next layer
+            parent_nodes = list(child_nodes.keys())
+            if len(parent_nodes) == 0: 
                 return None
 
         return grasp_tree
@@ -418,8 +447,11 @@ class SequenceOptimizer:
         # ABLATION = 'asap'
         
         if ABLATION == 'original':
-            # [stable_hold(max), combined_cost(min)]
-            maximize = [True, False] # first maximize number of stable holds, second minimize physical cost
+            maximize = [True, False, False, True] 
+            num_p = len(self.parts)
+            # Tier 2 (Kinematics) scales by 0.06 per part. Tier 3 (Torque) scales by 0.015.
+            dynamic_tolerances = [min(base * num_p, cap) for base, cap in zip(tolerances, tolerance_caps)]
+            
         elif ABLATION == 'woseq':
             maximize = [False, True]
         elif ABLATION == 'wograsp':
@@ -430,14 +462,14 @@ class SequenceOptimizer:
             raise NotImplementedError
 
         if ABLATION == 'original':
-            root_grasp_score = GraspScore([0, 0.0], maximize)
+            root_grasp_score = GraspScore([0, 0.0, 0.0, 0.0], maximize, dynamic_tolerances)
         elif ABLATION == 'woseq':
             root_grasp_score = GraspScore([0.0], maximize)
         else:
             root_grasp_score = GraspScore([0, 0], maximize)
 
         if ABLATION == 'original':
-            worst_grasp_score = GraspScore([0, np.inf], maximize)
+            worst_grasp_score = GraspScore([0, np.inf, np.inf, -np.inf], maximize, dynamic_tolerances)
         elif ABLATION == 'woseq':
             worst_grasp_score = GraspScore([np.inf], maximize)
         elif ABLATION == 'wograsp':
@@ -611,6 +643,15 @@ class SequenceOptimizer:
                         grasp_switch_tax = WEIGHTS['grasp_switch'] if if_grasp_switch else 0.0
                         weighted_manip = WEIGHTS['manipulability'] * norm_manip
 
+                        # Kinematic Cost
+                        step_kinematics = weighted_dynamic + weighted_static - weighted_manip + role_switch_tax + grasp_switch_tax 
+
+                        # Move Cost
+                        step_move = weighted_move
+
+                        # Hold Cost
+                        step_hold = weighted_hold
+                        
                         # Get final
                         step_cost = weighted_move - weighted_hold + weighted_dynamic + weighted_static + role_switch_tax + grasp_switch_tax - weighted_manip
 
@@ -619,8 +660,11 @@ class SequenceOptimizer:
                             num_grasp_switch = DP[layer - 1][parent_node][1] + int(if_grasp_switch)
                         
                         if ABLATION == 'original':
-                            sum_combined_cost = DP[layer - 1][parent_node][1] + step_cost
-                            new_score = GraspScore([num_stable_part_hold, sum_combined_cost], maximize) # first the new node must be stable, then we check combined physical costs
+                            # Accumulate the separated scores through the DP tree
+                            sum_kinematics = DP[layer - 1][parent_node][1] + step_kinematics
+                            sum_move = DP[layer - 1][parent_node][2] + step_move
+                            sum_hold = DP[layer - 1][parent_node][3] + step_hold  
+                            new_score = GraspScore([num_stable_part_hold, sum_kinematics, sum_move, sum_hold], maximize, dynamic_tolerances)
                         elif ABLATION == 'woseq':
                             sum_combined_cost = DP[layer - 1][parent_node][0] + step_cost
                             new_score = GraspScore([sum_combined_cost], maximize)
@@ -692,7 +736,7 @@ class SequenceOptimizer:
                 is_rs, h_trav, f_trav = False, 0.0, 0.0
                 d_trav = np.linalg.norm(c_m_q - r_q_m)
                 
-            # Log exact weighted costs charged to this specific sequence
+            # Log exact costs incorporating your WEIGHTS dictionary
             comp['move'] += WEIGHTS['move'] * (move_grasp_scores[c_node[1]][c_node[2]] / max_move_score)
             comp['hold'] += WEIGHTS['hold'] * (self._get_hold_grasp_score(h_grasp, m_grasp) / max_hold_score)
             comp['dyn'] += WEIGHTS['dynamic'] * ((h_trav + d_trav + f_trav + ins_trav) / self.max_dynamic_cost)
@@ -704,11 +748,25 @@ class SequenceOptimizer:
             w_h = manip_scores['hold'][gc_node[1]][gc_node[2]]
             comp['manip'] += WEIGHTS['manipulability'] * ((w_m + w_h) / (max_w * 2.0))
 
-        print("\n" + "="*45 + "\n🏆 OPTIMAL SEQUENCE BREAKDOWN")
-        print(f"Move Penalty (Torque) :  {comp['move']:.4f}\nHold Reward (Grip)    : -{comp['hold']:.4f}")
-        print(f"Dynamic Penalty (Dist):  {comp['dyn']:.4f}\nStatic Penalty (Pose) :  {comp['stat']:.4f}")
-        print(f"Role Swap Taxes       :  {comp['rs']:.4f}\nGrasp Switch Taxes    :  {comp['gs']:.4f}")
-        print(f"Manipulability Reward : -{comp['manip']:.4f}\n" + "="*45 + "\n")
+        total_kinematics = comp['dyn'] + comp['stat'] - comp['manip'] + comp['rs'] + comp['gs']
+
+        print("\n" + "="*50)
+        print("🏆 OPTIMAL SEQUENCE BREAKDOWN (HIERARCHICAL)")
+        print("="*50)
+        print(f"Priority 1: Stability (Strict Maximize)")
+        print(f"  └─ Stable Holds        :  {best_score.scores[0]}")
+        print(f"\nPriority 2: Kinematic Health (Grid Step: {dynamic_tolerances[1]:.3f})")
+        print(f"  ├─ Dynamic Travel      :  {comp['dyn']:.4f}")
+        print(f"  ├─ Static Posture      :  {comp['stat']:.4f}")
+        print(f"  ├─ Role Swap Taxes     :  {comp['rs']:.4f}")
+        print(f"  ├─ Grasp Switch Taxes  :  {comp['gs']:.4f}")
+        print(f"  ├─ Manipulability      : -{comp['manip']:.4f}")
+        print(f"  └─ [Tier 2 Total Cost] :  {total_kinematics:.4f}")
+        print(f"\nPriority 3: Move Torque (Grid Step: {dynamic_tolerances[2]:.3f})")
+        print(f"  └─ Move Penalty        :  {comp['move']:.4f}")
+        print(f"\nPriority 4: Hold Geometry (Strict Maximize)")
+        print(f"  └─ Hold Reward         :  {comp['hold']:.4f}")
+        print("="*50 + "\n")
         # ----------------------------------------
         
         # build optimal part tree
