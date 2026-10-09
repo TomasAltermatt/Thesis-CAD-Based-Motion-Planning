@@ -202,7 +202,7 @@ class GraspArmGenerator(GraspGenerator):
         if path is not None:
             part_transforms = get_transform_from_path(path, n_sample=n_timestep) # transforms euler coords to 4x4 matrix
         else:
-            part_transforms = [np.eye(4)]
+            part_transforms = [self.part_final_transforms[part_id]]
 
         # grasp = get_antipodal_aligned_grasp(self.gripper_type, grasp) # NOTE: seems unstable for control
 
@@ -936,8 +936,8 @@ class GraspArmGenerator(GraspGenerator):
                 selected_hold = set((shared_ids + hold_only_ids)[:max_n_grasp])
                 
                 # 5. Safely slice the original dictionaries
-                grasps['move'] = [g for g in grasps['move'] if str(g[0].grasp_id).split('_')[0] in selected_move]
-                grasps['hold'] = [g for g in grasps['hold'] if str(g.grasp_id).split('_')[0] in selected_hold]
+                grasps['move'] = [g for g in grasps['move'] if str(g[0].grasp_id).split('_')[0] in selected_move][:max_n_grasp]
+                grasps['hold'] = [g for g in grasps['hold'] if str(g.grasp_id).split('_')[0] in selected_hold][:max_n_grasp]
 
             if verbose:
                 print(f'[generate_grasps] {len(grasps["move"])} move grasps and {len(grasps["hold"])} hold grasps generated for part {part_id}')
