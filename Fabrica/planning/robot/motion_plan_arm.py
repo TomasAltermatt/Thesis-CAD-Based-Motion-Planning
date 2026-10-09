@@ -294,7 +294,7 @@ class ArmMotionPlanner: # NOTE: all input/output q is full unless specified acti
                     dist /= len(fk1) + 1
             return dist
 
-        def collision_fn(q, buffered=buffered, move_ground_buffer=True):
+        def collision_fn(q, buffered=buffered, move_ground_buffer=True, debug_crash=False):
 
             # transform arm and gripper meshes
             arm_transforms_i, gripper_transforms_i, move_transform_global = self.get_meshes_transforms_active(q, open_ratio, move_pickup_mesh, gripper_pickup_transform)
@@ -305,104 +305,101 @@ class ArmMotionPlanner: # NOTE: all input/output q is full unless specified acti
                 self.apply_transforms_to_col_manager(move_col_manager, {'move': move_transform_global})
 
             # check collision between arm and ground
-            _, objs_in_collision = self.arm_col_manager_buffered.in_collision_other(self.ground_col_manager, return_names=True)
-            for obj_pair in objs_in_collision:
-                if self.arm_chain.get_base_link_name() in obj_pair: continue
-                if verbose:
-                    print(f'collision detected: arm and ground ({obj_pair})')
-                return True
+            is_col, objs = self.arm_col_manager_buffered.in_collision_other(self.ground_col_manager, return_names=True)
+            if is_col:
+                valid_objs = [pair for pair in objs if self.arm_chain.get_base_link_name() not in pair]
+                if valid_objs:
+                    if verbose or debug_crash: print(f'CRASH TRACE: arm and ground {valid_objs}')
+                    return True
 
             # check collision between gripper and ground
             gripper_col_manager = self.gripper_col_manager_buffered if buffered else self.gripper_col_manager
-            if gripper_col_manager.in_collision_other(self.ground_col_manager):
-                if verbose:
-                    print(f'collision detected: gripper and ground ({obj_pair})')
+            is_col, objs = gripper_col_manager.in_collision_other(self.ground_col_manager, return_names=True)
+            if is_col:
+                if verbose or debug_crash: print(f'CRASH TRACE: gripper and ground {objs}')
                 return True
 
             # check collision between move part and ground
-            if move_col_manager is not None and move_col_manager.in_collision_other(self.ground_col_manager_buffered if move_ground_buffer else self.ground_col_manager):
-                if verbose:
-                    print(f'collision detected: move part and ground ({obj_pair})')
-                return True
+            if move_col_manager is not None:
+                is_col, objs = move_col_manager.in_collision_other(self.ground_col_manager_buffered if move_ground_buffer else self.ground_col_manager, return_names=True)
+                if is_col:
+                    if verbose or debug_crash: print(f'CRASH TRACE: move part and ground {objs}')
+                    return True
 
             # check collision between arm and grippers
-            _, objs_in_collision = self.arm_col_manager_buffered.in_collision_other(self.gripper_col_manager_buffered, return_names=True)
-            for obj_pair in objs_in_collision:
-                if 'ft_sensor' in obj_pair or self.arm_chain.get_eef_link_name() in obj_pair: continue
-
-                if self.arm_type == 'yumi':
-                    if any(link in obj_pair for link in ['yumi_link_6', 'yumi_link_5']):
-                        continue
-                if verbose:
-                    print(f'collision detected: arm and gripper ({obj_pair})')
-                return True
+            is_col, objs = self.arm_col_manager_buffered.in_collision_other(self.gripper_col_manager_buffered, return_names=True)
+            if is_col:
+                valid_objs = []
+                for pair in objs:
+                    if 'ft_sensor' in pair or self.arm_chain.get_eef_link_name() in pair: continue
+                    if self.arm_type == 'yumi' and any(link in pair for link in ['yumi_link_6', 'yumi_link_5']): continue
+                    valid_objs.append(pair)
+                if valid_objs:
+                    if verbose or debug_crash: print(f'CRASH TRACE: arm and gripper {valid_objs}')
+                    return True
 
             # check collision between arm and parts
             part_col_manager_i = part_col_manager_buffered if buffered else part_col_manager
-            if self.arm_col_manager_buffered.in_collision_other(part_col_manager_i):
-                if verbose:
-                    print('collision detected: arm and part')
+            is_col, objs = self.arm_col_manager_buffered.in_collision_other(part_col_manager_i, return_names=True)
+            if is_col:
+                if verbose or debug_crash: print(f'CRASH TRACE: arm and part {objs}')
                 return True
             
             # check collision between arm and move part
-            if move_col_manager is not None and self.arm_col_manager_buffered.in_collision_other(move_col_manager):
-                if verbose:
-                    print('collision detected: arm and move part')
-                return True
+            if move_col_manager is not None:
+                is_col, objs = self.arm_col_manager_buffered.in_collision_other(move_col_manager, return_names=True)
+                if is_col:
+                    if verbose or debug_crash: print(f'CRASH TRACE: arm and move part {objs}')
+                    return True
             
-            # check collision between gripper and parts (NOTE: unbuffered gripper)
-            if self.gripper_col_manager.in_collision_other(part_col_manager_i):
-                if verbose:
-                    print('collision detected: gripper and part')
+            # check collision between gripper and parts
+            is_col, objs = self.gripper_col_manager.in_collision_other(part_col_manager_i, return_names=True)
+            if is_col:
+                if verbose or debug_crash: print(f'CRASH TRACE: gripper and part {objs}')
                 return True
 
             # check collision between move part and parts
-            if move_col_manager is not None and part_col_manager_i.in_collision_other(move_col_manager):
-                if verbose:
-                    print('collision detected: move part and part')
-                return True
+            if move_col_manager is not None:
+                is_col, objs = part_col_manager_i.in_collision_other(move_col_manager, return_names=True)
+                if is_col:
+                    if verbose or debug_crash: print(f'CRASH TRACE: move part and part {objs}')
+                    return True
 
             # check arm self-intersection
             if SELF_ARM_INTERSECT_CHECK:
-                _, objs_in_collision = self.arm_col_manager_buffered.in_collision_internal(return_names=True)
-                for obj_pair in objs_in_collision:
-                    if not self.arm_chain.check_colliding_links(obj_pair[0], obj_pair[1]): continue
-                    if verbose:
-                        print('collision detected: arm self-intersection')
-                    return True
+                is_col, objs = self.arm_col_manager_buffered.in_collision_internal(return_names=True)
+                if is_col:
+                    valid_objs = [pair for pair in objs if self.arm_chain.check_colliding_links(pair[0], pair[1])]
+                    if valid_objs:
+                        if verbose or debug_crash: print(f'CRASH TRACE: arm self-intersection {valid_objs}')
+                        return True
 
             # check dual-arm collision
             if other_col_manager_buffered is not None:
-                # 1. Arm vs Arm (With Torso Substring Bypass)
-                is_col, col_names = other_col_manager_buffered.in_collision_other(self.arm_col_manager_buffered, return_names=True)
+                is_col, objs = other_col_manager_buffered.in_collision_other(self.arm_col_manager_buffered, return_names=True)
                 if is_col:
+                    real_collisions = []
                     if self.arm_type == 'yumi':
-                        real_collisions = []
-                        for pair in col_names:
-                            # Use substring 'in' instead of exact '==' match to account for FCL prefixes
+                        for pair in objs:
                             if 'yumi_body' in pair[0] and 'yumi_body' in pair[1]: continue
-                            if ('yumi_body' in pair[0] or 'yumi_body' in pair[1]) and \
-                               any('yumi_link_1' in name or 'yumi_link_2' in name for name in pair): continue
+                            if ('yumi_body' in pair[0] or 'yumi_body' in pair[1]) and any('yumi_link_1' in name or 'yumi_link_2' in name for name in pair): continue
                             real_collisions.append(pair)
-                        if len(real_collisions) > 0:
-                            if verbose: print(f'collision detected: dual-arm arm-arm ({real_collisions[0]})')
-                            return True
                     else:
-                        if verbose: print('collision detected: dual-arm arm-arm')
+                        real_collisions = objs
+                    if real_collisions:
+                        if verbose or debug_crash: print(f'CRASH TRACE: dual-arm arm-arm {real_collisions}')
                         return True
                 
-                # 2. Arm vs Gripper
-                if other_col_manager_buffered.in_collision_other(self.gripper_col_manager_buffered):
-                    if verbose: print('collision detected: dual-arm other-gripper')
+                is_col, objs = other_col_manager_buffered.in_collision_other(self.gripper_col_manager_buffered, return_names=True)
+                if is_col:
+                    if verbose or debug_crash: print(f'CRASH TRACE: dual-arm other-gripper {objs}')
                     return True
                 
-                # 3. Arm vs Moving Part
-                if move_col_manager is not None and other_col_manager_buffered.in_collision_other(move_col_manager):
-                    if verbose: print('collision detected: dual-arm other-move')
-                    return True
-
-            if verbose:
-                print('no collision detected')
+                if move_col_manager is not None:
+                    is_col, objs = other_col_manager_buffered.in_collision_other(move_col_manager, return_names=True)
+                    if is_col:
+                        if verbose or debug_crash: print(f'CRASH TRACE: dual-arm other-move {objs}')
+                        return True
 
             return False
 
@@ -522,8 +519,14 @@ class ArmMotionPlanner: # NOTE: all input/output q is full unless specified acti
             # --- HIJACK THE VISUALIZER HERE ---
             if collision_fn_new(q_start_active):
                 print("\nCRASH INCOMING: Opening 3D viewer. Close the window to let the script crash.")
+                collision_fn(q_start_active, buffered=False, move_ground_buffer=False, debug_crash=True)
                 self.visualize_meshes(q_start, open_ratio, still_meshes=still_meshes, other_arm_chain=arm_chain_other, other_q=arm_q_other, other_open_ratio=open_ratio_other, buffered=False)
             # ----------------------------------
+
+            if collision_fn_new(q_goal_active):
+                print("\nCRASH INCOMING: Opening 3D viewer. Close the window to let the script crash.")
+                collision_fn(q_goal_active, buffered=False, move_ground_buffer=False, debug_crash=True)
+                self.visualize_meshes(q_goal, open_ratio, still_meshes=[move_pickup_mesh, still_meshes], other_arm_chain=arm_chain_other, other_q=arm_q_other, other_open_ratio=open_ratio_other, buffered=False)
 
             assert not collision_fn_new(q_start_active), f'[plan_path_with_grasp] start in collision even without buffer'
             assert not collision_fn_new(q_goal_active), f'[plan_path_with_grasp] goal in collision even without buffer'
