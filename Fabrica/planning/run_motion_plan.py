@@ -465,10 +465,10 @@ def run_motion_plan(assembly_dir, log_dir, optimized, seed, verbose=False):
         physical_side = paths[i][5]
         if body_type == 'arm':
             paths[i][2] = [physical_chains[physical_side].active_from_full(q).tolist() for q in path]
-    clean_commands = [c[:5] for c in commands]
+    clean_commands = [c[:6] for c in commands]
     with open(os.path.join(log_dir, 'commands.pkl'), 'wb') as fp:
-        pickle.dump(clean_commands, fp)
-    clean_paths = [p[:5] for p in paths]
+        pickle.dump(clean_commands, fp)  
+    clean_paths = [p[:6] for p in paths]
     with open(os.path.join(log_dir, 'motion.pkl'), 'wb') as fp:
         pickle.dump(clean_paths, fp)
 
