@@ -16,6 +16,11 @@ from utils.renderer import SimRenderer
 from utils.parallel import parallel_execute
 from planning.sequence.physics_planner import MultiPartPathPlanner, MultiPartStabilityPlanner, MultiPartNoForceStabilityPlanner, get_contact_graph, CONTACT_EPS
 from matrix_code.IM_Generation.functions import evaluate_pair_interference, load_fabrica_assembly_from_folder
+def get_R3_actions_dict():
+    actions = {'+x': np.array([1, 0, 0]), '-x': np.array([-1, 0, 0]),
+               '+y': np.array([0, 1, 0]), '-y': np.array([0, -1, 0]),
+               '+z': np.array([0, 0, 1]), '-z': np.array([0, 0, -1])}
+    return actions
 
 def jit_check_single_direction(assembly_dir, parts_fix, part_move, action_vec, min_sep=None):
     """
@@ -86,6 +91,95 @@ def jit_check_single_direction(assembly_dir, parts_fix, part_move, action_vec, m
 
     path = generate_straight_path(assembly_dir, part_move, action_vec, parts_fix, min_sep, assembly=assembly)
     return True, path
+
+def generate_straight_OBB_path(assembly_manifest, part_move_id, action_vec, local_action_dir, parts_fix=None, min_sep=None, n_steps=100):
+    """
+    Generates a 3D relative displacement path starting from [0, 0, 0].
+    Uses 3D Minkowski Ray-AABB intersection to exactly clear the active_min_sep 
+    spherical volume for any arbitrary vector (OBB or AABB).
+    """
+    mesh_a_std = assembly_manifest[part_move_id].get('part_mesh', assembly_manifest[part_move_id].get('mesh_final'))
+    to_origin_a = assembly_manifest[part_move_id].get('to_origin', np.zeros(3))
+
+    active_min_sep = min_sep if min_sep is not None else 0.5
+
+    # Get the local action vector from the action direction provided
+    actions_dict = get_R3_actions_dict()
+    local_action_vec = actions_dict[local_action_dir]
+    w_local = local_action_vec / np.linalg.norm(local_action_vec)
+
+    # 1. Normalize the true direction of movement
+    w = np.array(action_vec, dtype=float)
+    w_norm = np.linalg.norm(w)
+    if w_norm < 1e-6:
+        return np.zeros((n_steps + 1, 3))
+    w /= w_norm
+
+    # Get transformed mesh A for OBB bounds
+    mesh_a = mesh_a_std.copy()
+    mesh_a.apply_transform(to_origin_a)
+    a_bounds = mesh_a.bounds
+    
+    if not parts_fix:
+        # 2. Base Part: No fixed parts left, safely retract active_min_sep
+        total_distance = active_min_sep
+    else:
+        max_req_dist = 0.0
+        blocked = False
+        
+        for pf in parts_fix:
+
+            # transform Part B into Part A's local frame for OBB bounds
+            mesh_b_std = assembly_manifest[pf].get('part_mesh', assembly_manifest[pf].get('mesh_final'))
+            mesh_b = mesh_b_std.copy()
+            mesh_b.apply_transform(to_origin_a)  # Transform Part B into Part A's local frame
+            b_bounds = mesh_b.bounds
+            
+            # 3. Minkowski Difference: Inflate Part B by min_sep AND the size of Part A
+            tol = 1e-3
+            c_min = b_bounds[0] - active_min_sep - a_bounds[1] - tol
+            c_max = b_bounds[1] + active_min_sep - a_bounds[0] + tol
+            
+            t_enter = -np.inf
+            t_exit = np.inf
+            intersect = True
+            
+            # 4. Ray-Cast: Check exactly when the movement ray exits the inflated 3D volume
+            for i in range(3):
+                if abs(w_local[i]) < 1e-6:
+                    # Ray is flat on this axis; check if it's already safely outside the bounds
+                    if 0 < c_min[i] or 0 > c_max[i]:
+                        intersect = False
+                        break
+                else:
+                    t1 = c_min[i] / w_local[i]
+                    t2 = c_max[i] / w_local[i]
+                    
+                    t_enter = max(t_enter, min(t1, t2))
+                    t_exit = min(t_exit, max(t1, t2))
+                    
+                    if t_enter > t_exit:
+                        intersect = False
+                        break
+                        
+            # If the ray intersects, t_exit is the exact 3D distance needed to break free
+            if intersect and t_exit >= 0:
+                blocked = True
+                max_req_dist = max(max_req_dist, t_exit)
+        
+        # 5. Determine final distance
+        if not blocked:
+            total_distance = active_min_sep
+        else:
+            total_distance = max(max_req_dist, active_min_sep)
+
+    # 6. Generate the 3D relative path steps but with the global action vector since the path is in global coordinates
+    path = []
+    for i in range(n_steps + 1):
+        displacement = w * (total_distance * (i / n_steps))
+        path.append(displacement)
+        
+    return np.array(path)
 
 def generate_straight_path(assembly_manifest, part_move_id, action_vec, parts_fix=None, min_sep=None, n_steps=100):
     """

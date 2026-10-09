@@ -22,7 +22,7 @@ import trimesh
 
 from assets.load import load_part_ids, load_config
 from planning.robot.geometry import load_part_meshes
-from planning.sequence.feasibility_check import check_assemblable_parallel, check_path_collision, new_check_path_collision, check_ground_collision, new_check_ground_collision, CONTACT_EPS, generate_straight_path, check_assemblable_verify_straight
+from planning.sequence.feasibility_check import check_assemblable_parallel, check_path_collision, generate_straight_OBB_path, new_check_path_collision, check_ground_collision, new_check_ground_collision, CONTACT_EPS, generate_straight_path, check_assemblable_verify_straight
 from planning.robot.workcell import get_assembly_center
 from utils.parallel import parallel_execute
 from matrix_code.IM_Generation.functions import load_fabrica_assembly_from_folder, calculate_IM_matrices, get_freedom_score, get_free_directions, identify_ground_parts
@@ -161,6 +161,7 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
         # BRANCH: Heuristic ON vs OFF
         if use_heuristic:
             free_parts = []
+            free_parts_obb = []
             locked_parts = []
             
             ground_parts = identify_ground_parts(assembly_manifest_AABB)
@@ -211,6 +212,7 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
                         part_ids_list=master_part_ids, 
                         matrices_dict=directional_matrices_OBB
                     )
+                    print(f"[DEBUG] Part {part_move} has OBB free directions: {free_dirs_obb}")
 
                     # revise if we have feasible directions
                     if len(free_dirs_obb) > 0:
@@ -222,7 +224,7 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
                             if part_move in ground_parts and action_vec[2] < -0.1:
                                 continue
 
-                            free_parts.append((part_move, action_vec))
+                            free_parts_obb.append((part_move, action_vec, d))
                             break # at the moment only check for first successful simulation
                     else:
                         still_locked_parts.append(part_move)
@@ -238,6 +240,25 @@ def run_preced_plan(assembly_dir, log_dir, arm_type, num_proc=1, inner_num_proc=
                         assembly_manifest=assembly_manifest_AABB, 
                         part_move_id=part_move, 
                         action_vec=action_vec, 
+                        parts_fix=parts_fix
+                    )
+                    
+                    parts_assembled.remove(part_move)
+                    tier[part_move] = {'action': action_vec, 'path': path, 'is_straight': True}
+                    # print(f'part {part_move} added to tier')
+
+            # Add OBB free parts 
+            if len(free_parts_obb) > 0:
+                free_parts_obb.sort(key=lambda item: item[0] in ground_parts)
+                for part_move, action_vec, local_action_dir in free_parts_obb:
+                    parts_fix = parts_assembled.copy()
+                    parts_fix.remove(part_move)
+                    
+                    path = generate_straight_OBB_path(
+                        assembly_manifest=assembly_manifest_OBB, 
+                        part_move_id=part_move, 
+                        action_vec=action_vec, 
+                        local_action_dir=local_action_dir,
                         parts_fix=parts_fix
                     )
                     
